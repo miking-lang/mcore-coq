@@ -32,6 +32,8 @@ Module Typing (P : PAT).
     (*     ok_data Gamma d -> *)
     (*     ok_kind Gamma (KiData d) *)
     .
+    #[export]
+     Hint Constructors ok_kind : core.
 
     Inductive ok_type : env -> type -> kind -> Prop :=
     | TyVar' : forall {Gamma : env} {tv : tvar} {k : kind},
@@ -65,6 +67,8 @@ Module Typing (P : PAT).
     (*     (forall {T : tname}, d2[T] \c d1[T]) -> *)
     (*     ok_type Gamma ty (KiData d2) *)
     .
+    #[export]
+     Hint Constructors ok_type : core.
 
     Inductive ok_term : env -> term -> type -> Prop :=
     | TmVar' : forall {Gamma : env} {x : var} {ty : type},
@@ -160,5 +164,7 @@ Module Typing (P : PAT).
     (*     pats_exhaustive ps ty1 -> *)
     (*     ok_term Gamma (TmSemApp t1 t2) ty2 *)
     .
+    #[export]
+     Hint Constructors ok_term : core.
   End Typing.
 End Typing.

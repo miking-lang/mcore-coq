@@ -5,6 +5,37 @@ Module SmallStep (P : PAT).
   Module T := Typing P.
   Export T.
 
+  Inductive is_value : term -> Prop :=
+  | VLam : forall {ty : type} {t : term},
+      is_value (TmLam ty t)
+  | VTyLam : forall {k : kind} {t : term},
+      is_value (TmTyLam k t)
+  (* | VProd : forall {v1 v2 : term}, *)
+  (*     is_value v1 -> *)
+  (*     is_value v2 -> *)
+  (*     is_value (TmProd v1 v2) *)
+  (* | VCon : forall {c : con} {ty : type} {v : term}, *)
+  (*     is_value v -> *)
+  (*     is_value (TmCon c ty v) *)
+  (* | VSem : forall {ty : type} {cases : list (pat * term)}, *)
+  (*     is_value (TmSem ty cases) *)
+  .
+  #[export]
+   Hint Constructors is_value : core.
+
+  Module Type MATCH.
+    Parameter match1 :
+      forall {v : term},
+        is_value v ->
+        pat ->
+        option (list term).
+    Parameter match_n :
+      forall {v : term},
+        is_value v ->
+        list pat ->
+        option (nat * list term).
+  End MATCH.
+
   Module SmallStep (M : MATCH).
     Export M.
 
@@ -31,6 +62,8 @@ Module SmallStep (P : PAT).
     (*     is_value v -> *)
     (*     eval_context *)
     .
+    #[export]
+    Hint Constructors eval_context : core.
 
     Definition fill_context (ctx : eval_context) (t : term) : term :=
       match ctx with
@@ -92,5 +125,7 @@ Module SmallStep (P : PAT).
         eval_step t1 t2 ->
         eval_step (fill_context ctx t1) (fill_context ctx t2)
     .
+    #[export]
+    Hint Constructors eval_step : core.
   End SmallStep.
 End SmallStep.

@@ -49,41 +49,15 @@ Module Syntax (P : PAT).
   (* | TmSemApp : term -> term -> term *)
   .
 
-  Inductive is_value : term -> Prop :=
-  | VLam : forall {ty : type} {t : term},
-      is_value (TmLam ty t)
-  | VTyLam : forall {k : kind} {t : term},
-      is_value (TmTyLam k t)
-  (* | VProd : forall {v1 v2 : term}, *)
-  (*     is_value v1 -> *)
-  (*     is_value v2 -> *)
-  (*     is_value (TmProd v1 v2) *)
-  (* | VCon : forall {c : con} {ty : type} {v : term}, *)
-  (*     is_value v -> *)
-  (*     is_value (TmCon c ty v) *)
-  (* | VSem : forall {ty : type} {cases : list (pat * term)}, *)
-  (*     is_value (TmSem ty cases) *)
-  .
-
   #[export]
    Instance Inhab_term : Inhab term.
   Proof. apply (Inhab_of_val (TmVar 0)). Qed.
 
-  Module Type MATCH.
-    Parameter match1 :
-      forall {v : term},
-        is_value v ->
-        pat ->
-        option (list term).
-    Parameter match_n :
-      forall {v : term},
-        is_value v ->
-        list pat ->
-        option (nat * list term).
-  End MATCH.
+  (* Shifting and substitution *)
+  (* X_shift_gen u i represents shifting all variables greater than or equal to i
+     in the term u by one. *)
+  (* X_subst_gen u i v represents the term u[i \mapsto v] *)
 
-  (* ty_shift_gen ty i represents the type ty where all variables \geq i
-     are shifted up by one. *)
   Fixpoint ty_shift_gen (ty : type) (i : tvar) : type :=
     match ty with
     | TyVar j => (If i <= j then TyVar (S j) else ty)
@@ -98,7 +72,6 @@ Module Syntax (P : PAT).
   Definition ty_shift (ty : type) : type :=
     ty_shift_gen ty 0.
 
-  (* ty_subst_gen ty1 i ty2 represents the substitution ty1[i \mapsto ty2]. *)
   Fixpoint ty_subst_gen (ty1 : type) (i : tvar) (ty2 : type) : type :=
     match ty1 with
     | TyVar j => (If i = j then ty2 else ty1)
