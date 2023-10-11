@@ -1,3 +1,8 @@
+From TLC Require Export LibTactics.
+
+Create HintDb mcore.
+Ltac auto_star ::= try solve [auto with mcore | eauto with mcore | intuition eauto with mcore].
+
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=
   (match goal with | H : P |- _ => let P' := type of H in unify P P'; rename H into X end).
@@ -26,4 +31,3 @@ Tactic Notation "Case" constr(name) := Case_aux Case name.
 Tactic Notation "SCase" constr(name) := Case_aux SCase name.
 Tactic Notation "SSCase" constr(name) := Case_aux SSCase name.
 Tactic Notation "S3Case" constr(name) := Case_aux S3Case name.
-

@@ -1,4 +1,4 @@
-From MCore Require Import Syntax Typing.
+From MCore Require Import Syntax Typing Tactics.
 From TLC Require Import LibList.
 
 Module SmallStep (P : PAT).
@@ -21,7 +21,7 @@ Module SmallStep (P : PAT).
   (*     is_value (TmSem ty cases) *)
   .
   #[export]
-   Hint Constructors is_value : core.
+   Hint Constructors is_value : mcore.
 
   Module Type MATCH.
     Parameter match1 :
@@ -39,12 +39,12 @@ Module SmallStep (P : PAT).
   Module SmallStep (M : MATCH).
     Export M.
 
-    Inductive eval_context : Type :=
-    | CAppL : term -> eval_context
+    Inductive is_context : (term -> term) -> Type :=
+    | CAppL : forall (t' : term), is_context (fun t => TmApp t t')
     | CAppR : forall (v : term),
         is_value v ->
-        eval_context
-    | CTyApp : type -> eval_context
+        is_context (TmApp v)
+    | CTyApp : forall (ty : type), is_context (fun t => TmTyApp t ty)
     (* | CFix : eval_context *)
     (* | CProdL : term -> eval_context *)
     (* | CProdR : forall (v : term), *)
@@ -63,24 +63,7 @@ Module SmallStep (P : PAT).
     (*     eval_context *)
     .
     #[export]
-    Hint Constructors eval_context : core.
-
-    Definition fill_context (ctx : eval_context) (t : term) : term :=
-      match ctx with
-      | CAppL t' => TmApp t t'
-      | CAppR v _ => TmApp v t
-      | CTyApp ty => TmTyApp t ty
-      (* | CFix => TmFix t *)
-      (* | CProdL t' => TmProd t t' *)
-      (* | CProdR v _ => TmProd v t *)
-      (* | CProj i => TmProj i t *)
-      (* | CCon c ty => TmCon c ty t *)
-      (* | CMatch p t1 t2 => TmMatch t p t1 t2 *)
-      (* | CCompL t' => TmComp t t' *)
-      (* | CCompR v _ => TmComp v t *)
-      (* | CSemAppL t' => TmSemApp t t' *)
-      (* | CSemAppR v _ => TmSemApp v t *)
-      end.
+    Hint Constructors is_context : mcore.
 
     Inductive eval_step : term -> term -> Prop :=
     | EApp : forall {ty : type} {t v : term},
@@ -121,11 +104,20 @@ Module SmallStep (P : PAT).
     (*     match_n vval (map fst cases) = Some (i, theta) -> *)
     (*     eval_step (TmSemApp (TmSem ty cases) v) *)
     (*               (tm_subst_n (nth i (map snd cases)) theta) *)
-    | ECong : forall {t1 t2 : term} (ctx : eval_context),
-        eval_step t1 t2 ->
-        eval_step (fill_context ctx t1) (fill_context ctx t2)
+    | ECong : forall {f : term -> term},
+        is_context f ->
+        forall t1 t2,
+          eval_step t1 t2 ->
+          eval_step (f t1) (f t2)
     .
     #[export]
-    Hint Constructors eval_step : core.
+    Hint Constructors eval_step : mcore.
+
+    Definition econg_CAppL t2 := ECong (CAppL t2).
+    #[export] Hint Resolve econg_CAppL : mcore.
+    Definition econg_CAppR v Hv := ECong (CAppR v Hv).
+    #[export] Hint Resolve econg_CAppR : mcore.
+    Definition econg_CTyApp ty := ECong (CTyApp ty).
+    #[export] Hint Resolve econg_CTyApp : mcore.
   End SmallStep.
 End SmallStep.

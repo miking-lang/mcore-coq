@@ -1,4 +1,4 @@
-From MCore Require Import Syntax Env.
+From MCore Require Import Syntax Env Tactics.
 From TLC Require Import LibList LibSet.
 From RecordUpdate Require Import RecordSet.
 
@@ -33,7 +33,7 @@ Module Typing (P : PAT).
     (*     ok_kind Gamma (KiData d) *)
     .
     #[export]
-     Hint Constructors ok_kind : core.
+     Hint Constructors ok_kind : mcore.
 
     Inductive ok_type : env -> type -> kind -> Prop :=
     | TyVar' : forall {Gamma : env} {tv : tvar} {k : kind},
@@ -68,7 +68,7 @@ Module Typing (P : PAT).
     (*     ok_type Gamma ty (KiData d2) *)
     .
     #[export]
-     Hint Constructors ok_type : core.
+     Hint Constructors ok_type : mcore.
 
     Inductive ok_term : env -> term -> type -> Prop :=
     | TmVar' : forall {Gamma : env} {x : var} {ty : type},
@@ -165,6 +165,6 @@ Module Typing (P : PAT).
     (*     ok_term Gamma (TmSemApp t1 t2) ty2 *)
     .
     #[export]
-     Hint Constructors ok_term : core.
+     Hint Constructors ok_term : mcore.
   End Typing.
 End Typing.
