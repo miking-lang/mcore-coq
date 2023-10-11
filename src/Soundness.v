@@ -1,6 +1,6 @@
 From MCore Require Import Syntax Typing SmallStep Tactics.
 From TLC Require Import LibString LibList.
-From RecordUpdate Require Import RecordSet.
+From RecordUpdate Require Import RecordUpdate.
 
 Module Soundness (P : PAT).
   Module S := SmallStep P.
@@ -30,16 +30,25 @@ Module Soundness (P : PAT).
         inverts* Hval. inverts ttype.
     Qed.
 
+    Lemma tm_subst_gen_preservation :
+      forall vs1 vs2 Gamma t t' ty1 ty2,
+        ok_term (Gamma <| vars := vs1 ++ ty1 :: vs2 |>) t ty2 ->
+        ok_term (Gamma <| vars := vs1 ++ vs2 |>) t' ty1 ->
+        ok_term (Gamma <| vars := vs1 ++ vs2 |>) (tm_subst_gen t (length vs1) t') ty2.
+    Proof. Admitted.
+
     Lemma tm_subst_preservation :
       forall Gamma t t' ty1 ty2,
-        ok_term (set vars (fun vs => ty1 :: vs) Gamma) t ty2 ->
+        ok_term (Gamma <| vars ::= (fun vs => ty1 :: vs) |>) t ty2 ->
         ok_term Gamma t' ty1 ->
         ok_term Gamma (tm_subst t t') ty2.
-    Admitted.
+    Proof.
+      intros. applys_eq (tm_subst_gen_preservation nil Gamma.(vars) Gamma t t' ty1) ; destruct* Gamma.
+    Qed.
 
     Lemma tm_ty_subst_preservation :
       forall Gamma t ty ty' k,
-        ok_term (set tvars (fun tvs => k :: tvs) Gamma) t ty' ->
+        ok_term (Gamma <| tvars ::= fun tvs => k :: tvs |>) t ty' ->
         ok_type Gamma ty k ->
         ok_term Gamma (tm_ty_subst t ty) (ty_subst ty' ty).
     Admitted.
@@ -54,7 +63,7 @@ Module Soundness (P : PAT).
       gen t'.
       induction ttype ; intros ; inverts tstep
       ; try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq
-             ; inverts* ctx ; inverts* eq).
+             ; inverts ctx ; inverts* eq).
       - Case "TmApp". inverts ttype1. applys* tm_subst_preservation.
       - Case "TmTyApp". inverts ttype. applys* tm_ty_subst_preservation.
     Qed.

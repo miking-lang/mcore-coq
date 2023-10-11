@@ -1,6 +1,6 @@
 From MCore Require Import Syntax Env Tactics.
+From RecordUpdate Require Import RecordUpdate.
 From TLC Require Import LibList LibSet.
-From RecordUpdate Require Import RecordSet.
 
 Module Typing (P : PAT).
   Module E := Env P.
@@ -21,7 +21,7 @@ Module Typing (P : PAT).
         T \indom d ->
         tname_in T Gamma.(tnames) /\
           forall (K : con),
-            K \in (d[T] : LibSet.set con) ->
+            K \in (d[T] : set con) ->
                   exists d ty, con_in K d ty T Gamma.(cons)
     .
 
@@ -44,7 +44,7 @@ Module Typing (P : PAT).
         ok_type Gamma ty2 KiType ->
         ok_type Gamma (TyArr ty1 ty2) KiType
     | TyAll' : forall {Gamma : env} {k : kind} {ty : type},
-        ok_type (set tvars (fun tv => k :: tv) Gamma) ty KiType ->
+        ok_type (Gamma <| tvars ::= fun tv => k :: tv |>) ty KiType ->
         ok_type Gamma (TyAll k ty) KiType
     (* | TyProd' : forall {Gamma : env} {ty1 ty2 : type}, *)
     (*     ok_type Gamma ty1 KiType -> *)
@@ -76,7 +76,7 @@ Module Typing (P : PAT).
         ok_term Gamma (TmVar x) ty
     | TmLam' : forall {Gamma : env} {ty1 ty2 : type} {t : term},
         ok_type Gamma ty1 KiType ->
-        ok_term (set vars (fun v => ty1 :: v) Gamma) t ty2 ->
+        ok_term (Gamma <| vars ::= fun v => ty1 :: v |>) t ty2 ->
         ok_term Gamma (TmLam ty1 t) (TyArr ty1 ty2)
     | TmApp' : forall {Gamma : env} {ty1 ty2 : type} {t1 t2 : term},
         ok_term Gamma t1 (TyArr ty1 ty2) ->
@@ -84,7 +84,7 @@ Module Typing (P : PAT).
         ok_term Gamma (TmApp t1 t2) ty2
     | TmTyLam' : forall {Gamma : env} {k : kind} {ty : type} {t : term},
         ok_kind Gamma k ->
-        ok_term (set tvars (fun tv => k :: tv) Gamma) t ty ->
+        ok_term (Gamma <| tvars ::= fun tv => k :: tv |>) t ty ->
         ok_term Gamma (TmTyLam k t) (TyAll k ty)
     | TmTyApp' : forall {Gamma : env} {k : kind} {ty1 ty2 : type} {t : term},
         ok_term Gamma t (TyAll k ty1) ->
@@ -114,11 +114,9 @@ Module Typing (P : PAT).
     (*                     {ty1 ty2 : type} {p : pat}, *)
     (*     ok_term Gamma t ty1 -> *)
     (*     ok_pat  Gamma p ty1 vs -> *)
-    (*     ok_term (set vars (fun vs' => vs ++ vs') *)
-    (*                  (set matches (fun ms => Match t p :: ms) *)
-    (*                       Gamma)) *)
+    (*     ok_term (Gamma <| vars ::= fun vs' => vs ++ vs' |> <| matches ::= fun ms => Match t p :: ms |> *)
     (*             t1 ty2 -> *)
-    (*     ok_term (set matches (fun ms => NoMatch t p :: ms) Gamma) *)
+    (*     ok_term (Gamma <| matches ::= fun ms => NoMatch t p :: ms |>) *)
     (*             t2 ty2 -> *)
     (*     ok_term Gamma (TmMatch t p t1 t2) ty2 *)
     (* | TmNever' : forall {Gamma : env} {ty : type}, *)
@@ -126,14 +124,14 @@ Module Typing (P : PAT).
     (*     ok_term Gamma TmNever ty *)
     (* | TmType' : forall {Gamma : env} {t : term} {ty : type}, *)
     (*     ok_type Gamma ty KiType -> *)
-    (*     ok_term (set tnames S Gamma) t ty *)
+    (*     ok_term (Gamma <| tnames ::= S |>) t ty *)
     (* | TmConDef' : forall {Gamma : env} {d : data} *)
     (*                      {ty1 ty2 : type} {T : tname} *)
     (*                      {t : term}, *)
     (*     ok_data Gamma d -> *)
-    (*     ok_type (set tvars (fun tv => KiData d :: tv) Gamma) *)
+    (*     ok_type (Gamma <| tvars ::= fun tv => KiData d :: tv |>) *)
     (*             ty1 KiType -> *)
-    (*     ok_term (set cons (fun Ks => (d, ty1, T) :: Ks) Gamma) *)
+    (*     ok_term (Gamma <| cons ::= fun Ks => (d, ty1, T) :: Ks |>) *)
     (*             t ty2 -> *)
     (*     ok_type Gamma ty2 KiType -> *)
     (*     ok_term Gamma (TmConDef d ty1 T t) ty2 *)
@@ -143,7 +141,7 @@ Module Typing (P : PAT).
     (*     Forall (fun (c : pat * term) => *)
     (*               exists (vs : var_env), *)
     (*                 ok_pat Gamma (fst c) ty1 vs /\ *)
-    (*                   ok_term (set vars (fun vs' => vs ++ vs') Gamma) *)
+    (*                   ok_term (Gamma <| vars ::= fun vs' => vs ++ vs' |>) *)
     (*                           (snd c) ty2) *)
     (*            cases -> *)
     (*     pats_compatible (LibList.map fst cases) ty1 -> *)

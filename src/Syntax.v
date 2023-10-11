@@ -11,7 +11,7 @@ Module Syntax (P : PAT).
   Definition var   : Set := nat.
   Definition con   : Set := nat.
 
-  Definition data : Type := map tname (LibSet.set con).
+  Definition data : Type := map tname (set con).
 
   Inductive kind : Type :=
   | KiType : kind
