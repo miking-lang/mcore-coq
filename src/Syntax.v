@@ -1,4 +1,4 @@
-From TLC Require Import LibList LibLogic LibMap LibSet.
+From TLC Require Import LibList LibLogic LibMap LibSet LibNat.
 
 Module Type PAT.
   Parameter pat : Type.
@@ -28,6 +28,10 @@ Module Syntax (P : PAT).
   (* | TyData : data -> type *)
   .
 
+  #[export]
+   Instance Inhab_type : Inhab type.
+  Proof. apply (Inhab_of_val (TyVar 0)). Qed.
+
   Inductive fin2 : Set := F1 | F2.
 
   Inductive term : Type :=
@@ -53,10 +57,9 @@ Module Syntax (P : PAT).
    Instance Inhab_term : Inhab term.
   Proof. apply (Inhab_of_val (TmVar 0)). Qed.
 
-  (* Shifting and substitution *)
+  (* Shifting *)
   (* X_shift_gen u i represents shifting all variables greater than or equal to i
      in the term u by one. *)
-  (* X_subst_gen u i v represents the term u[i \mapsto v] *)
 
   Fixpoint ty_shift_gen (ty : type) (i : tvar) : type :=
     match ty with
@@ -72,9 +75,40 @@ Module Syntax (P : PAT).
   Definition ty_shift (ty : type) : type :=
     ty_shift_gen ty 0.
 
+  Fixpoint tm_shift_gen (t : term) (i : var) : term :=
+    match t with
+    | TmVar j => (If i <= j then TmVar (S j) else t)
+    | TmLam ty t' => TmLam ty (tm_shift_gen t' (S i))
+    | TmApp l r => TmApp (tm_shift_gen l i) (tm_shift_gen r i)
+    | TmTyLam k t' => TmTyLam k (tm_shift_gen t' i)
+    | TmTyApp t' ty => TmTyApp (tm_shift_gen t' i) ty
+    end.
+
+  Definition tm_shift (t : term) : term :=
+    tm_shift_gen t 0.
+
+  Fixpoint tm_ty_shift_gen (t : term) (i : nat) : term :=
+    match t with
+    | TmVar j => t
+    | TmLam ty t' => TmLam (ty_shift_gen ty i) (tm_ty_shift_gen t' i)
+    | TmApp l r => TmApp (tm_ty_shift_gen l i) (tm_ty_shift_gen r i)
+    | TmTyLam k t' => TmTyLam k (tm_ty_shift_gen t' (S i))
+    | TmTyApp t' ty => TmTyApp (tm_ty_shift_gen t' i) (ty_shift_gen ty i)
+    end.
+
+  Fixpoint tm_ty_shift (t : term) : term :=
+    tm_ty_shift_gen t 0.
+
+
+  (* Substitution *)
+  (* X_subst_gen u i v represents the term u[i \mapsto v] *)
+
   Fixpoint ty_subst_gen (ty1 : type) (i : tvar) (ty2 : type) : type :=
     match ty1 with
-    | TyVar j => (If i = j then ty2 else ty1)
+    | TyVar j =>
+        (If j < i then TyVar j else
+           If j = i then ty2 else
+           TyVar (j - 1))
     | TyArr l r =>
         TyArr (ty_subst_gen l i ty2) (ty_subst_gen r i ty2)
     | TyAll k ty1' =>
@@ -91,32 +125,20 @@ Module Syntax (P : PAT).
   Definition ty_subst (ty1 : type) (ty2 : type) : type :=
     ty_subst_gen ty1 0 ty2.
 
-  Fixpoint tm_shift_gen (t : term) (i : var) : term :=
-    match t with
-    | TmVar j => (If i <= j then TmVar (S j) else t)
-    | TmLam ty t' => TmLam ty (tm_shift_gen t' (S i))
-    | TmApp l r => TmApp (tm_shift_gen l i) (tm_shift_gen r i)
-    | TmTyLam k t' => TmTyLam k (tm_shift_gen t' i)
-    | TmTyApp t' ty => TmTyApp (tm_shift_gen t' i) ty
-    end.
-
-  Definition tm_shift (t : term) : term :=
-    tm_shift_gen t 0.
-
   Fixpoint tm_subst_gen (t1 : term) (i : var) (t2 : term) : term :=
     match t1 with
-    | TmVar j => (If i = j then t2 else t1)
+    | TmVar j =>
+        (If j < i then TmVar j else
+           If j = i then t2 else
+           TmVar (j - 1))
     | TmLam ty t1' => TmLam ty (tm_subst_gen t1' (S i) (tm_shift t2))
     | TmApp l r => TmApp (tm_subst_gen l i t2) (tm_subst_gen r i t2)
-    | TmTyLam k t1' => TmTyLam k (tm_subst_gen t1' i t2)
+    | TmTyLam k t1' => TmTyLam k (tm_subst_gen t1' i (tm_ty_shift t2))
     | TmTyApp t1' ty => TmTyApp (tm_subst_gen t1' i t2) ty
     end.
 
   Definition tm_subst (t1 : term) (t2 : term) : term :=
     tm_subst_gen t1 0 t2.
-
-  Definition tm_subst_n (t : term) (ts : list term) : term :=
-    fold_right (fun t2 t1 => tm_subst t1 t2) t ts.
 
   Fixpoint tm_ty_subst_gen (t : term) (i : nat) (ty : type) : term :=
     match t with
@@ -129,5 +151,9 @@ Module Syntax (P : PAT).
 
   Definition tm_ty_subst (t : term) (ty : type) : term :=
     tm_ty_subst_gen t 0 ty.
+
+
+  Definition tm_subst_n (t : term) (ts : list term) : term :=
+    fold_right (fun t2 t1 => tm_subst t1 t2) t ts.
 
 End Syntax.
