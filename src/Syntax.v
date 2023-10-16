@@ -87,7 +87,7 @@ Module Syntax (P : PAT).
   Definition tm_shift (t : term) : term :=
     tm_shift_gen t 0.
 
-  Fixpoint tm_ty_shift_gen (t : term) (i : nat) : term :=
+  Fixpoint tm_ty_shift_gen (t : term) (i : tvar) : term :=
     match t with
     | TmVar j => t
     | TmLam ty t' => TmLam (ty_shift_gen ty i) (tm_ty_shift_gen t' i)
@@ -140,7 +140,7 @@ Module Syntax (P : PAT).
   Definition tm_subst (t1 : term) (t2 : term) : term :=
     tm_subst_gen t1 0 t2.
 
-  Fixpoint tm_ty_subst_gen (t : term) (i : nat) (ty : type) : term :=
+  Fixpoint tm_ty_subst_gen (t : term) (i : tvar) (ty : type) : term :=
     match t with
     | TmVar j => t
     | TmLam ty' t' => TmLam (ty_subst_gen ty' i ty) (tm_ty_subst_gen t' i ty)
@@ -151,7 +151,6 @@ Module Syntax (P : PAT).
 
   Definition tm_ty_subst (t : term) (ty : type) : term :=
     tm_ty_subst_gen t 0 ty.
-
 
   Definition tm_subst_n (t : term) (ts : list term) : term :=
     fold_right (fun t2 t1 => tm_subst t1 t2) t ts.

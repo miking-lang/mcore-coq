@@ -1,7 +1,9 @@
 From TLC Require Export LibTactics.
 
 Create HintDb mcore.
-Ltac auto_star ::= try solve [auto with mcore | eauto with mcore | intuition eauto with mcore].
+Ltac auto_star ::= try solve [ auto with mcore
+                             | eauto with mcore
+                             | intuition eauto with mcore].
 
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=

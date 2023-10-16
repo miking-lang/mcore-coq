@@ -1,6 +1,5 @@
 From MCore Require Import Syntax.
 From TLC Require Import LibList.
-From RecordUpdate Require Import RecordSet.
 Import LibListNotation.
 
 Module Env (P : PAT).
@@ -12,41 +11,42 @@ Module Env (P : PAT).
   | NoMatch : term -> pat -> match_assum
   .
 
-  Definition tname_env := nat.
-  Definition con_env   := list (data * type * tname).
-  Definition tvar_env  := list kind.
-  Definition var_env   := list type.
-  Definition match_env := list match_assum.
-
-  Record env : Type :=
-    { tnames  : tname_env
-    ; cons    : con_env
-    ; tvars   : tvar_env
-    ; vars    : var_env
-    ; matches : match_env
-    }
+  Inductive binding : Type :=
+  | BTname : binding
+  | Bcon   : data -> type -> tname -> binding
+  | Btvar  : kind -> binding
+  | Bvar   : type -> binding
+  | Bmatch : match_assum -> binding
   .
 
-  #[export]
-   Instance eta_env : Settable _ := settable! Build_env <tnames; cons; tvars; vars; matches>.
+  Definition env : Type := list binding.
 
-  Definition tname_in (T : tname) (env : tname_env) : Prop :=
-    T < env.
+  Definition is_tname (b : binding) : Prop := match b with BTname => True | _ => False end.
+  Definition tnames   (Gamma : env) : env := filter is_tname Gamma.
 
-  Definition con_in (K : con) (d : data) (ty : type) (T : tname) (env : con_env) : Prop :=
-    Nth K env (d, ty, T).
+  Definition is_con (b : binding) : Prop := match b with Bcon _ _ _ => True | _ => False end.
+  Definition cons   (Gamma : env) : env := filter is_con Gamma.
 
-  Definition tvar_in (tv : tvar) (k : kind) (env : tvar_env) : Prop :=
-    Nth tv env k.
+  Definition is_tvar (b : binding) : Prop := match b with Btvar _ => True | _ => False end.
+  Definition tvars   (Gamma : env) : env := filter is_tvar Gamma.
 
-  Definition var_in (v : var) (ty : type) (env : var_env) : Prop :=
-    Nth v env ty.
+  Definition is_var (b : binding) : Prop := match b with Bvar _ => True | _ => False end.
+  Definition vars   (Gamma : env) : env := filter is_var Gamma.
 
-  Definition empty_env : env :=
-    {| tnames := 0
-    ; cons    := [ ]
-    ; tvars   := [ ]
-    ; vars    := [ ]
-    ; matches := [ ]
-    |}.
+  Definition is_match (b : binding) : Prop := match b with Bmatch _ => True | _ => False end.
+  Definition matches (Gamma : env) : env := filter is_match Gamma.
+
+  Definition tname_in (T : tname) (Gamma : env) : Prop :=
+    Nth T Gamma BTname.
+
+  Definition con_in (K : con) (d : data) (ty : type) (T : tname) (Gamma : env) : Prop :=
+    Nth K Gamma (Bcon d ty T).
+
+  Definition tvar_in (tv : tvar) (k : kind) (Gamma : env) : Prop :=
+    Nth tv Gamma (Btvar k).
+
+  Definition var_in (v : var) (ty : type) (Gamma : env) : Prop :=
+    Nth v Gamma (Bvar ty).
+
+  Definition empty_env : env := [ ].
 End Env.

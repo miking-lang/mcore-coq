@@ -1,5 +1,4 @@
 From MCore Require Import Syntax Env Tactics.
-From RecordUpdate Require Import RecordUpdate.
 From TLC Require Import LibList LibSet.
 
 Module Typing (P : PAT).
@@ -7,8 +6,8 @@ Module Typing (P : PAT).
   Export E.
 
   Module Type PATCHECK.
-    Parameter ok_pat : env -> pat -> type -> var_env -> Prop.
-    Parameter matches_contradictory : match_env -> Prop.
+    Parameter ok_pat : env -> pat -> type -> env -> Prop.
+    Parameter matches_contradictory : env -> Prop.
     Parameter pats_compatible : list pat -> type -> Prop.
     Parameter pats_exhaustive : list pat -> type -> Prop.
   End PATCHECK.
@@ -19,10 +18,10 @@ Module Typing (P : PAT).
     Definition ok_data (Gamma : env) (d : data) : Prop :=
       forall (T : tname),
         T \indom d ->
-        tname_in T Gamma.(tnames) /\
+        tname_in T (tnames Gamma) /\
           forall (K : con),
             K \in (d[T] : set con) ->
-                  exists d ty, con_in K d ty T Gamma.(cons)
+                  exists d ty, con_in K d ty T (cons Gamma)
     .
 
     Inductive ok_kind : env -> kind -> Prop :=
@@ -37,14 +36,14 @@ Module Typing (P : PAT).
 
     Inductive ok_type : env -> type -> kind -> Prop :=
     | TyVar' : forall {Gamma : env} {tv : tvar} {k : kind},
-        tvar_in tv k Gamma.(tvars) ->
+        tvar_in tv k (tvars Gamma) ->
         ok_type Gamma (TyVar tv) k
     | TyArr' : forall {Gamma : env} {ty1 ty2 : type},
         ok_type Gamma ty1 KiType ->
         ok_type Gamma ty2 KiType ->
         ok_type Gamma (TyArr ty1 ty2) KiType
     | TyAll' : forall {Gamma : env} {k : kind} {ty : type},
-        ok_type (Gamma <| tvars ::= fun tv => k :: tv |>) ty KiType ->
+        ok_type (Btvar k :: Gamma) ty KiType ->
         ok_type Gamma (TyAll k ty) KiType
     (* | TyProd' : forall {Gamma : env} {ty1 ty2 : type}, *)
     (*     ok_type Gamma ty1 KiType -> *)
@@ -72,11 +71,11 @@ Module Typing (P : PAT).
 
     Inductive ok_term : env -> term -> type -> Prop :=
     | TmVar' : forall {Gamma : env} {x : var} {ty : type},
-        var_in x ty Gamma.(vars) ->
+        var_in x ty (vars Gamma) ->
         ok_term Gamma (TmVar x) ty
     | TmLam' : forall {Gamma : env} {ty1 ty2 : type} {t : term},
         ok_type Gamma ty1 KiType ->
-        ok_term (Gamma <| vars ::= fun v => ty1 :: v |>) t ty2 ->
+        ok_term (Bvar ty1 :: Gamma) t ty2 ->
         ok_term Gamma (TmLam ty1 t) (TyArr ty1 ty2)
     | TmApp' : forall {Gamma : env} {ty1 ty2 : type} {t1 t2 : term},
         ok_term Gamma t1 (TyArr ty1 ty2) ->
@@ -84,7 +83,7 @@ Module Typing (P : PAT).
         ok_term Gamma (TmApp t1 t2) ty2
     | TmTyLam' : forall {Gamma : env} {k : kind} {ty : type} {t : term},
         ok_kind Gamma k ->
-        ok_term (Gamma <| tvars ::= fun tv => k :: tv |>) t ty ->
+        ok_term (Btvar k :: Gamma) t ty ->
         ok_term Gamma (TmTyLam k t) (TyAll k ty)
     | TmTyApp' : forall {Gamma : env} {k : kind} {ty1 ty2 : type} {t : term},
         ok_term Gamma t (TyAll k ty1) ->
