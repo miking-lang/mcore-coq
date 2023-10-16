@@ -21,7 +21,7 @@ Module Soundness (P : PAT).
       remember empty_env as Gamma eqn:HGamma.
       induction ttype
       ; try (left; constructor).
-      { Case "TmFVar". subst. with_hyp (var_in _ _ _) as H. inversion H. }
+      { Case "TmFVar". subst. with_hyp (var_in _ _ _) as Hvar. inversion Hvar. }
       { Case "TmApp". right.
         forwards* [Hval1 | (t1' & Hstep1)]: IHttype1.
         forwards* [Hval2 | (t2' & Hstep2)]: IHttype2.
@@ -167,20 +167,169 @@ Module Soundness (P : PAT).
         ok_term (BindVar ty' :: Gamma) (tm_freshen t 0) ty.
     Proof. Admitted.
 
-    Lemma open_subst_comm :
+    Lemma tm_ty_freshen_preservation :
+      forall Gamma t ty k',
+        ok_term Gamma t ty ->
+        ok_term (BindTvar k' :: Gamma) (tm_ty_freshen t 0) ty.
+    Proof. Admitted.
+
+    Lemma tm_open_subst_comm :
       forall t n t',
+        tm_lc t' ->
         tm_open (tm_subst t n t') = tm_subst (tm_open t) (S n) (tm_freshen t' 0).
-    (* Needs local closure! *)
+    Proof. Admitted.
+
+    Lemma tm_ty_open_subst_comm :
+      forall t n t',
+        tm_lc t' ->
+        tm_ty_open (tm_subst t n t') = tm_subst (tm_ty_open t) n (tm_ty_freshen t' 0).
+    Proof. Admitted.
+
+    Lemma tm_open_defreshen_comm :
+      forall t n,
+        tm_open (tm_defreshen t n) = tm_defreshen (tm_open t) (S n).
+    Proof. Admitted.
+
+    Lemma tm_ty_open_defreshen_comm :
+      forall t n,
+        tm_ty_open (tm_defreshen t n) = tm_defreshen (tm_ty_open t) n.
+    Proof. Admitted.
+
+    Lemma ok_type_lct :
+      forall Gamma ty k,
+        ok_type Gamma ty k ->
+        ty_lc ty.
+    Proof. introv tykind. induction* tykind. Qed.
+
+    Lemma ok_env_lct :
+      forall Gamma ty x,
+        ok_env Gamma ->
+        var_in x (Some ty) (vars Gamma) ->
+        ty_lc ty.
+    Proof.
+      introv Henv. gen x.
+      induction* Gamma ; intros ; with_hyp (var_in _ _ _) as Hvar. inverts Hvar.
+      destruct a; rew_mcore in *; inverts* Henv ; unfold var_in in Hvar.
+      { lets [ (Heq0 & Heqty) | (m & Heqm & in_Gamma) ] : Nth_cons_inv Hvar ; subst.
+        { inverts Heqty. apply* ok_type_lct. }
+        { apply* IHGamma. } }
+      { lets [ (Heq0 & Heqty) | (m & Heqm & in_Gamma) ] : Nth_cons_inv Hvar ; subst.
+        { inverts Heqty. }
+        { apply* IHGamma. } }
+    Qed.
+
+    Lemma ok_term_lct :
+      forall Gamma t ty,
+        ok_term Gamma t ty ->
+        ty_lc ty.
+    Proof.
+      introv ttype. induction* ttype.
+      { Case "TmVar". apply* ok_env_lct. }
+      { Case "TmLam". constructor. with_hyp (ok_type _ _ _) as Htyp. applys ok_type_lct Htyp. auto. }
+      { Case "TmApp". inverts* IHttype1. }
+      { Case "TmTyApp". inverts* IHttype. (* Lemma here *) }
+
+    Lemma ok_term_lc :
+      forall Gamma t ty,
+        ok_term Gamma t ty ->
+        tm_lc t.
+    Proof.
+      introv ttype. induction* ttype.
+      { Case "TmLam". constructor*. admit. } Admitted.
+
+    Lemma ok_data_strengthen_var :
+      forall G1 G2 ty' d,
+        ok_data (G1 ++ BindVar (Some ty') :: G2) d ->
+        ok_data (G1 ++ BindVar None :: G2) d.
+    Proof. Admitted.
+
+    Lemma ok_kind_strengthen_var :
+      forall G1 G2 ty' k,
+        ok_kind (G1 ++ BindVar (Some ty') :: G2) k ->
+        ok_kind (G1 ++ BindVar None :: G2) k.
     Proof. Admitted.
 
     Lemma ok_type_strengthen_var :
       forall G1 G2 ty' ty k,
         ok_type (G1 ++ BindVar (Some ty') :: G2) ty k ->
         ok_type (G1 ++ BindVar None :: G2) ty k.
-    (* Needs local closure! *)
     Proof. Admitted.
 
-    Lemma tm_subst_preservation :
+    Lemma ok_env_strengthen_var :
+      forall G1 G2 ty,
+        ok_env (G1 ++ BindVar (Some ty) :: G2) ->
+        ok_env (G1 ++ BindVar None :: G2).
+    Proof.
+      introv Henv. induction* G1 ; rew_list in *. inverts* Henv.
+      destruct* a ; inverts* Henv. constructor*.
+      apply* ok_data_strengthen_var. apply* ok_type_strengthen_var. unfolds tnames. rew_listx in *.
+      unfold is_tname in *. rew_mcore* in *.
+      constructor. apply* IHG1. apply* ok_kind_strengthen_var.
+      constructor. apply* IHG1. apply* ok_type_strengthen_var.
+    Qed.
+
+    Lemma ok_data_drop_var :
+      forall G1 G2 d,
+        ok_data (G1 ++ BindVar None :: G2) d ->
+        ok_data (G1 ++ G2) d.
+    Proof. Admitted.
+
+    Lemma ok_kind_drop_var :
+      forall G1 G2 k,
+        ok_kind (G1 ++ BindVar None :: G2) k ->
+        ok_kind (G1 ++ G2) k.
+    Proof. Admitted.
+
+    Lemma ok_type_drop_var :
+      forall G1 G2 ty k,
+        ok_type (G1 ++ BindVar None :: G2) ty k ->
+        ok_type (G1 ++ G2) ty k.
+    Proof. Admitted.
+
+    Lemma ok_env_drop_var :
+      forall G1 G2,
+        ok_env (G1 ++ BindVar None :: G2) ->
+        ok_env (G1 ++ G2).
+    Proof.
+      introv Henv. induction* G1 ; rew_list in *. inverts* Henv.
+      destruct* a ; inverts* Henv. constructor*.
+      apply* ok_data_drop_var. apply* ok_type_drop_var. unfolds tnames. rew_listx in *.
+      unfold is_tname in *. rew_mcore* in *.
+      constructor. apply* IHG1. apply* ok_kind_drop_var.
+      constructor. apply* IHG1. apply* ok_type_drop_var.
+    Qed.
+
+    Lemma ok_term_drop_var :
+      forall G1 G2 t ty,
+        ok_term (G1 ++ BindVar None :: G2) t ty ->
+        ok_term (G1 ++ G2) (tm_defreshen t (length (vars G1))) ty.
+    Proof.
+      introv ttype.
+      remember (G1 ++ BindVar None :: G2) as Gamma eqn:HGamma.
+      gen G1.
+      induction ttype ; intros ; subst*.
+      { Case "TmFVar". with_hyp (var_in _ _ _) as Hvar. rew_mcore in Hvar. unfold var_in in Hvar.
+        unfold tm_defreshen.
+        lets [ in_vs1 | (m' & Heqm' & in_vs2') ] : Nth_app_inv Hvar.
+        { lets Hlt : Nth_inbound in_vs1. assert (Hnge : ~(x > length (vars G1))). apply* lt_gt_false.
+          rewrites (>> If_r Hnge). constructor. apply* ok_env_drop_var. unfold var_in. rew_mcore.
+          applys* Nth_app_l. }
+        { lets [ (Heq0 & Heqty) | (m & Heqm & in_vs2) ] : Nth_cons_inv in_vs2' ; subst.
+          { inverts Heqty. }
+          { rew_nat. assert (Hge : S (length (vars G1) + m) > length (vars G1)). nat_math.
+            rewrites (>> If_l Hge).
+            constructor. apply* ok_env_drop_var. unfold var_in. rew_mcore.
+            applys_eq* (>> Nth_app_r in_vs2). nat_math. } } }
+      { Case "TmLam". constructor. apply* ok_type_drop_var.
+        rewrite tm_open_defreshen_comm.
+        applys_eq* (IHttype (BindVar (Some ty1) :: G1)). rew_mcore*. }
+      { Case "TmTyLam". constructor. apply* ok_kind_drop_var.
+        rewrite tm_ty_open_defreshen_comm.
+        applys_eq* (IHttype (BindTvar (Some k) :: G1)). rew_mcore*. }
+      { Case "TmTyApp". constructors*. apply* ok_type_drop_var. }
+    Qed.
+
+    Lemma tm_subst_preservation_gen :
       forall G1 G2 t t' ty1 ty2,
         ok_term (G1 ++ BindVar (Some ty1) :: G2) t ty2 ->
         ok_term (G1 ++ BindVar None :: G2) t' ty1 ->
@@ -190,24 +339,50 @@ Module Soundness (P : PAT).
       remember (G1 ++ BindVar (Some ty1) :: G2) as Gamma eqn:HGamma.
       gen t' G1.
       induction ttype ; intros ; subst*.
-      { Case "TmFVar". admit. }
-        (* with_hyp (var_in _ _ _) as Hvar. rew_mcore in Hvar. unfold var_in in Hvar. *)
-        (* unfold tm_subst. *)
-        (* lets [ (Heq0 & Heq) | (m & Heqm & in_Gamma) ] : Nth_cons_inv Hvar ; subst. *)
-        (* { case_if*. inverts* Heq. } *)
-        (* { case_if*. nat_math. rew_nat in *. constructor. unfold var_in. rew_mcore*. } } *)
+      { Case "TmFVar".
+        with_hyp (var_in _ _ _) as Hvar. rew_mcore in Hvar. unfold var_in in Hvar.
+        unfold tm_subst.
+        lets [ in_vs1 | (m' & Heqm' & in_vs2') ] : Nth_app_inv Hvar.
+        { lets Hlt : Nth_inbound in_vs1. assert (Hneq : x <> length (vars G1)). nat_math.
+          rewrites (>> If_r Hneq). constructor. apply* ok_env_strengthen_var. unfold var_in. rew_mcore.
+          applys* Nth_app_l. }
+        { lets [ (Heq0 & Heqty) | (m & Heqm & in_vs2) ] : Nth_cons_inv in_vs2'.
+          { inverts* Heqty. assert (Heq : x = length (vars G1)). nat_math.
+            rewrites* (>> If_l Heq). }
+          { assert (Hneq : x <> length (vars G1)). nat_math.
+            rewrites (>> If_r Hneq). constructor. apply* ok_env_strengthen_var. unfold var_in. rew_mcore.
+            applys_eq* (>> Nth_app_r (vars G1 ++ [BindVar None]) in_vs2) ; rew_list~. nat_math. } } }
       { Case "TmLam". constructor. applys* ok_type_strengthen_var ty1.
-        rewrite open_subst_comm.
+        rewrite tm_open_subst_comm.
         applys_eq* (IHttype (tm_freshen t' 0) (BindVar (Some ty0) :: G1)). rew_mcore*.
-        rew_list. applys* tm_freshen_preservation. }
-    Admitted.
+        rew_list. applys* tm_freshen_preservation. applys* ok_term_lc. }
+      { Case "TmTyLam". constructor. applys* ok_kind_strengthen_var ty1.
+        rewrite tm_ty_open_subst_comm.
+        applys_eq* (IHttype (tm_ty_freshen t' 0) (BindTvar (Some k) :: G1)). rew_mcore*.
+        rew_list. applys* tm_ty_freshen_preservation. applys* ok_term_lc. }
+      { Case "TmTyApp". constructors*. applys* ok_type_strengthen_var ty1. }
+    Qed.
 
     Lemma tm_ty_subst_preservation :
       forall Gamma t ty ty' k,
-        ok_term (Btvar k :: Gamma) (tm_ty_open t) (ty_open ty) ->
+        ok_term (BindTvar (Some k) :: Gamma) (tm_ty_open t) (ty_open ty) ->
         ok_type Gamma ty' k ->
         ok_term Gamma (tm_ty_bsubst t 0 ty') (ty_bsubst ty 0 ty').
-    Admitted.
+    Proof. Admitted.
+
+    Lemma tm_subst_preservation :
+      forall Gamma t t' ty1 ty2,
+        ok_term (BindVar (Some ty1) :: Gamma) t ty2 ->
+        ok_term Gamma t' ty1 ->
+        ok_term Gamma (tm_defreshen (tm_subst t 0 (tm_freshen t' 0)) 0) ty2.
+    Proof. Admitted.
+
+    Lemma tm_bsubst_preservation :
+      forall Gamma t t' ty1 ty2,
+        ok_term (BindVar (Some ty1) :: Gamma) (tm_open t) ty2 ->
+        ok_term Gamma t' ty1 ->
+        ok_term Gamma (tm_bsubst t 0 t') ty2.
+    Proof. Admitted.
 
     Theorem preservation :
       forall Gamma t t' ty,
@@ -220,7 +395,7 @@ Module Soundness (P : PAT).
       induction ttype ; intros ; inverts tstep
       ; try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq
              ; inverts ctx ; inverts* eq).
-      { Case "TmApp". inverts ttype1. applys* tm_subst_preservation. }
+      { Case "TmApp". inverts ttype1. applys* tm_bsubst_preservation. }
       { Case "TmTyApp". inverts ttype. applys* tm_ty_subst_preservation. }
     Qed.
   End Soundness.

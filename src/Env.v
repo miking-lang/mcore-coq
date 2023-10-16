@@ -14,7 +14,7 @@ Module Env (P : PAT).
   Inductive binding : Type :=
   | BindTname : binding
   | BindCon   : data -> type -> tname -> binding
-  | BindTvar  : kind -> binding
+  | BindTvar  : option kind -> binding
   | BindVar   : option type -> binding
   | BindMatch : match_assum -> binding
   .
@@ -42,7 +42,7 @@ Module Env (P : PAT).
   Definition con_in (K : con) (d : data) (ty : type) (T : tname) (Gamma : env) : Prop :=
     Nth K Gamma (BindCon d ty T).
 
-  Definition tvar_in (tv : tvar) (k : kind) (Gamma : env) : Prop :=
+  Definition tvar_in (tv : tvar) (k : option kind) (Gamma : env) : Prop :=
     Nth tv Gamma (BindTvar k).
 
   Definition var_in (v : var) (ty : option type) (Gamma : env) : Prop :=
@@ -65,13 +65,5 @@ Module Env (P : PAT).
 
   #[export]
   Hint Rewrite vars_app vars_cons : rew_mcore.
-
-  (* Lemma var_in_n : forall G1 G2 b, *)
-  (*     var_in (length G1) (G1 ++ b ++ G2) = *)
-  (*       match b with *)
-  (*       | BindVar _ => b :: vars Gamma *)
-  (*       | _         => vars Gamma *)
-  (*       end. *)
-  (* Proof. intros ; destruct b ; unfold vars ; rew_listx ; rew_mcore~. Qed. *)
 
 End Env.

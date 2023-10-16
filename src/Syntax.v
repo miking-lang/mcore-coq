@@ -66,7 +66,7 @@ Module Syntax (P : PAT).
   Fixpoint ty_freshen (ty : type) (i : tvar) : type :=
     match ty with
     | TyBVar j => ty
-    | TyFVar k => If i <= k then TyFVar (S k) else ty
+    | TyFVar k => If k >= i then TyFVar (S k) else ty
     | TyArr l r => TyArr (ty_freshen l i) (ty_freshen r i)
     | TyAll k ty' => TyAll k (ty_freshen ty' i)
     (* | TyProd l r => TyProd (ty_shift_gen l i) (ty_shift_gen r i) *)
@@ -78,7 +78,7 @@ Module Syntax (P : PAT).
   Fixpoint tm_freshen (t : term) (i : var) : term :=
     match t with
     | TmBVar j => t
-    | TmFVar k => If i <= k then TmFVar (S k) else t
+    | TmFVar k => If k >= i then TmFVar (S k) else t
     | TmLam ty t' => TmLam ty (tm_freshen t' i)
     | TmApp l r => TmApp (tm_freshen l i) (tm_freshen r i)
     | TmTyLam k t' => TmTyLam k (tm_freshen t' i)
@@ -101,7 +101,7 @@ Module Syntax (P : PAT).
   Fixpoint ty_defreshen (ty : type) (i : tvar) : type :=
     match ty with
     | TyBVar j => ty
-    | TyFVar k => If i <= k then TyFVar (k - 1) else ty
+    | TyFVar k => If k > i then TyFVar (k - 1) else ty
     | TyArr l r => TyArr (ty_defreshen l i) (ty_defreshen r i)
     | TyAll k ty' => TyAll k (ty_defreshen ty' i)
     (* | TyProd l r => TyProd (ty_shift_gen l i) (ty_shift_gen r i) *)
@@ -113,7 +113,7 @@ Module Syntax (P : PAT).
   Fixpoint tm_defreshen (t : term) (i : var) : term :=
     match t with
     | TmBVar j => t
-    | TmFVar k => If i <= k then TmFVar (k - 1) else t
+    | TmFVar k => If k > i then TmFVar (k - 1) else t
     | TmLam ty t' => TmLam ty (tm_defreshen t' i)
     | TmApp l r => TmApp (tm_defreshen l i) (tm_defreshen r i)
     | TmTyLam k t' => TmTyLam k (tm_defreshen t' i)
@@ -220,5 +220,25 @@ Module Syntax (P : PAT).
 
   (* Definition tm_subst_n (t : term) (ts : list term) : term := *)
   (*   fold_right (fun t2 t1 => tm_subst t1 t2) t ts. *)
+
+
+  Inductive ty_lc : type -> Prop :=
+  | LCTFVar : forall v, ty_lc (TyFVar v)
+  | LCTArr  : forall ty1 ty2, ty_lc ty1 -> ty_lc ty2 -> ty_lc (TyArr ty1 ty2)
+  | LCTAll  : forall k ty, ty_lc (ty_open ty) -> ty_lc (TyAll k ty)
+  .
+  #[export]
+   Hint Constructors ty_lc : mcore.
+
+  Inductive tm_lc : term -> Prop :=
+  | LCFVar  : forall v, tm_lc (TmFVar v)
+  | LCLam   : forall t ty, ty_lc ty -> tm_lc (tm_open t) -> tm_lc (TmLam ty t)
+  | LCApp   : forall t1 t2, tm_lc t1 -> tm_lc t2 -> tm_lc (TmApp t1 t2)
+  | LCTyLam : forall k t, tm_lc (tm_ty_open t) -> tm_lc (TmTyLam k t)
+  | LCTyApp : forall t ty, tm_lc t -> ty_lc ty -> tm_lc (TmTyApp t ty)
+  .
+  #[export]
+   Hint Constructors tm_lc : mcore.
+
 
 End Syntax.
