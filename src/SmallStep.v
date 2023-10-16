@@ -68,9 +68,9 @@ Module SmallStep (P : PAT).
     Inductive eval_step : term -> term -> Prop :=
     | EApp : forall {ty : type} {t v : term},
         is_value v ->
-        eval_step (TmApp (TmLam ty t) v) (tm_subst t v)
+        eval_step (TmApp (TmLam ty t) v) (tm_bsubst t 0 v)
     | ETyApp : forall {k : kind} {t : term} {ty : type},
-        eval_step (TmTyApp (TmTyLam k t) ty) (tm_ty_subst t ty)
+        eval_step (TmTyApp (TmTyLam k t) ty) (tm_ty_bsubst t 0 ty)
     (* | EFix : forall {ty : type} {t : term}, *)
     (*     eval_step (TmFix (TmLam ty t)) (tm_subst t (TmFix (TmLam ty t))) *)
     (* | EProj1 : forall {v1 v2 : term}, *)

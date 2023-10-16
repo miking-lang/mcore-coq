@@ -35,15 +35,15 @@ Module Typing (P : PAT).
      Hint Constructors ok_kind : mcore.
 
     Inductive ok_type : env -> type -> kind -> Prop :=
-    | TyVar' : forall {Gamma : env} {tv : tvar} {k : kind},
+    | TyFVar' : forall {Gamma : env} {tv : tvar} {k : kind},
         tvar_in tv k (tvars Gamma) ->
-        ok_type Gamma (TyVar tv) k
+        ok_type Gamma (TyFVar tv) k
     | TyArr' : forall {Gamma : env} {ty1 ty2 : type},
         ok_type Gamma ty1 KiType ->
         ok_type Gamma ty2 KiType ->
         ok_type Gamma (TyArr ty1 ty2) KiType
     | TyAll' : forall {Gamma : env} {k : kind} {ty : type},
-        ok_type (Btvar k :: Gamma) ty KiType ->
+        ok_type (BindTvar k :: Gamma) (ty_open ty) KiType ->
         ok_type Gamma (TyAll k ty) KiType
     (* | TyProd' : forall {Gamma : env} {ty1 ty2 : type}, *)
     (*     ok_type Gamma ty1 KiType -> *)
@@ -70,12 +70,12 @@ Module Typing (P : PAT).
      Hint Constructors ok_type : mcore.
 
     Inductive ok_term : env -> term -> type -> Prop :=
-    | TmVar' : forall {Gamma : env} {x : var} {ty : type},
-        var_in x ty (vars Gamma) ->
-        ok_term Gamma (TmVar x) ty
+    | TmFVar' : forall {Gamma : env} {x : var} {ty : type},
+        var_in x (Some ty) (vars Gamma) ->
+        ok_term Gamma (TmFVar x) ty
     | TmLam' : forall {Gamma : env} {ty1 ty2 : type} {t : term},
         ok_type Gamma ty1 KiType ->
-        ok_term (Bvar ty1 :: Gamma) t ty2 ->
+        ok_term (BindVar (Some ty1) :: Gamma) (tm_open t) ty2 ->
         ok_term Gamma (TmLam ty1 t) (TyArr ty1 ty2)
     | TmApp' : forall {Gamma : env} {ty1 ty2 : type} {t1 t2 : term},
         ok_term Gamma t1 (TyArr ty1 ty2) ->
@@ -83,12 +83,12 @@ Module Typing (P : PAT).
         ok_term Gamma (TmApp t1 t2) ty2
     | TmTyLam' : forall {Gamma : env} {k : kind} {ty : type} {t : term},
         ok_kind Gamma k ->
-        ok_term (Btvar k :: Gamma) t ty ->
+        ok_term (BindTvar k :: Gamma) (tm_ty_open t) (ty_open ty) ->
         ok_term Gamma (TmTyLam k t) (TyAll k ty)
     | TmTyApp' : forall {Gamma : env} {k : kind} {ty1 ty2 : type} {t : term},
         ok_term Gamma t (TyAll k ty1) ->
         ok_type Gamma ty2 k ->
-        ok_term Gamma (TmTyApp t ty2) (ty_subst ty1 ty2)
+        ok_term Gamma (TmTyApp t ty2) (ty_bsubst ty1 0 ty2)
     (* | TmFix' : forall {Gamma : env} {ty : type} {t : term}, *)
     (*     ok_term Gamma t (TyArr ty ty) -> *)
     (*     ok_term Gamma (TmFix t) ty *)
