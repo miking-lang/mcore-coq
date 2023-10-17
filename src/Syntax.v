@@ -221,6 +221,11 @@ Module Syntax (P : PAT).
   (* Definition tm_subst_n (t : term) (ts : list term) : term := *)
   (*   fold_right (fun t2 t1 => tm_subst t1 t2) t ts. *)
 
+  Definition tm_tvar_fresh (x : var) (t : term) : Prop :=
+    tm_ty_freshen (tm_ty_defreshen t x) x = t.
+
+  Definition var_fresh (x : var) (t : term) : Prop :=
+    tm_freshen (tm_defreshen t x) x = t.
 
   Inductive ty_lc : type -> Prop :=
   | LCTFVar : forall v, ty_lc (TyFVar v)

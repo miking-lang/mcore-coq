@@ -29,25 +29,21 @@ Module Soundness (P : PAT).
         inverts* Hval. inverts ttype. }
     Qed.
 
-    Definition fresh (x : var) (t : term) : Prop :=
-      tm_freshen (tm_defreshen t x) x = t.
-
     Lemma defreshen_freshen : forall t x, tm_defreshen (tm_freshen t x) x = t.
     Proof.
       intros. induction t ; simpls ; fequals*.
-      { Case "TmFVar". case_if as Hge.
-        { simpls. case_if as Hgt ; rew_nat*.
-          cuts* Hgt' : (S v > x). rewrite gt_as_slt. rewrite lt_peano.
-          rewrite Nat.lt_succ_r. apply Hge. }
-        { simpls. case_if*. false. apply Hge. apply gt_to_ge. auto. } }
+      { Case "TmFVar". case_if as Hge ; simpls.
+        { case_if as Hgt ; rew_nat*.
+          cuts* Hgt' : (S v > x). rewrite gt_as_slt. rewrite lt_peano. rewrite* Nat.lt_succ_r. }
+        { case_if*. false. apply Hge. apply gt_to_ge. auto. } }
     Qed.
 
-    Lemma freshen_fresh : forall t x, fresh x (tm_freshen t x).
-    Proof. intros. unfold fresh. rewrite* defreshen_freshen. Qed.
+    Lemma freshen_fresh : forall t x, var_fresh x (tm_freshen t x).
+    Proof. intros. unfold var_fresh. rewrite* defreshen_freshen. Qed.
 
-    Lemma var_not_fresh : forall x, ~(fresh x (TmFVar x)).
+    Lemma var_not_fresh : forall x, ~(var_fresh x (TmFVar x)).
     Proof.
-      intros x Heq. unfolds fresh. simpls.
+      intros x Heq. unfolds var_fresh. simpls.
       case_if as Hgt.
       - false. apply* Hgt.
       - simpls. case_if as Hge.
@@ -55,22 +51,52 @@ Module Soundness (P : PAT).
         * false. apply* Hge. apply ge_refl.
     Qed.
 
-    Lemma fresh_subst : forall t x u, fresh x t -> tm_subst t x u = t.
+    Lemma subst_fresh : forall t x u, var_fresh x t -> tm_subst t x u = t.
     Proof.
       introv Hfresh. unfolds tm_subst.
-      induction* t.
+      induction* t ; fequals ; inverts Hfresh as Hfresh1 Hfresh2 ;
+        try rewrite* Hfresh1 ; try rewrite* Hfresh2.
       { Case "TmFVar". assert (Hneq : v <> x). intros Heq. subst.
         lets* Hnfresh : var_not_fresh. case_if*. }
-      { Case "TmLam". fequals. inverts Hfresh as Hfresh'. rewrites* Hfresh' in *. }
-      { Case "TmApp". fequals.
-        inverts Hfresh as Hfresh1 ?. rewrite* Hfresh1.
-        inverts Hfresh as ? Hfresh2. rewrite* Hfresh2. }
-      { Case "TmTyLam". fequals. inverts Hfresh as Hfresh'. rewrite* Hfresh'. }
-      { Case "TmTyApp". fequals. inverts Hfresh as Hfresh'. rewrite* Hfresh'. }
+    Qed.
+
+    (* TODO: can freshen be separated out from these lemmas into separate ones? *)
+    Lemma ty_bsubst_neq : forall ty x y U1 U2,
+        x <> y ->
+        ty_bsubst (ty_bsubst (ty_freshen ty 0) x U1) y U2 = ty_bsubst (ty_freshen ty 0) x U1 ->
+        ty_bsubst ty y U2 = ty.
+    Proof.
+      introv Hneq Heq. gen x y.
+      induction* ty ; intros ; inverts Heq as Heq' ; simpls ; fequals*.
+      { Case "TmBVar". case_if*. case_if* in Heq'. simpls. case_if* in Heq'. }
+    Qed.
+
+    Lemma tm_bsubst_neq : forall t x y u1 u2,
+        x <> y ->
+        tm_bsubst (tm_bsubst (tm_freshen t 0) x u1) y u2 = tm_bsubst (tm_freshen t 0) x u1 ->
+        tm_bsubst t y u2 = t.
+    Proof.
+      introv Hneq Heq. gen x y.
+      induction* t ; intros ; inverts Heq as Heq' ; simpls ; fequals*.
+      { Case "TmBVar". case_if*. case_if* in Heq'. simpls. case_if* in Heq'. }
+    Qed.
+
+    Lemma tm_ty_bsubst_neq : forall t x y ty u,
+        tm_bsubst (tm_ty_bsubst (tm_ty_freshen t 0) x ty) y u =
+          tm_ty_bsubst (tm_ty_freshen t 0) x ty ->
+        tm_bsubst t y u = t.
+    Proof.
+      introv Heq. gen x y.
+      induction* t ; intros ; inverts Heq ; simpls ; fequals*.
     Qed.
 
     Lemma lc_bsubst : forall t y u, tm_lc t -> tm_bsubst t y u = t.
-    Proof. Admitted.
+    Proof.
+      introv Hlc. gen y.
+      induction Hlc ; intros ; simpls ; fequals*.
+      { Case "TmLam". rewrite tm_bsubst_neq with (x := 0) (u1 := TmFVar 0) ; auto. }
+      { Case "TmTyLam". rewrite tm_ty_bsubst_neq with (x := 0) (ty := TyFVar 0) ; auto. }
+    Qed.
 
     Lemma subst_bsubst_distr :
       forall x y t u1 u2,
@@ -84,18 +110,16 @@ Module Soundness (P : PAT).
       { case_if*. rewrite* lc_bsubst. }
     Qed.
 
-
-    (* tm_subst (tm_bsubst t 0 (TmFVar x)) x u = *)
-    (*    tm_bsubst t 0 u *)
-
-    tm_bsubst t 0 t' =
-       tm_subst (tm_bsubst t 0 (TmFVar 0)) 0 t'
-
-        tm_freshen (tm_bsubst t 0 (TmBVar 0)) 0 =
-          tm_subst (tm_bsubst (tm_freshen t 0) 0 (TmFVar 0)) 0 (TmBVar 0).
-
-        tm_bsubst (tm_freshen (tm_subst t n t') 0) 0 (TmFVar 0) =
-          tm_subst  (tm_bsubst (tm_freshen t 0) 0 (TmFVar 0)) (S n) (tm_freshen t' 0).
+    (* Does this really need lc? *)
+    Lemma subst_intro :
+      forall x y t u,
+        var_fresh x t ->
+        tm_lc u ->
+        tm_bsubst t y u = tm_subst (tm_bsubst t y (TmFVar x)) x u.
+    Proof.
+      introv Hfresh Hlc. unfolds. rewrite* subst_bsubst_distr.
+      simpls. case_if. rewrite* subst_fresh.
+    Qed.
 
     Lemma tm_open_subst_comm :
       forall t x u,
