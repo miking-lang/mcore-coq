@@ -1,7 +1,5 @@
 From MCore Require Import Syntax Typing SmallStep Tactics.
-From TLC Require Import LibString LibNat LibList LibLogic LibOrder.
-Import LibListNotation.
-
+From TLC Require Import LibString LibNat LibList LibOrder.
 
 Module Soundness (P : PAT).
   Module S := SmallStep P.
@@ -19,9 +17,9 @@ Module Soundness (P : PAT).
     Proof.
       introv ttype.
       remember empty_env as Gamma eqn:HGamma.
-      induction ttype
+      induction ttype ; subst
       ; try (left; constructor).
-      { Case "TmFVar". subst. with_hyp (var_in _ _ _) as Hvar. inversion Hvar. }
+      { Case "TmFVar". with_hyp (var_in _ _ _) as Hvar. inversion Hvar. }
       { Case "TmApp". right.
         forwards* [Hval1 | (t1' & Hstep1)]: IHttype1.
         forwards* [Hval2 | (t2' & Hstep2)]: IHttype2.
@@ -31,152 +29,78 @@ Module Soundness (P : PAT).
         inverts* Hval. inverts ttype. }
     Qed.
 
-    (* Lemma ok_kind_strengthen_vars : *)
-    (*   forall G1 G2 ty' k, *)
-    (*     ok_kind (G1 ++ Bvar ty' :: G2) k -> *)
-    (*     ok_kind (G1 ++ G2) k. *)
-    (* Proof. introv k_wf. induction* k_wf. Qed. *)
+    Definition fresh (x : var) (t : term) : Prop :=
+      tm_freshen (tm_defreshen t x) x = t.
 
-    (* Lemma ok_kind_strengthen_tvars : *)
-    (*   forall G1 G2 k' k, *)
-    (*     ok_kind (G1 ++ G2) k -> *)
-    (*     ok_kind (G1 ++ Btvar k' :: G2) k. *)
-    (* Proof. introv k_wf. induction* k_wf. Qed. *)
+    Lemma defreshen_freshen : forall t x, tm_defreshen (tm_freshen t x) x = t.
+    Proof.
+      intros. induction t ; simpls ; fequals*.
+      { Case "TmFVar". case_if as Hge.
+        { simpls. case_if as Hgt ; rew_nat*.
+          cuts* Hgt' : (S v > x). rewrite gt_as_slt. rewrite lt_peano.
+          rewrite Nat.lt_succ_r. apply Hge. }
+        { simpls. case_if*. false. apply Hge. apply gt_to_ge. auto. } }
+    Qed.
 
-    (* Lemma ok_type_strengthen_vars : *)
-    (*   forall G1 G2 ty' ty k, *)
-    (*     ok_type (G1 ++ Bvar ty' :: G2) ty k -> *)
-    (*     ok_type (G1 ++ G2) ty k. *)
-    (* Proof. *)
-    (*   introv tykind. *)
-    (*   remember (G1 ++ Bvar ty' :: G2) as Gamma eqn:HGamma. *)
-    (*   gen G1. *)
-    (*   induction tykind ; intros ; subst* ; constructor*. *)
-    (*   { Case "TyAll". applys* IHtykind (Btvar k :: G1). } *)
-    (* Qed. *)
+    Lemma freshen_fresh : forall t x, fresh x (tm_freshen t x).
+    Proof. intros. unfold fresh. rewrite* defreshen_freshen. Qed.
 
-    (* Definition ty_shift_env Gamma := *)
-    (*   fold_right *)
-    (*     (fun b bs => *)
-    (*        match b with *)
-    (*        | Bvar ty => Bvar (ty_shift_gen ty (length (tvars bs))) *)
-    (*        | _ => b *)
-    (*        end :: bs) *)
-    (*     [ ] Gamma. *)
+    Lemma var_not_fresh : forall x, ~(fresh x (TmFVar x)).
+    Proof.
+      intros x Heq. unfolds fresh. simpls.
+      case_if as Hgt.
+      - false. apply* Hgt.
+      - simpls. case_if as Hge.
+        * inverts Heq as contra. applys* Nat.neq_succ_diag_r.
+        * false. apply* Hge. apply ge_refl.
+    Qed.
 
-    (* Lemma ty_shift_env_length : *)
-    (*   forall Gamma, *)
-    (*     length (tvars (ty_shift_env Gamma)) = length (tvars Gamma). *)
-    (* Proof. Admitted. *)
+    Lemma fresh_subst : forall t x u, fresh x t -> tm_subst t x u = t.
+    Proof.
+      introv Hfresh. unfolds tm_subst.
+      induction* t.
+      { Case "TmFVar". assert (Hneq : v <> x). intros Heq. subst.
+        lets* Hnfresh : var_not_fresh. case_if*. }
+      { Case "TmLam". fequals. inverts Hfresh as Hfresh'. rewrites* Hfresh' in *. }
+      { Case "TmApp". fequals.
+        inverts Hfresh as Hfresh1 ?. rewrite* Hfresh1.
+        inverts Hfresh as ? Hfresh2. rewrite* Hfresh2. }
+      { Case "TmTyLam". fequals. inverts Hfresh as Hfresh'. rewrite* Hfresh'. }
+      { Case "TmTyApp". fequals. inverts Hfresh as Hfresh'. rewrite* Hfresh'. }
+    Qed.
 
-    (* Lemma ok_kind_strengthen_shift : *)
-    (*   forall G1 G2 k, *)
-    (*     ok_kind (G1 ++ G2) k -> *)
-    (*     ok_kind (ty_shift_env G1 ++ G2) k. *)
-    (* Proof. Admitted. *)
-
-
-    (* Lemma ok_type_weaken_tvars_gen : *)
-    (*   forall G1 G2 k' ty k, *)
-    (*     ok_type (G1 ++ G2) ty k -> *)
-    (*     ok_type (ty_shift_env G1 ++ k' :: G2) (ty_shift_gen ty (length (tvars G1))) k. *)
-    (* Proof. Admitted. *)
-
-    (* Lemma ok_type_tvars_weaken : *)
-    (*   forall Gamma k' ty k, *)
-    (*     ok_type Gamma ty k -> *)
-    (*     ok_type (Gamma <| tvars ::= fun tvs => k' :: tvs |>) (ty_shift ty) k. *)
-    (* Proof. Admitted. *)
-
-    (* Lemma shift_subst_comm : *)
-    (*   forall t1  *)
-
-    (* Lemma ok_term_weaken_tvars_gen : *)
-    (*   forall G1 G2 k t ty, *)
-    (*     ok_term (G1 ++ G2) t ty -> *)
-    (*     ok_term (ty_shift_env G1 ++ Btvar k :: G2) *)
-    (*             (tm_ty_shift_gen t (length (tvars G1))) *)
-    (*             (ty_shift_gen ty (length (tvars G1))). *)
-    (* Proof. *)
-    (*   introv ttype. *)
-    (*   remember (G1 ++ G2) as Gamma eqn:HGamma. *)
-    (*   gen G1. *)
-    (*   induction ttype ; intros ; subst*. *)
-    (*   { Case "TmVar". admit. } *)
-    (*   { Case "TmLam". constructor. *)
-    (*     applys* ok_type_weaken_tvars_gen. *)
-    (*     applys_eq* (IHttype (Bvar ty1 :: G1)). unfolds* ty_shift_env. rewrite* ty_shift_env_length. *)
-    (*     auto_star. auto_star. } *)
-    (*   { Case "TmTyLam". constructor. *)
-    (*     applys ok_kind_strengthen_tvars. *)
-    (*     applys* ok_kind_strengthen_shift. *)
-    (*     applys_eq* (IHttype (Btvar k0 :: G1)) ; rew_listx*. } *)
-    (*   { Case "TmTyApp". unfold ty_shift_gen.  constructor. *)
-    (*   } *)
-    (* Admitted. *)
-
-    (* Lemma ok_term_tvars_weaken : *)
-    (*   forall Gamma k t ty, *)
-    (*     ok_term Gamma t ty -> *)
-    (*     ok_term (Gamma <| tvars ::= fun tvs => k :: tvs |>) (tm_ty_shift t) (ty_shift ty). *)
-    (* Proof. Admitted. *)
-
-    (* Lemma ok_term_weaken_vars : *)
-    (*   forall Gamma ty' t ty, *)
-    (*     ok_term Gamma t ty -> *)
-    (*     ok_term (Bvar ty' :: Gamma) (tm_shift t) ty. *)
-    (* Proof. Admitted. *)
-
-    (* Lemma tm_subst_gen_preservation : *)
-    (*   forall G1 G2 t ty t' ty', *)
-    (*     ok_term (G1 ++ Bvar ty' :: G2) t ty -> *)
-    (*     ok_term (G1 ++ G2) t' ty' -> *)
-    (*     ok_term (G1 ++ G2) (tm_subst_gen t (length (vars G1)) t') ty. *)
-    (* Proof. *)
-    (*   introv ttype. *)
-    (*   remember (G1 ++ Bvar ty1 :: G2) as Gamma eqn:HGamma. *)
-    (*   gen t' ty1 G1. *)
-    (*   induction ttype ; intros ; subst*. *)
-    (*   { Case "TmVar". with_hyp (Nth _ _ _) as Hvar. *)
-    (*     unfold tm_subst_gen. *)
-    (*     lets [ in_vs1 | (m & Heqm & in_vs2') ] : Nth_app_inv Hvar. *)
-    (*     { lets Hlt : Nth_inbound in_vs1. rewrites (>> If_l Hlt). *)
-    (*       constructor*. applys* Nth_app_l. } *)
-    (*     { subst. assert (nlt : ~(length (vars G1) + m < length (vars G1))). nat_math. *)
-    (*       rewrites* (>> If_r nlt). *)
-    (*       lets [ (Heq0 & Heq) | (m' & Heqm' & in_vs2) ] : Nth_cons_inv in_vs2' ; subst. *)
-    (*       { inverts Heq. rewrites* (>> If_l plus_zero_r). } *)
-    (*       { rew_nat. assert (neq : S (length (vars G1) + m') <> length (vars G1)). nat_math. *)
-    (*         rewrites (>> If_r neq). rewrite Nat.add_comm. *)
-    (*         constructor*. applys Nth_app_r in_vs2. } } } *)
-    (*   { Case "TmLam". constructors*. *)
-    (*     applys* ok_type_strengthen_vars ty0. *)
-    (*     applys_eq* (IHttype (tm_shift t') ty0 (Bvar ty1 :: G1)). unfolds* is_var. *)
-    (*     applys_eq* (ok_term_weaken_vars (G1 ++ G2) ty1). } *)
-    (*   { Case "TmTyLam". constructors*. *)
-    (*     applys* ok_kind_strengthen_vars ty1. folds (tm_subst_gen t (length (filter is_var G1)) (tm_ty_shift t')). *)
-    (*     applys_eq* (IHttype (tm_ty_shift t') (Btvar k :: G1) (ty_shift ty1)). *)
-    (*     applys* ok_term_tvars_weaken (Gamma <| vars := vs1 ++ vs2 |> <| tvars := tvs |>). } *)
-    (*   { Case "TmTyApp". constructors*. *)
-    (*     applys* ok_type_ignores_vars (Gamma <| vars := vs1 ++ ty1 :: vs2 |> <| tvars := tvs |>). } *)
-    (* Qed. *)
-
-    Lemma tm_freshen_preservation :
-      forall Gamma t ty ty',
-        ok_term Gamma t ty ->
-        ok_term (BindVar ty' :: Gamma) (tm_freshen t 0) ty.
+    Lemma lc_bsubst : forall t y u, tm_lc t -> tm_bsubst t y u = t.
     Proof. Admitted.
 
-    Lemma tm_ty_freshen_preservation :
-      forall Gamma t ty k',
-        ok_term Gamma t ty ->
-        ok_term (BindTvar k' :: Gamma) (tm_ty_freshen t 0) ty.
-    Proof. Admitted.
+    Lemma subst_bsubst_distr :
+      forall x y t u1 u2,
+        tm_lc u1 ->
+        tm_subst (tm_bsubst t y u2) x u1 =
+          tm_bsubst (tm_subst t x u1) y (tm_subst u2 x u1).
+    Proof.
+      introv Hlc. unfolds tm_bsubst. gen y.
+      induction t ; intros ; simpls*; fequals*.
+      { case_if*. }
+      { case_if*. rewrite* lc_bsubst. }
+    Qed.
+
+
+    (* tm_subst (tm_bsubst t 0 (TmFVar x)) x u = *)
+    (*    tm_bsubst t 0 u *)
+
+    tm_bsubst t 0 t' =
+       tm_subst (tm_bsubst t 0 (TmFVar 0)) 0 t'
+
+        tm_freshen (tm_bsubst t 0 (TmBVar 0)) 0 =
+          tm_subst (tm_bsubst (tm_freshen t 0) 0 (TmFVar 0)) 0 (TmBVar 0).
+
+        tm_bsubst (tm_freshen (tm_subst t n t') 0) 0 (TmFVar 0) =
+          tm_subst  (tm_bsubst (tm_freshen t 0) 0 (TmFVar 0)) (S n) (tm_freshen t' 0).
 
     Lemma tm_open_subst_comm :
-      forall t n t',
-        tm_lc t' ->
-        tm_open (tm_subst t n t') = tm_subst (tm_open t) (S n) (tm_freshen t' 0).
+      forall t x u,
+        tm_lc u ->
+        tm_open (tm_subst t x u) = tm_subst (tm_open t) (S x) (tm_freshen u 0).
     Proof. Admitted.
 
     Lemma tm_ty_open_subst_comm :
@@ -193,6 +117,29 @@ Module Soundness (P : PAT).
     Lemma tm_ty_open_defreshen_comm :
       forall t n,
         tm_ty_open (tm_defreshen t n) = tm_defreshen (tm_ty_open t) n.
+    Proof. Admitted.
+
+    Lemma bsubst_subst :
+      forall t t',
+        tm_freshen (tm_bsubst t 0 t') 0 =
+          tm_subst (tm_open t) 0 (tm_freshen t' 0).
+    Proof.
+      intros.
+      induction t.
+      { Case "TmBVar". unfold tm_bsubst. unfold tm_open. unfold tm_freshen. unfold tm_bsubst.
+        unfold tm_subst. unfold tm_defreshen. destruct v. case_if*. case_if*. unfold
+      }
+
+    Lemma tm_freshen_preservation :
+      forall Gamma t ty ty',
+        ok_term Gamma t ty ->
+        ok_term (BindVar ty' :: Gamma) (tm_freshen t 0) ty.
+    Proof. Admitted.
+
+    Lemma tm_ty_freshen_preservation :
+      forall Gamma t ty k',
+        ok_term Gamma t ty ->
+        ok_term (BindTvar k' :: Gamma) (tm_ty_freshen t 0) ty.
     Proof. Admitted.
 
     Lemma ok_type_lct :
