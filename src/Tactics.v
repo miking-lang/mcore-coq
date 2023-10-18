@@ -1,4 +1,4 @@
-From TLC Require Import LibLogic.
+From TLC Require Import LibLogic LibNat.
 From TLC Require Export LibTactics.
 
 Create HintDb mcore.
@@ -6,37 +6,7 @@ Ltac auto_star ::= try solve [ auto with mcore
                              | eauto with mcore
                              | intuition eauto with mcore].
 
-
-Create HintDb rew_mcore.
-
-Tactic Notation "rew_mcore" :=
-  autorewrite with rew_mcore.
-Tactic Notation "rew_mcore" "~" :=
-  rew_mcore; auto_tilde.
-Tactic Notation "rew_mcore" "*" :=
-  rew_mcore; auto_star.
-Tactic Notation "rew_mcore" "in" "*" :=
-  autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_mcore).
-Tactic Notation "rew_mcore" "~" "in" "*" :=
-  rew_mcore in *; auto_tilde.
-Tactic Notation "rew_mcore" "*" "in" "*" :=
-  rew_mcore in *; auto_star.
-Tactic Notation "rew_mcore" "in" hyp(H) :=
-  autorewrite with rew_mcore in H.
-Tactic Notation "rew_mcore" "~" "in" hyp(H) :=
-  rew_mcore in H; auto_tilde.
-Tactic Notation "rew_mcore" "*" "in" hyp(H) :=
-  rew_mcore in H; auto_star.
-
-Lemma If_l_T : forall A (x y : A), (If True then x else y) = x.
-Proof. intros. case_if*. Qed.
-
-Lemma If_r_F : forall A (x y : A), (If False then x else y) = y.
-Proof. intros. case_if*. Qed.
-
-#[export]
-Hint Rewrite If_l_T If_r_F : rew_mcore.
-
+Ltac simple_math := nat_comp_to_peano ; repeat (simpls ; case_if ; rew_nat* ; try nat_math).
 
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=

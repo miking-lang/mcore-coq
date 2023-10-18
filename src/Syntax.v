@@ -1,5 +1,7 @@
 From TLC Require Import LibList LibLogic LibMap LibSet LibNat.
 
+Open Scope nat_scope.
+
 Module Type PAT.
   Parameter pat : Type.
 End PAT.
@@ -66,7 +68,7 @@ Module Syntax (P : PAT).
   Fixpoint ty_freshen (ty : type) (x : tvar) : type :=
     match ty with
     | TyBVar j => ty
-    | TyFVar k => If k >= x then TyFVar (S k) else ty
+    | TyFVar k => If x <= k then TyFVar (S k) else ty
     | TyArr l r => TyArr (ty_freshen l x) (ty_freshen r x)
     | TyAll k ty' => TyAll k (ty_freshen ty' x)
     (* | TyProd l r => TyProd (ty_shift_gen l x) (ty_shift_gen r x) *)
@@ -78,7 +80,7 @@ Module Syntax (P : PAT).
   Fixpoint tm_freshen (t : term) (x : var) : term :=
     match t with
     | TmBVar j => t
-    | TmFVar k => If k >= x then TmFVar (S k) else t
+    | TmFVar k => If x <= k then TmFVar (S k) else t
     | TmLam ty t' => TmLam ty (tm_freshen t' x)
     | TmApp l r => TmApp (tm_freshen l x) (tm_freshen r x)
     | TmTyLam k t' => TmTyLam k (tm_freshen t' x)
@@ -101,7 +103,7 @@ Module Syntax (P : PAT).
   Fixpoint ty_defreshen (ty : type) (x : tvar) : type :=
     match ty with
     | TyBVar j => ty
-    | TyFVar k => If k > x then TyFVar (k - 1) else ty
+    | TyFVar k => If x < k then TyFVar (k - 1) else ty
     | TyArr l r => TyArr (ty_defreshen l x) (ty_defreshen r x)
     | TyAll k ty' => TyAll k (ty_defreshen ty' x)
     (* | TyProd l r => TyProd (ty_shift_gen l x) (ty_shift_gen r x) *)
@@ -113,7 +115,7 @@ Module Syntax (P : PAT).
   Fixpoint tm_defreshen (t : term) (x : var) : term :=
     match t with
     | TmBVar j => t
-    | TmFVar k => If k > x then TmFVar (k - 1) else t
+    | TmFVar k => If x < k then TmFVar (k - 1) else t
     | TmLam ty t' => TmLam ty (tm_defreshen t' x)
     | TmApp l r => TmApp (tm_defreshen l x) (tm_defreshen r x)
     | TmTyLam k t' => TmTyLam k (tm_defreshen t' x)
@@ -135,7 +137,7 @@ Module Syntax (P : PAT).
 
   Fixpoint ty_bsubst (ty1 : type) (x : tvar) (ty2 : type) : type :=
     match ty1 with
-    | TyBVar j => If j = x then ty2 else ty1
+    | TyBVar j => If x = j then ty2 else ty1
     | TyFVar k => ty1
     | TyArr l r =>
         TyArr (ty_bsubst l x ty2) (ty_bsubst r x ty2)
@@ -152,7 +154,7 @@ Module Syntax (P : PAT).
 
   Fixpoint tm_bsubst (t1 : term) (x : var) (t2 : term) : term :=
     match t1 with
-    | TmBVar j => If j = x then t2 else t1
+    | TmBVar j => If x = j then t2 else t1
     | TmFVar k => t1
     | TmLam ty t1' => TmLam ty (tm_bsubst t1' (S x) t2)
     | TmApp l r => TmApp (tm_bsubst l x t2) (tm_bsubst r x t2)
@@ -174,7 +176,7 @@ Module Syntax (P : PAT).
   Fixpoint ty_subst (ty1 : type) (x : tvar) (ty2 : type) : type :=
     match ty1 with
     | TyBVar j => ty1
-    | TyFVar k => If k = x then ty2 else ty1
+    | TyFVar k => If x = k then ty2 else ty1
     | TyArr l r =>
         TyArr (ty_subst l x ty2) (ty_subst r x ty2)
     | TyAll k ty1' =>
@@ -191,7 +193,7 @@ Module Syntax (P : PAT).
   Fixpoint tm_subst (t1 : term) (x : var) (t2 : term) : term :=
     match t1 with
     | TmBVar j => t1
-    | TmFVar k => If k = x then t2 else t1
+    | TmFVar k => If x = k then t2 else t1
     | TmLam ty t1' => TmLam ty (tm_subst t1' x t2)
     | TmApp l r => TmApp (tm_subst l x t2) (tm_subst r x t2)
     | TmTyLam k t1' => TmTyLam k (tm_subst t1' x t2)
@@ -221,11 +223,14 @@ Module Syntax (P : PAT).
   (* Definition tm_subst_n (t : term) (ts : list term) : term := *)
   (*   fold_right (fun t2 t1 => tm_subst t1 t2) t ts. *)
 
-  Definition tm_tvar_fresh (x : var) (t : term) : Prop :=
-    tm_ty_freshen (tm_ty_defreshen t x) x = t.
+  Definition tvar_fresh (x : tvar) (ty : type) : Prop :=
+    ty_freshen (ty_defreshen ty x) x = ty.
 
   Definition var_fresh (x : var) (t : term) : Prop :=
     tm_freshen (tm_defreshen t x) x = t.
+
+  Definition tm_tvar_fresh (x : tvar) (t : term) : Prop :=
+    tm_ty_freshen (tm_ty_defreshen t x) x = t.
 
   Inductive ty_lc : type -> Prop :=
   | LCTFVar : forall v, ty_lc (TyFVar v)

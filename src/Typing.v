@@ -36,14 +36,14 @@ Module Typing (P : PAT).
 
     Inductive ok_type : env -> type -> kind -> Prop :=
     | TyFVar' : forall {Gamma : env} {tv : tvar} {k : kind},
-        tvar_in tv (Some k) (tvars Gamma) ->
+        tvar_in tv k (tvars Gamma) ->
         ok_type Gamma (TyFVar tv) k
     | TyArr' : forall {Gamma : env} {ty1 ty2 : type},
         ok_type Gamma ty1 KiType ->
         ok_type Gamma ty2 KiType ->
         ok_type Gamma (TyArr ty1 ty2) KiType
     | TyAll' : forall {Gamma : env} {k : kind} {ty : type},
-        ok_type (BindTvar (Some k) :: Gamma) (ty_open ty) KiType ->
+        ok_type (BindTvar k :: Gamma) (ty_open ty) KiType ->
         ok_type Gamma (TyAll k ty) KiType
     (* | TyProd' : forall {Gamma : env} {ty1 ty2 : type}, *)
     (*     ok_type Gamma ty1 KiType -> *)
@@ -82,20 +82,20 @@ Module Typing (P : PAT).
     | EnvTvar : forall Gamma k,
         ok_env Gamma ->
         ok_kind Gamma k ->
-        ok_env (BindTvar (Some k) :: Gamma)
-    | EnvTvar' : forall Gamma,
-        ok_env Gamma ->
-        ok_env (BindTvar None :: Gamma)
+        ok_env (BindTvar k :: Gamma)
     | EnvVar : forall Gamma ty,
         ok_env Gamma ->
         ok_type Gamma ty KiType ->
-        ok_env (BindVar (Some ty) :: Gamma)
-    | EnvVar' : forall Gamma,
-        ok_env Gamma ->
-        ok_env (BindVar None :: Gamma)
+        ok_env (BindVar ty :: Gamma)
     | EnvMatch : forall Gamma m,
         ok_env Gamma ->
         ok_env (BindMatch m :: Gamma)
+    | EnvSkipTvar : forall Gamma,
+        ok_env Gamma ->
+        ok_env (SkipTvar :: Gamma)
+    | EnvSkipVar : forall Gamma,
+        ok_env Gamma ->
+        ok_env (SkipVar :: Gamma)
     .
     #[export]
      Hint Constructors ok_env : mcore.
@@ -103,11 +103,11 @@ Module Typing (P : PAT).
     Inductive ok_term : env -> term -> type -> Prop :=
     | TmFVar' : forall {Gamma : env} {x : var} {ty : type},
         ok_env Gamma ->
-        var_in x (Some ty) (vars Gamma) ->
+        var_in x ty (vars Gamma) ->
         ok_term Gamma (TmFVar x) ty
     | TmLam' : forall {Gamma : env} {ty1 ty2 : type} {t : term},
         ok_type Gamma ty1 KiType ->
-        ok_term (BindVar (Some ty1) :: Gamma) (tm_open t) ty2 ->
+        ok_term (BindVar ty1 :: Gamma) (tm_open t) ty2 ->
         ok_term Gamma (TmLam ty1 t) (TyArr ty1 ty2)
     | TmApp' : forall {Gamma : env} {ty1 ty2 : type} {t1 t2 : term},
         ok_term Gamma t1 (TyArr ty1 ty2) ->
@@ -115,7 +115,7 @@ Module Typing (P : PAT).
         ok_term Gamma (TmApp t1 t2) ty2
     | TmTyLam' : forall {Gamma : env} {k : kind} {ty : type} {t : term},
         ok_kind Gamma k ->
-        ok_term (BindTvar (Some k) :: Gamma) (tm_ty_open t) (ty_open ty) ->
+        ok_term (BindTvar k :: Gamma) (tm_ty_open t) (ty_open ty) ->
         ok_term Gamma (TmTyLam k t) (TyAll k ty)
     | TmTyApp' : forall {Gamma : env} {k : kind} {ty1 ty2 : type} {t : term},
         ok_term Gamma t (TyAll k ty1) ->
