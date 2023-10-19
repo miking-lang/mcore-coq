@@ -8,6 +8,8 @@ Ltac auto_star ::= try solve [ auto with mcore
 
 Ltac simple_math := nat_comp_to_peano ; repeat (simpls ; case_if ; rew_nat* ; try nat_math).
 
+Ltac magic t := induction t ; intros ; simple_math ; simpls ; fequals*.
+
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=
   (match goal with | H : P |- _ => let P' := type of H in unify P P'; rename H into X end).
