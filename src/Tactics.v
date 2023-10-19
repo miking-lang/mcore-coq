@@ -6,9 +6,9 @@ Ltac auto_star ::= try solve [ auto with mcore
                              | eauto with mcore
                              | intuition eauto with mcore].
 
-Ltac simple_math := nat_comp_to_peano ; repeat (simpls ; case_if ; rew_nat* ; try nat_math).
+Ltac simple_math := nat_comp_to_peano ; repeat (simpls ; try cases_if ; rew_nat* ; try nat_math).
 
-Ltac magic t := induction t ; intros ; simple_math ; simpls ; fequals*.
+Ltac magic t := induction t ; intros ; simple_math ; fequals* ; try nat_math.
 
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=

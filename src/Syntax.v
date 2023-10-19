@@ -63,7 +63,7 @@ Module Syntax (P : PAT).
 
 
   (* Freshening *)
-  (* X_freshen u x represents an alpha-renaming making x fresh. *)
+  (* X_freshen u x represents an alpha-conversion making x fresh. *)
 
   Fixpoint ty_freshen (ty : type) (x : tvar) : type :=
     match ty with
@@ -98,7 +98,7 @@ Module Syntax (P : PAT).
     end.
 
   (* Defreshening *)
-  (* X_defreshen u i represents an alpha-renaming making i occupied. *)
+  (* X_defreshen u x represents an alpha-conversion making x occupied. *)
 
   Fixpoint ty_defreshen (ty : type) (x : tvar) : type :=
     match ty with
@@ -133,7 +133,7 @@ Module Syntax (P : PAT).
     end.
 
   (* Bound variable substitution *)
-  (* X_bsubst u i v represents the substitution u[i \mapsto v], where i is bound in u. *)
+  (* X_bsubst u x v represents the substitution u[x \mapsto v], where x is bound in u. *)
 
   Fixpoint ty_bsubst (ty1 : type) (x : tvar) (ty2 : type) : type :=
     match ty1 with
@@ -144,11 +144,11 @@ Module Syntax (P : PAT).
     | TyAll k ty1' =>
         TyAll k (ty_bsubst ty1' (S x) ty2)
     (* | TyProd l r => *)
-    (*     TyProd (ty_subst_gen l x ty2) (ty_subst_gen r x ty2) *)
+    (*     TyProd (ty_fsubst_gen l x ty2) (ty_fsubst_gen r x ty2) *)
     (* | TyCon ty1' T => *)
-    (*     TyCon (ty_subst_gen ty1' x ty2) T *)
+    (*     TyCon (ty_fsubst_gen ty1' x ty2) T *)
     (* | TySem l r ps => *)
-    (*     TySem (ty_subst_gen l x ty2) (ty_subst_gen r x ty2) ps *)
+    (*     TySem (ty_fsubst_gen l x ty2) (ty_fsubst_gen r x ty2) ps *)
     (* | TyData d => ty1 *)
     end.
 
@@ -173,55 +173,71 @@ Module Syntax (P : PAT).
     end.
 
   (* Free variable substitution *)
-  Fixpoint ty_subst (ty1 : type) (x : tvar) (ty2 : type) : type :=
+  (* X_fsubst u x v represents the substitution u[x \mapsto v], where x is free in u. *)
+
+  Fixpoint ty_fsubst (ty1 : type) (x : tvar) (ty2 : type) : type :=
     match ty1 with
     | TyBVar j => ty1
     | TyFVar k => If x = k then ty2 else ty1
     | TyArr l r =>
-        TyArr (ty_subst l x ty2) (ty_subst r x ty2)
+        TyArr (ty_fsubst l x ty2) (ty_fsubst r x ty2)
     | TyAll k ty1' =>
-        TyAll k (ty_subst ty1' x ty2)
+        TyAll k (ty_fsubst ty1' x ty2)
     (* | TyProd l r => *)
-    (*     TyProd (ty_subst_gen l x ty2) (ty_subst_gen r x ty2) *)
+    (*     TyProd (ty_fsubst_gen l x ty2) (ty_fsubst_gen r x ty2) *)
     (* | TyCon ty1' T => *)
-    (*     TyCon (ty_subst_gen ty1' x ty2) T *)
+    (*     TyCon (ty_fsubst_gen ty1' x ty2) T *)
     (* | TySem l r ps => *)
-    (*     TySem (ty_subst_gen l x ty2) (ty_subst_gen r x ty2) ps *)
+    (*     TySem (ty_fsubst_gen l x ty2) (ty_fsubst_gen r x ty2) ps *)
     (* | TyData d => ty1 *)
     end.
 
-  Fixpoint tm_subst (t1 : term) (x : var) (t2 : term) : term :=
+  Fixpoint tm_fsubst (t1 : term) (x : var) (t2 : term) : term :=
     match t1 with
     | TmBVar j => t1
     | TmFVar k => If x = k then t2 else t1
-    | TmLam ty t1' => TmLam ty (tm_subst t1' x t2)
-    | TmApp l r => TmApp (tm_subst l x t2) (tm_subst r x t2)
-    | TmTyLam k t1' => TmTyLam k (tm_subst t1' x t2)
-    | TmTyApp t1' ty => TmTyApp (tm_subst t1' x t2) ty
+    | TmLam ty t1' => TmLam ty (tm_fsubst t1' x t2)
+    | TmApp l r => TmApp (tm_fsubst l x t2) (tm_fsubst r x t2)
+    | TmTyLam k t1' => TmTyLam k (tm_fsubst t1' x t2)
+    | TmTyApp t1' ty => TmTyApp (tm_fsubst t1' x t2) ty
     end.
 
-  Fixpoint tm_ty_subst (t : term) (x : tvar) (ty : type) : term :=
+  Fixpoint tm_ty_fsubst (t : term) (x : tvar) (ty : type) : term :=
     match t with
     | TmBVar j => t
     | TmFVar k => t
-    | TmLam ty' t' => TmLam (ty_subst ty' x ty) (tm_ty_subst t' x ty)
-    | TmApp l r => TmApp (tm_ty_subst l x ty) (tm_ty_subst r x ty)
-    | TmTyLam k t' => TmTyLam k (tm_ty_subst t' x ty)
-    | TmTyApp t' ty' => TmTyApp (tm_ty_subst t' x ty) (ty_subst ty' x ty)
+    | TmLam ty' t' => TmLam (ty_fsubst ty' x ty) (tm_ty_fsubst t' x ty)
+    | TmApp l r => TmApp (tm_ty_fsubst l x ty) (tm_ty_fsubst r x ty)
+    | TmTyLam k t' => TmTyLam k (tm_ty_fsubst t' x ty)
+    | TmTyApp t' ty' => TmTyApp (tm_ty_fsubst t' x ty) (ty_fsubst ty' x ty)
     end.
 
   (* Opening *)
-  Definition ty_open (ty : type) : type := ty_bsubst (ty_freshen ty 0) 0 (TyFVar 0).
-  Definition tm_open (t : term) : term := tm_bsubst (tm_freshen t 0) 0 (TmFVar 0).
-  Definition tm_ty_open (t : term) : term := tm_ty_bsubst (tm_ty_freshen t 0) 0 (TyFVar 0).
+  (* X_open u y x replaces the bound variable y in u with a fresh free variable x *)
+
+  Definition ty_open (ty : type) (y : var) (x : var) : type :=
+    ty_bsubst (ty_freshen ty x) y (TyFVar x).
+  Definition tm_open (t : term) (y : var) (x : var) : term :=
+    tm_bsubst (tm_freshen t x) y (TmFVar x).
+  Definition tm_ty_open (t : term) (y : var) (x : var) : term :=
+    tm_ty_bsubst (tm_ty_freshen t x) y (TyFVar x).
 
   (* Closing *)
-  Definition ty_close (ty : type) : type := ty_defreshen (ty_subst ty 0 (TyBVar 0)) 0.
-  Definition tm_close (t : term) : term := tm_defreshen (tm_subst t 0 (TmBVar 0)) 0.
-  Definition tm_ty_close (t : term) : term := tm_ty_defreshen (tm_ty_subst t 0 (TyBVar 0)) 0.
+  (* X_close u x v replaces the free variable x in u with the term v,
+     performing alpha-conversion to ensure x is fresh in v *)
 
-  (* Definition tm_subst_n (t : term) (ts : list term) : term := *)
-  (*   fold_right (fun t2 t1 => tm_subst t1 t2) t ts. *)
+  Definition ty_close (ty : type) (x : tvar) (ty' : type) : type :=
+    ty_defreshen (ty_fsubst ty x (ty_freshen ty' x)) x.
+  Definition tm_close (t : term) (x : var) (t' : term) : term :=
+    tm_defreshen (tm_fsubst t x (tm_freshen t' x)) x.
+  Definition tm_ty_close (t : term) (x : tvar) (ty : type) : term :=
+    tm_ty_defreshen (tm_ty_fsubst t x (ty_freshen ty x)) x.
+
+  (* Definition tm_fsubst_n (t : term) (ts : list term) : term := *)
+  (*   fold_right (fun t2 t1 => tm_fsubst t1 t2) t ts. *)
+
+  (* Freshness *)
+  (* A variable x is free in u if removing it and reintroducing it is a no-op. *)
 
   Definition tvar_fresh (x : tvar) (ty : type) : Prop :=
     ty_freshen (ty_defreshen ty x) x = ty.
@@ -235,16 +251,16 @@ Module Syntax (P : PAT).
   Inductive ty_lc : type -> Prop :=
   | LCTFVar : forall v, ty_lc (TyFVar v)
   | LCTArr  : forall ty1 ty2, ty_lc ty1 -> ty_lc ty2 -> ty_lc (TyArr ty1 ty2)
-  | LCTAll  : forall k ty, ty_lc (ty_open ty) -> ty_lc (TyAll k ty)
+  | LCTAll  : forall k ty, ty_lc (ty_open ty 0 0) -> ty_lc (TyAll k ty)
   .
   #[export]
    Hint Constructors ty_lc : mcore.
 
   Inductive tm_lc : term -> Prop :=
   | LCFVar  : forall v, tm_lc (TmFVar v)
-  | LCLam   : forall t ty, ty_lc ty -> tm_lc (tm_open t) -> tm_lc (TmLam ty t)
+  | LCLam   : forall t ty, ty_lc ty -> tm_lc (tm_open t 0 0) -> tm_lc (TmLam ty t)
   | LCApp   : forall t1 t2, tm_lc t1 -> tm_lc t2 -> tm_lc (TmApp t1 t2)
-  | LCTyLam : forall k t, tm_lc (tm_ty_open t) -> tm_lc (TmTyLam k t)
+  | LCTyLam : forall k t, tm_lc (tm_ty_open t 0 0) -> tm_lc (TmTyLam k t)
   | LCTyApp : forall t ty, tm_lc t -> ty_lc ty -> tm_lc (TmTyApp t ty)
   .
   #[export]
