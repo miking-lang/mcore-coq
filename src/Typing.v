@@ -1,5 +1,5 @@
 From MCore Require Import Syntax Env Tactics.
-From TLC Require Import LibList LibSet.
+From TLC Require Import LibString LibList LibSet.
 
 Module Typing (P : PAT).
   Module E := Env P.
@@ -14,6 +14,10 @@ Module Typing (P : PAT).
 
   Module Typing (PC : PATCHECK).
     Export PC.
+
+    (*********************************)
+    (** TYPING RELATION DEFINITIONS **)
+    (*********************************)
 
     Definition ok_data (Gamma : env) (d : data) : Prop :=
       forall (T : tname),
@@ -36,7 +40,7 @@ Module Typing (P : PAT).
 
     Inductive ok_type : env -> type -> kind -> Prop :=
     | TyFVar' : forall {Gamma : env} {tv : tvar} {k : kind},
-        tvar_in tv k (tvars Gamma) ->
+        tvar_in tv k Gamma ->
         ok_type Gamma (TyFVar tv) k
     | TyArr' : forall {Gamma : env} {ty1 ty2 : type},
         ok_type Gamma ty1 KiType ->
@@ -90,12 +94,6 @@ Module Typing (P : PAT).
     | EnvMatch : forall Gamma m,
         ok_env Gamma ->
         ok_env (BindMatch m :: Gamma)
-    | EnvSkipTvar : forall Gamma,
-        ok_env Gamma ->
-        ok_env (SkipTvar :: Gamma)
-    | EnvSkipVar : forall Gamma,
-        ok_env Gamma ->
-        ok_env (SkipVar :: Gamma)
     .
     #[export]
      Hint Constructors ok_env : mcore.
@@ -103,7 +101,7 @@ Module Typing (P : PAT).
     Inductive ok_term : env -> term -> type -> Prop :=
     | TmFVar' : forall {Gamma : env} {x : var} {ty : type},
         ok_env Gamma ->
-        var_in x ty (vars Gamma) ->
+        var_in x ty Gamma ->
         ok_term Gamma (TmFVar x) ty
     | TmLam' : forall {Gamma : env} {ty1 ty2 : type} {t : term},
         ok_type Gamma ty1 KiType ->
@@ -195,5 +193,174 @@ Module Typing (P : PAT).
     .
     #[export]
      Hint Constructors ok_term : mcore.
+
+
+    (**************************)
+    (** PROPERTIES OF TYPING **)
+    (**************************)
+
+    Lemma ok_type_lct :
+      forall Gamma ty k,
+        ok_type Gamma ty k ->
+        ty_lc ty.
+    Proof. introv tykind. induction* tykind. Qed.
+
+    Lemma ok_env_type :
+      forall G1 G2 ty,
+        ok_env (G1 ++ BindVar ty :: G2) ->
+        ok_type G2 ty KiType.
+    Proof. introv Henv ; induction* G1 ; inverts* Henv. Qed.
+
+    Lemma ok_env_lct :
+      forall Gamma x ty,
+        ok_env Gamma ->
+        var_in x ty Gamma ->
+        ty_lc ty.
+    Proof.
+      introv Henv Hvar. unfolds vars.
+      forwards Hmem : Nth_mem Hvar.
+      forwards* [ Hmem' ? ] : mem_filter_inv Hmem.
+      forwards [ G1 (G2 & Heq) ] : mem_inv_middle Hmem' ; subst.
+      applys ok_type_lct.
+      applys* ok_env_type.
+    Qed.
+
+    Lemma ok_term_lct :
+      forall Gamma t ty,
+        ok_term Gamma t ty ->
+        ty_lc ty.
+    Proof.
+      introv ttype. induction* ttype.
+      { Case "TmVar". apply* ok_env_lct. }
+      { Case "TmLam". constructor*. apply* ok_type_lct. }
+      { Case "TmApp". inverts* IHttype1. }
+      { Case "TmTyApp".
+        inverts* IHttype.
+        rewrite ty_bsubst_close_open with (x := 0).
+        apply ty_defreshen_lc. apply* ty_lc_fsubst. apply ty_freshen_lc. apply* ok_type_lct. }
+    Qed.
+
+    #[export]
+     Hint Extern 1 (ty_lc ?ty) =>
+      match goal with
+      | H: ok_term ?Gamma ?t ty |- _ => apply (ok_term_lct Gamma t ty)
+      | H: ok_type ?Gamma ty ?k |- _ => apply (ok_type_lct Gamma ty k)
+      end
+      : mcore.
+
+    #[export]
+     Hint Extern 1 (ty_lc (ty_freshen ?ty _)) =>
+      match goal with
+      | H: ok_term _ _ ty |- _ => apply ty_freshen_lc
+      | H: ok_type _ ty _ |- _ => apply ty_freshen_lc
+      end
+      : mcore.
+
+    Lemma ok_term_lc :
+      forall Gamma t ty,
+        ok_term Gamma t ty ->
+        tm_lc t.
+    Proof. introv ttype. induction* ttype. Qed.
+
+    #[export]
+     Hint Extern 1 (tm_lc ?t) =>
+      match goal with
+      | H: ok_term ?Gamma t ?ty |- _ => apply (ok_term_lc Gamma t ty)
+      end
+      : mcore.
+
+    #[export]
+     Hint Extern 1 (tm_lc (tm_freshen ?t _)) =>
+      match goal with
+      | H: ok_term _ t _ |- _ => apply tm_freshen_lc
+      end
+      : mcore.
+
+    Lemma ok_data_strengthen_var :
+      forall G1 G2 ty' d,
+        ok_data (G1 ++ BindVar ty' :: G2) d ->
+        ok_data (G1 ++ G2) d.
+    Proof. Admitted.
+
+    Lemma ok_kind_strengthen_var :
+      forall G1 G2 ty' k,
+        ok_kind (G1 ++ BindVar ty' :: G2) k ->
+        ok_kind (G1 ++ G2) k.
+    Proof. Admitted.
+
+    Lemma ok_type_strengthen_var :
+      forall G1 G2 ty' ty k,
+        ok_type (G1 ++ BindVar ty' :: G2) ty k ->
+        ok_type (G1 ++ G2) ty k.
+    Proof. Admitted.
+
+    Lemma ok_env_strengthen_var :
+      forall G1 G2 ty,
+        ok_env (G1 ++ BindVar ty :: G2) ->
+        ok_env (G1 ++ G2).
+    Proof. Admitted.
+    (*   introv Henv. induction* G1 ; rew_list in *. inverts* Henv. *)
+    (*   destruct* a ; inverts* Henv. constructor*. *)
+    (*   apply* ok_data_strengthen_var. apply* ok_type_strengthen_var. unfolds tnames. rew_listx in *. *)
+    (*   unfold is_tname in *. rew_env* in *. *)
+    (*   constructor. apply* IHG1. apply* ok_kind_strengthen_var. *)
+    (*   constructor. apply* IHG1. apply* ok_type_strengthen_var. *)
+    (* Qed. *)
+
+    Lemma tm_freshen_preservation :
+      forall Gamma t ty ty',
+        ok_term Gamma t ty ->
+        ok_term (BindVar ty' :: Gamma) (tm_freshen t 0) ty.
+    Proof. Admitted.
+
+    #[export]
+     Hint Extern 1 (ok_term _ (tm_freshen ?t _) _) =>
+      match goal with
+      | H: ok_term _ t _ |- _ => apply tm_freshen_preservation
+      end
+      : mcore.
+
+    Lemma tm_ty_freshen_preservation :
+      forall Gamma t ty k,
+        ok_term Gamma t ty ->
+        ok_term (BindTvar k :: Gamma) (tm_ty_freshen t 0) ty.
+    Proof. Admitted.
+
+    #[export]
+     Hint Extern 1 (ok_term _ (tm_ty_freshen ?t _) _) =>
+      match goal with
+      | H: ok_term _ t _ |- _ => apply tm_ty_freshen_preservation
+      end
+      : mcore.
+
+    Lemma tm_close_preservation :
+      forall G1 G2 x t t' ty1 ty2,
+        x = length (vars G1) ->
+        ok_term (G1 ++ BindVar ty1 :: G2) t ty2 ->
+        ok_term (G1 ++ G2) t' ty1 ->
+        ok_term (G1 ++ G2) (tm_close t x t') ty2.
+    Proof with rew_env ; rew_list
+    ; eauto using ok_env_strengthen_var, ok_kind_strengthen_var, ok_type_strengthen_var with mcore.
+      introv Heq ttype. unfolds tm_close.
+      remember (G1 ++ BindVar ty1 :: G2) as Gamma eqn:HGamma.
+      gen t' G1 x.
+      induction ttype ; intros ; subst ; simpls...
+      { Case "TmFVar". unfolds var_in. rew_env in *.
+        forwards* [ (Hlt & Hvar') | [ (Heq1 & Heq2) | (Hgt & Hvar') ] ]
+          : binds_app_middle_inv ; subst ; simple_math ; try (constructor ; unfolds var_in)...
+        inverts* Heq2. rewrite* tm_defreshen_freshen. }
+      { Case "TmLam". constructor... folds (tm_close t (length (vars G1)) t').
+        rewrite* tm_open_close_comm. applys IHttype (BindVar ty0 :: G1)... }
+      { Case "TmTyLam".  constructor... folds (tm_close t (length (vars G1)) t').
+        rewrite* tm_ty_open_close_comm. applys IHttype (BindTvar k :: G1)... }
+    Qed.
+
+    Lemma tm_ty_close_preservation :
+      forall Gamma t ty ty' k,
+        ok_term (BindTvar k :: Gamma) (tm_ty_open t 0 0) (ty_open ty 0 0) ->
+        ok_type Gamma ty' k ->
+        ok_term Gamma (tm_ty_bsubst t 0 ty') (ty_bsubst ty 0 ty').
+    Proof. Admitted.
+
   End Typing.
 End Typing.

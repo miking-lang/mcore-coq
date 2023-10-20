@@ -10,6 +10,9 @@ Ltac simple_math := nat_comp_to_peano ; repeat (simpls ; try cases_if ; rew_nat*
 
 Ltac magic t := induction t ; intros ; simple_math ; fequals* ; try nat_math.
 
+#[export]
+ Hint Resolve Nat.le_0_l : mcore.
+
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=
   (match goal with | H : P |- _ => let P' := type of H in unify P P'; rename H into X end).

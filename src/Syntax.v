@@ -1,4 +1,5 @@
-From TLC Require Import LibList LibLogic LibMap LibSet LibNat.
+From MCore Require Import Tactics.
+From TLC Require Import LibString LibList LibLogic LibMap LibSet LibNat.
 
 Open Scope nat_scope.
 
@@ -8,6 +9,11 @@ End PAT.
 
 Module Syntax (P : PAT).
   Export P.
+
+  (************************)
+  (** SYNTAX DEFINITIONS **)
+  (************************)
+
   Definition tname : Set := nat.
   Definition tvar  : Set := nat.
   Definition var   : Set := nat.
@@ -61,6 +67,10 @@ Module Syntax (P : PAT).
    Instance Inhab_term : Inhab term.
   Proof. apply (Inhab_of_val (TmFVar 0)). Qed.
 
+
+  (**************************)
+  (** OPERATIONS ON SYNTAX **)
+  (**************************)
 
   (* Freshening *)
   (* X_freshen u x represents an alpha-conversion making x fresh. *)
@@ -131,6 +141,18 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam k (tm_ty_defreshen t' x)
     | TmTyApp t' ty => TmTyApp (tm_ty_defreshen t' x) (ty_defreshen ty x)
     end.
+
+  (* Freshness *)
+  (* A variable x is free in u if removing it and reintroducing it is a no-op. *)
+
+  Definition tvar_fresh (x : tvar) (ty : type) : Prop :=
+    ty_freshen (ty_defreshen ty x) x = ty.
+
+  Definition var_fresh (x : var) (t : term) : Prop :=
+    tm_freshen (tm_defreshen t x) x = t.
+
+  Definition tm_tvar_fresh (x : tvar) (t : term) : Prop :=
+    tm_ty_freshen (tm_ty_defreshen t x) x = t.
 
   (* Bound variable substitution *)
   (* X_bsubst u x v represents the substitution u[x \mapsto v], where x is bound in u. *)
@@ -236,17 +258,8 @@ Module Syntax (P : PAT).
   (* Definition tm_fsubst_n (t : term) (ts : list term) : term := *)
   (*   fold_right (fun t2 t1 => tm_fsubst t1 t2) t ts. *)
 
-  (* Freshness *)
-  (* A variable x is free in u if removing it and reintroducing it is a no-op. *)
-
-  Definition tvar_fresh (x : tvar) (ty : type) : Prop :=
-    ty_freshen (ty_defreshen ty x) x = ty.
-
-  Definition var_fresh (x : var) (t : term) : Prop :=
-    tm_freshen (tm_defreshen t x) x = t.
-
-  Definition tm_tvar_fresh (x : tvar) (t : term) : Prop :=
-    tm_ty_freshen (tm_ty_defreshen t x) x = t.
+  (* Local closure *)
+  (* A locally closed term contains no unbound BVars. *)
 
   Inductive ty_lc : type -> Prop :=
   | LCTFVar : forall v, ty_lc (TyFVar v)
@@ -265,5 +278,458 @@ Module Syntax (P : PAT).
   .
   #[export]
    Hint Constructors tm_lc : mcore.
+
+
+  (******************************)
+  (** PROPERTIES OF OPERATIONS **)
+  (******************************)
+
+  Lemma tm_defreshen_freshen : forall t x, tm_defreshen (tm_freshen t x) x = t.
+  Proof. magic t. Qed.
+
+  Lemma ty_defreshen_freshen : forall t x, ty_defreshen (ty_freshen t x) x = t.
+  Proof. magic t. Qed.
+
+  Lemma tm_freshen_freshen :
+    forall t x y,
+      x <= y ->
+      tm_freshen (tm_freshen t y) x = tm_freshen (tm_freshen t x) (S y).
+  Proof. magic t. Qed.
+
+  Lemma ty_freshen_freshen :
+    forall ty x y,
+      x <= y ->
+      ty_freshen (ty_freshen ty y) x = ty_freshen (ty_freshen ty x) (S y).
+  Proof. magic ty. Qed.
+
+  Lemma tm_ty_freshen_ty_freshen :
+    forall t x y,
+      x <= y ->
+      tm_ty_freshen (tm_ty_freshen t y) x = tm_ty_freshen (tm_ty_freshen t x) (S y).
+  Proof. magic t ; applys* ty_freshen_freshen. Qed.
+
+  Lemma tm_ty_freshen_freshen :
+    forall t x y,
+      tm_ty_freshen (tm_freshen t x) y = tm_freshen (tm_ty_freshen t y) x.
+  Proof. magic t. Qed.
+
+  Lemma tm_freshen_defreshen :
+    forall ty x y,
+      x <= y ->
+      tm_freshen (tm_defreshen ty y) x = tm_defreshen (tm_freshen ty x) (S y).
+  Proof. magic ty. Qed.
+
+  Lemma ty_freshen_defreshen :
+    forall ty x y,
+      x <= y ->
+      ty_freshen (ty_defreshen ty y) x = ty_defreshen (ty_freshen ty x) (S y).
+  Proof. magic ty. Qed.
+
+  Lemma tm_ty_freshen_defreshen :
+    forall ty x y,
+      tm_ty_freshen (tm_defreshen ty y) x = tm_defreshen (tm_ty_freshen ty x) y.
+  Proof. magic ty. Qed.
+
+
+  Lemma tm_freshen_fresh : forall t x, var_fresh x (tm_freshen t x).
+  Proof. intros ; unfolds ; rewrite* tm_defreshen_freshen. Qed.
+
+  Lemma ty_freshen_fresh : forall t x, tvar_fresh x (ty_freshen t x).
+  Proof. intros ; unfolds ; rewrite* ty_defreshen_freshen. Qed.
+
+  Lemma var_not_fresh : forall x, ~(var_fresh x (TmFVar x)).
+  Proof.
+    introv Heq. unfolds var_fresh. simple_math.
+    inverts Heq ; nat_math.
+  Qed.
+
+  Lemma tvar_not_fresh : forall x, ~(tvar_fresh x (TyFVar x)).
+  Proof.
+    introv Heq. unfolds tvar_fresh. simple_math.
+    inverts Heq ; nat_math.
+  Qed.
+
+  Lemma var_neq_fresh : forall x y, x <> y -> var_fresh x (TmFVar y).
+  Proof.
+    introv Hneq. unfolds. simple_math.
+    forwards [ k [ Heq Hle ] ] : Nat.lt_exists_pred x y ; subst ; rew_nat*.
+  Qed.
+
+  Lemma tvar_neq_fresh : forall x y, x <> y -> tvar_fresh x (TyFVar y).
+  Proof.
+    introv Hneq. unfolds. simple_math.
+    forwards [ k [ Heq Hle ] ] : Nat.lt_exists_pred x y ; subst ; rew_nat*.
+  Qed.
+
+
+  Lemma tm_freshen_fsubst :
+    forall t x y u,
+      x <= y ->
+      tm_freshen (tm_fsubst t y u) x =
+        tm_fsubst (tm_freshen t x) (S y) (tm_freshen u x).
+  Proof. magic t. Qed.
+
+  Lemma ty_freshen_fsubst :
+    forall t x y u,
+      x <= y ->
+      ty_freshen (ty_fsubst t y u) x =
+        ty_fsubst (ty_freshen t x) (S y) (ty_freshen u x).
+  Proof. magic t. Qed.
+
+  Lemma tm_ty_freshen_fsubst :
+    forall t x y u,
+      tm_ty_freshen (tm_fsubst t y u) x =
+        tm_fsubst (tm_ty_freshen t x) y (tm_ty_freshen u x).
+  Proof. magic t. Qed.
+
+  Lemma tm_freshen_bsubst : forall t y z u,
+      tm_freshen (tm_bsubst t y u) z =
+        tm_bsubst (tm_freshen t z) y (tm_freshen u z).
+  Proof. magic t. Qed.
+
+  Lemma ty_freshen_bsubst : forall t y z u,
+      ty_freshen (ty_bsubst t y u) z =
+        ty_bsubst (ty_freshen t z) y (ty_freshen u z).
+  Proof. magic t. Qed.
+
+  Lemma tm_freshen_ty_bsubst : forall t y z u,
+      tm_freshen (tm_ty_bsubst t y u) z =
+        tm_ty_bsubst (tm_freshen t z) y u.
+  Proof. magic t. Qed.
+
+  Lemma tm_ty_freshen_bsubst : forall t y z u,
+      tm_ty_freshen (tm_bsubst t y u) z =
+        tm_bsubst (tm_ty_freshen t z) y (tm_ty_freshen u z).
+  Proof. magic t. Qed.
+
+  Lemma tm_ty_freshen_ty_bsubst : forall t y z u,
+      tm_ty_freshen (tm_ty_bsubst t y u) z =
+        tm_ty_bsubst (tm_ty_freshen t z) y (ty_freshen u z).
+  Proof. magic t ; apply* ty_freshen_bsubst. Qed.
+
+  Lemma tm_defreshen_bsubst : forall t y z u,
+      tm_defreshen (tm_bsubst t y u) z =
+        tm_bsubst (tm_defreshen t z) y (tm_defreshen u z).
+  Proof. magic t. Qed.
+
+  Lemma ty_defreshen_bsubst : forall t y z u,
+      ty_defreshen (ty_bsubst t y u) z =
+        ty_bsubst (ty_defreshen t z) y (ty_defreshen u z).
+  Proof. magic t. Qed.
+
+  Lemma tm_defreshen_ty_bsubst : forall t y z u,
+      tm_defreshen (tm_ty_bsubst t y u) z =
+        tm_ty_bsubst (tm_defreshen t z) y u.
+  Proof. magic t. Qed.
+
+  Lemma tm_freshen_lc : forall t x, tm_lc t -> tm_lc (tm_freshen t x).
+  Proof.
+    introv Hlc. unfold tm_freshen.
+    gen x.
+    induction Hlc ; intros ; simpls*.
+    { Case "TmFVar". case_if*. }
+    { Case "TmLam". constructor*. unfolds tm_open.
+      rewrite* tm_freshen_freshen.
+      assert (Hfv : TmFVar 0 = tm_freshen (TmFVar 0) (S x)) by simple_math.
+      rewrite Hfv. rewrite* <- tm_freshen_bsubst. }
+    { Case "TmTyLam". constructor*. unfolds tm_ty_open.
+      rewrite tm_ty_freshen_freshen. rewrite* <- tm_freshen_ty_bsubst. }
+  Qed.
+
+  #[export]
+   Hint Extern 1 (tm_lc (tm_freshen ?t _)) =>
+    match goal with
+    | H: tm_lc t |- _ => apply tm_freshen_lc
+    end
+    : mcore.
+
+  Lemma ty_freshen_lc : forall ty x, ty_lc ty -> ty_lc (ty_freshen ty x).
+  Proof.
+    introv Hlc. unfold ty_freshen.
+    gen x.
+    induction Hlc ; intros ; simpls*.
+    { Case "TyFVar". case_if*. }
+    { Case "TyAll". constructor*. unfolds ty_open.
+      rewrite* ty_freshen_freshen.
+      assert (Hfv : TyFVar 0 = ty_freshen (TyFVar 0) (S x)) by simple_math.
+      rewrite Hfv. rewrite* <- ty_freshen_bsubst. }
+  Qed.
+
+  #[export]
+   Hint Extern 1 (ty_lc (ty_freshen ?ty _)) =>
+    match goal with
+    | H: ty_lc ty |- _ => apply ty_freshen_lc
+    end
+    : mcore.
+
+  Lemma tm_ty_freshen_lc : forall t x, tm_lc t -> tm_lc (tm_ty_freshen t x).
+    introv Hlc.
+    gen x.
+    induction Hlc ; intros ; simpls*.
+    { Case "TmLam". constructor*. unfolds tm_open.
+      rewrite <- tm_ty_freshen_freshen.
+      assert (Hfv : TmFVar 0 = tm_ty_freshen (TmFVar 0) x) by trivial.
+      rewrite Hfv. rewrite* <- tm_ty_freshen_bsubst. }
+    { Case "TmTyLam". constructor*. unfolds tm_ty_open.
+      rewrite* tm_ty_freshen_ty_freshen.
+      assert (Hfv : TyFVar 0 = ty_freshen (TyFVar 0) (S x)) by simple_math.
+      rewrite Hfv. rewrite* <- tm_ty_freshen_ty_bsubst. }
+  Qed.
+
+  #[export]
+   Hint Extern 1 (tm_lc (tm_ty_freshen ?t _)) =>
+    match goal with
+    | H: tm_lc t |- _ => apply tm_ty_freshen_lc
+    end
+    : mcore.
+
+  Lemma ty_defreshen_lc : forall ty x, ty_lc ty -> ty_lc (ty_defreshen ty x).
+  Proof.
+    introv Hlc. unfold ty_defreshen.
+    gen x.
+    induction Hlc ; intros ; simpls*.
+    { Case "TyFVar". case_if*. }
+    { Case "TyAll". constructor*. unfolds ty_open.
+      rewrite* ty_freshen_defreshen.
+      assert (Hfv : TyFVar 0 = ty_defreshen (TyFVar 0) (S x)) by simple_math.
+      rewrite Hfv. rewrite* <- ty_defreshen_bsubst. }
+  Qed.
+
+
+  Lemma tm_fsubst_fresh : forall t x u, var_fresh x t -> tm_fsubst t x u = t.
+  Proof.
+    introv Hfresh. unfolds.
+    induction* t ; fequals ; try (injection Hfresh ; auto_star).
+    { Case "TmFVar". cases_if*. lets* ? : var_not_fresh v. }
+  Qed.
+
+  Lemma ty_fsubst_fresh : forall t x u, tvar_fresh x t -> ty_fsubst t x u = t.
+  Proof.
+    introv Hfresh. unfolds.
+    induction* t ; fequals ; try (injection Hfresh ; auto_star).
+    { Case "TmFVar". cases_if*. lets* ? : tvar_not_fresh t. }
+  Qed.
+
+  (* TODO: These lemmas can be stated in terms of bsubst only, e.g., *)
+  (*  x <> y ->
+        ty_bsubst (ty_bsubst ty x ty1) y ty2 = ty_bsubst ty x ty1 ->
+        ty_bsubst ty y ty2 = ty.
+   *)
+  (* Can we separate out the open/freshen part in a good way? *)
+  Lemma ty_bsubst_neq : forall ty x y z ty',
+      x <> y ->
+      ty_bsubst (ty_open ty x z) y ty' = ty_open ty x z ->
+      ty_bsubst ty y ty' = ty.
+  Proof. unfolds ty_open ; magic ty ; with_hyp (_ = _) as Heq ; inverts* Heq. Qed.
+
+  Lemma tm_bsubst_neq : forall t x y z u,
+      x <> y ->
+      tm_bsubst (tm_open t x z) y u = tm_open t x z ->
+      tm_bsubst t y u = t.
+  Proof. unfolds tm_open ; magic t ; with_hyp (_ = _) as Heq ; inverts* Heq. Qed.
+
+  Lemma tm_ty_bsubst_neq : forall t x y z ty,
+      x <> y ->
+      tm_ty_bsubst (tm_ty_open t x z) y ty = tm_ty_open t x z ->
+      tm_ty_bsubst t y ty = t.
+  Proof.
+    introv Hneq Heq ; gen x y ; magic t ; inverts* Heq ;
+      with_hyp (ty_bsubst _ _ _ = _) as Heq1 ; applys ty_bsubst_neq Hneq Heq1.
+  Qed.
+
+  Lemma tm_bsubst_ty_rec : forall t x y z u,
+      tm_bsubst (tm_ty_open t x z) y u = tm_ty_open t x z ->
+      tm_bsubst t y u = t.
+  Proof. magic t ; with_hyp (_ = _) as Heq ; inverts* Heq. Qed.
+
+  Lemma tm_ty_bsubst_rec : forall t x y z ty,
+      tm_ty_bsubst (tm_open t x z) y ty = tm_open t x z ->
+      tm_ty_bsubst t y ty = t.
+  Proof. unfolds tm_open ; magic t ; with_hyp (_ = _) as Heq ; inverts* Heq. Qed.
+
+  Lemma tm_bsubst_lc : forall t y u, tm_lc t -> tm_bsubst t y u = t.
+  Proof.
+    introv Hlc. gen y.
+    induction Hlc ; intros ; simpls ; fequals*.
+    { Case "TmLam". rewrite tm_bsubst_neq with (x := 0) (z := 0) ; auto. }
+    { Case "TmTyLam". rewrite tm_bsubst_ty_rec with (x := 0) (z := 0) ; auto. }
+  Qed.
+
+  Lemma ty_bsubst_lc : forall ty y u, ty_lc ty -> ty_bsubst ty y u = ty.
+  Proof.
+    introv Hlc. gen y.
+    induction Hlc ; intros ; simpls ; fequals*.
+    { Case "TyAll". rewrite ty_bsubst_neq with (x := 0) (z := 0) ; auto. }
+  Qed.
+
+  Lemma tm_ty_bsubst_lc : forall t y ty, tm_lc t -> tm_ty_bsubst t y ty = t.
+  Proof.
+    introv Hlc. gen y.
+    induction Hlc ; intros ; simpls ; fequals* ; try apply* ty_bsubst_lc.
+    { Case "TmLam". rewrite tm_ty_bsubst_rec with (x := 0) (z := 0) ; auto. }
+    { Case "TmTyLam". rewrite tm_ty_bsubst_neq with (x := 0) (z := 0) ; auto. }
+  Qed.
+
+  Lemma tm_fsubst_bsubst_distr :
+    forall t x y u1 u2,
+      tm_lc u1 ->
+      tm_fsubst (tm_bsubst t y u2) x u1 =
+        tm_bsubst (tm_fsubst t x u1) y (tm_fsubst u2 x u1).
+  Proof. magic t ; rewrite* tm_bsubst_lc. Qed.
+
+  Lemma ty_fsubst_bsubst_distr :
+    forall t x y u1 u2,
+      ty_lc u1 ->
+      ty_fsubst (ty_bsubst t y u2) x u1 =
+        ty_bsubst (ty_fsubst t x u1) y (ty_fsubst u2 x u1).
+  Proof. magic t ; rewrite* ty_bsubst_lc. Qed.
+
+  Lemma tm_fsubst_intro :
+    forall t x y u,
+      var_fresh x t ->
+      tm_bsubst t y u = tm_fsubst (tm_bsubst t y (TmFVar x)) x u.
+  Proof.
+    introv Hfresh ; gen y ; magic t ; try (injection Hfresh ; auto_star).
+    { Case "TmFVar". subst. lets* ? : var_not_fresh v. }
+  Qed.
+
+  Lemma ty_fsubst_intro :
+    forall x y ty u,
+      tvar_fresh x ty ->
+      ty_bsubst ty y u = ty_fsubst (ty_bsubst ty y (TyFVar x)) x u.
+  Proof.
+    introv Hfresh ; gen y ; magic ty ; try (injection Hfresh ; auto_star).
+    { Case "TmFVar". subst. lets* ? : tvar_not_fresh t. }
+  Qed.
+
+  Lemma tm_bsubst_close_open :
+    forall t u x y,
+      tm_bsubst t y u = tm_close (tm_open t y x) x u.
+  Proof.
+    intros.
+    rewrite <- tm_defreshen_freshen with (x := x) (t := tm_bsubst t y u).
+    rewrite tm_freshen_bsubst. rewrite tm_fsubst_intro with (x := x) ; auto. apply tm_freshen_fresh.
+  Qed.
+
+  Lemma ty_bsubst_close_open :
+    forall ty u x y,
+      ty_bsubst ty y u = ty_close (ty_open ty y x) x u.
+  Proof.
+    intros.
+    rewrite <- ty_defreshen_freshen with (x := x) (t := ty_bsubst ty y u).
+    rewrite ty_freshen_bsubst. rewrite ty_fsubst_intro with (x := x) ; auto. apply ty_freshen_fresh.
+  Qed.
+
+  Lemma tm_bsubst_fsubst_comm :
+    forall t x y z u,
+      x <> z ->
+      tm_lc u ->
+      tm_bsubst (tm_fsubst t x u) y (TmFVar z) =
+        tm_fsubst (tm_bsubst t y (TmFVar z)) x u.
+  Proof.
+    introv Hneq Hlc. symmetry.
+    applys_eq* tm_fsubst_bsubst_distr. fequals.
+    rewrite* tm_fsubst_fresh. apply* var_neq_fresh.
+  Qed.
+
+  Lemma ty_bsubst_fsubst_comm :
+    forall t x y z u,
+      x <> z ->
+      ty_lc u ->
+      ty_bsubst (ty_fsubst t x u) y (TyFVar z) =
+        ty_fsubst (ty_bsubst t y (TyFVar z)) x u.
+  Proof.
+    introv Hneq Hlc. symmetry.
+    applys_eq* ty_fsubst_bsubst_distr. fequals.
+    rewrite* ty_fsubst_fresh. apply* tvar_neq_fresh.
+  Qed.
+
+  Lemma tm_ty_bsubst_fsubst_comm :
+    forall t x y u ty,
+      tm_lc u ->
+      tm_ty_bsubst (tm_fsubst t x u) y ty =
+        tm_fsubst (tm_ty_bsubst t y ty) x u.
+  Proof. magic t ; rewrite* tm_ty_bsubst_lc. Qed.
+
+  Lemma tm_open_fsubst_comm :
+    forall t x y z u,
+      z <= x  ->
+      tm_lc u ->
+      tm_open (tm_fsubst t x u) y z = tm_fsubst (tm_open t y z) (S x) (tm_freshen u z).
+  Proof.
+    introv Hle Hlc. unfolds. rewrite* tm_freshen_fsubst. applys* tm_bsubst_fsubst_comm.
+    nat_math.
+  Qed.
+
+  Lemma ty_open_fsubst_comm :
+    forall t x y z u,
+      z <= x  ->
+      ty_lc u ->
+      ty_open (ty_fsubst t x u) y z = ty_fsubst (ty_open t y z) (S x) (ty_freshen u z).
+  Proof.
+    introv Hle Hlc. unfolds. rewrite* ty_freshen_fsubst. applys* ty_bsubst_fsubst_comm.
+    nat_math.
+  Qed.
+
+  Lemma tm_ty_open_fsubst_comm :
+    forall t x y z u,
+      tm_lc u ->
+      tm_ty_open (tm_fsubst t x u) y z = tm_fsubst (tm_ty_open t y z) x (tm_ty_freshen u z).
+  Proof.
+    introv Hlc. unfolds. rewrite* tm_ty_freshen_fsubst. applys* tm_ty_bsubst_fsubst_comm.
+  Qed.
+
+  Lemma tm_open_defreshen_comm :
+    forall t x y z,
+      z <= x ->
+      tm_open (tm_defreshen t x) y z = tm_defreshen (tm_open t y z) (S x).
+  Proof.
+    intros. unfolds. rewrite* tm_freshen_defreshen.
+    assert (Hfv : TmFVar z = tm_defreshen (TmFVar z) (S x)) by simple_math.
+    rewrite Hfv. rewrite <- tm_defreshen_bsubst. rewrite* <- Hfv.
+  Qed.
+
+  Lemma tm_ty_open_defreshen_comm :
+    forall t x y z,
+      tm_ty_open (tm_defreshen t x) y z = tm_defreshen (tm_ty_open t y z) x.
+  Proof.
+    intros. unfolds. rewrite tm_ty_freshen_defreshen.
+    rewrite* tm_defreshen_ty_bsubst.
+  Qed.
+
+  Lemma tm_open_close_comm :
+    forall t x y z u,
+      z <= x  ->
+      tm_lc u ->
+      tm_open (tm_close t x u) y z =
+        tm_close (tm_open t y z) (S x) (tm_freshen u z).
+  Proof.
+    introv Hle Hlc. unfold tm_close.
+    rewrite* tm_open_defreshen_comm. rewrite* tm_open_fsubst_comm.
+    rewrite* tm_freshen_freshen.
+  Qed.
+
+  Lemma tm_ty_open_close_comm :
+    forall t x y z u,
+      tm_lc u ->
+      tm_ty_open (tm_close t x u) y z =
+        tm_close (tm_ty_open t y z) x (tm_ty_freshen u z).
+  Proof.
+    intros. unfold tm_close.
+    rewrite tm_ty_open_defreshen_comm. rewrite* tm_ty_open_fsubst_comm.
+    rewrite* tm_ty_freshen_freshen.
+  Qed.
+
+  Lemma ty_lc_fsubst :
+    forall ty1 ty2 x,
+      ty_lc ty1 ->
+      ty_lc ty2 ->
+      ty_lc (ty_fsubst ty1 x ty2).
+  Proof.
+    introv Hlc1 Hlc2. gen x ty2.
+    induction* Hlc1 ; intros ; simpls*.
+    { Case "TyBVar". case_if*. }
+    { Case "TyAll". constructor*. rewrite* ty_open_fsubst_comm. }
+  Qed.
 
 End Syntax.
