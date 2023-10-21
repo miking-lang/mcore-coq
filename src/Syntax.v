@@ -337,29 +337,37 @@ Module Syntax (P : PAT).
   Lemma ty_freshen_fresh : forall t x, tvar_fresh x (ty_freshen t x).
   Proof. intros ; unfolds ; rewrite* ty_defreshen_freshen. Qed.
 
-  Lemma var_not_fresh : forall x, ~(var_fresh x (TmFVar x)).
+  Lemma var_not_fresh : forall x, var_fresh x (TmFVar x) -> False.
   Proof.
     introv Heq. unfolds var_fresh. simple_math.
     inverts Heq ; nat_math.
   Qed.
+  #[export]
+   Hint Resolve var_not_fresh : mcore.
 
-  Lemma tvar_not_fresh : forall x, ~(tvar_fresh x (TyFVar x)).
+  Lemma tvar_not_fresh : forall x, tvar_fresh x (TyFVar x) -> False.
   Proof.
     introv Heq. unfolds tvar_fresh. simple_math.
     inverts Heq ; nat_math.
   Qed.
+  #[export]
+   Hint Resolve tvar_not_fresh : mcore.
 
   Lemma var_neq_fresh : forall x y, x <> y -> var_fresh x (TmFVar y).
   Proof.
     introv Hneq. unfolds. simple_math.
     forwards [ k [ Heq Hle ] ] : Nat.lt_exists_pred x y ; subst ; rew_nat*.
   Qed.
+  #[export]
+   Hint Resolve var_neq_fresh : mcore.
 
   Lemma tvar_neq_fresh : forall x y, x <> y -> tvar_fresh x (TyFVar y).
   Proof.
     introv Hneq. unfolds. simple_math.
     forwards [ k [ Heq Hle ] ] : Nat.lt_exists_pred x y ; subst ; rew_nat*.
   Qed.
+  #[export]
+   Hint Resolve tvar_neq_fresh : mcore.
 
 
   Lemma tm_freshen_fsubst :
@@ -435,13 +443,8 @@ Module Syntax (P : PAT).
     { Case "TmTyLam". constructor*. unfolds tm_ty_open.
       rewrite tm_ty_freshen_freshen. rewrite* <- tm_freshen_ty_bsubst. }
   Qed.
-
   #[export]
-   Hint Extern 1 (tm_lc (tm_freshen ?t _)) =>
-    match goal with
-    | H: tm_lc t |- _ => apply tm_freshen_lc
-    end
-    : mcore.
+   Hint Resolve tm_freshen_lc : mcore.
 
   Lemma ty_freshen_lc : forall ty x, ty_lc ty -> ty_lc (ty_freshen ty x).
   Proof.
@@ -454,13 +457,8 @@ Module Syntax (P : PAT).
       assert (Hfv : TyFVar 0 = ty_freshen (TyFVar 0) (S x)) by simple_math.
       rewrite Hfv. rewrite* <- ty_freshen_bsubst. }
   Qed.
-
   #[export]
-   Hint Extern 1 (ty_lc (ty_freshen ?ty _)) =>
-    match goal with
-    | H: ty_lc ty |- _ => apply ty_freshen_lc
-    end
-    : mcore.
+   Hint Resolve ty_freshen_lc : mcore.
 
   Lemma tm_ty_freshen_lc : forall t x, tm_lc t -> tm_lc (tm_ty_freshen t x).
     introv Hlc.
@@ -475,13 +473,8 @@ Module Syntax (P : PAT).
       assert (Hfv : TyFVar 0 = ty_freshen (TyFVar 0) (S x)) by simple_math.
       rewrite Hfv. rewrite* <- tm_ty_freshen_ty_bsubst. }
   Qed.
-
   #[export]
-   Hint Extern 1 (tm_lc (tm_ty_freshen ?t _)) =>
-    match goal with
-    | H: tm_lc t |- _ => apply tm_ty_freshen_lc
-    end
-    : mcore.
+   Hint Resolve tm_ty_freshen_lc : mcore.
 
   Lemma ty_defreshen_lc : forall ty x, ty_lc ty -> ty_lc (ty_defreshen ty x).
   Proof.
@@ -494,20 +487,22 @@ Module Syntax (P : PAT).
       assert (Hfv : TyFVar 0 = ty_defreshen (TyFVar 0) (S x)) by simple_math.
       rewrite Hfv. rewrite* <- ty_defreshen_bsubst. }
   Qed.
+  #[export]
+   Hint Resolve ty_defreshen_lc : mcore.
 
 
   Lemma tm_fsubst_fresh : forall t x u, var_fresh x t -> tm_fsubst t x u = t.
   Proof.
     introv Hfresh. unfolds.
     induction* t ; fequals ; try (injection Hfresh ; auto_star).
-    { Case "TmFVar". cases_if*. lets* ? : var_not_fresh v. }
+    { Case "TmFVar". cases_if*. false*. }
   Qed.
 
   Lemma ty_fsubst_fresh : forall t x u, tvar_fresh x t -> ty_fsubst t x u = t.
   Proof.
     introv Hfresh. unfolds.
     induction* t ; fequals ; try (injection Hfresh ; auto_star).
-    { Case "TmFVar". cases_if*. lets* ? : tvar_not_fresh t. }
+    { Case "TmFVar". cases_if*. false*. }
   Qed.
 
   (* TODO: These lemmas can be stated in terms of bsubst only, e.g., *)
@@ -590,7 +585,7 @@ Module Syntax (P : PAT).
       tm_bsubst t y u = tm_fsubst (tm_bsubst t y (TmFVar x)) x u.
   Proof.
     introv Hfresh ; gen y ; magic t ; try (injection Hfresh ; auto_star).
-    { Case "TmFVar". subst. lets* ? : var_not_fresh v. }
+    { Case "TmFVar". subst. false*. }
   Qed.
 
   Lemma ty_fsubst_intro :
@@ -599,7 +594,7 @@ Module Syntax (P : PAT).
       ty_bsubst ty y u = ty_fsubst (ty_bsubst ty y (TyFVar x)) x u.
   Proof.
     introv Hfresh ; gen y ; magic ty ; try (injection Hfresh ; auto_star).
-    { Case "TmFVar". subst. lets* ? : tvar_not_fresh t. }
+    { Case "TmFVar". subst. false*. }
   Qed.
 
   Lemma tm_bsubst_close_open :
@@ -629,7 +624,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hneq Hlc. symmetry.
     applys_eq* tm_fsubst_bsubst_distr. fequals.
-    rewrite* tm_fsubst_fresh. apply* var_neq_fresh.
+    rewrite* tm_fsubst_fresh.
   Qed.
 
   Lemma ty_bsubst_fsubst_comm :
@@ -641,7 +636,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hneq Hlc. symmetry.
     applys_eq* ty_fsubst_bsubst_distr. fequals.
-    rewrite* ty_fsubst_fresh. apply* tvar_neq_fresh.
+    rewrite* ty_fsubst_fresh.
   Qed.
 
   Lemma tm_ty_bsubst_fsubst_comm :
@@ -677,6 +672,24 @@ Module Syntax (P : PAT).
       tm_ty_open (tm_fsubst t x u) y z = tm_fsubst (tm_ty_open t y z) x (tm_ty_freshen u z).
   Proof.
     introv Hlc. unfolds. rewrite* tm_ty_freshen_fsubst. applys* tm_ty_bsubst_fsubst_comm.
+  Qed.
+
+  Lemma tm_open_freshen_comm :
+    forall t x y z,
+      z <= x ->
+      tm_open (tm_freshen t x) y z = tm_freshen (tm_open t y z) (S x).
+  Proof.
+    intros. unfolds. rewrite* tm_freshen_freshen.
+    assert (Hfv : TmFVar z = tm_freshen (TmFVar z) (S x)) by simple_math.
+    rewrite Hfv. rewrite <- tm_freshen_bsubst. rewrite* <- Hfv.
+  Qed.
+
+  Lemma tm_ty_open_freshen_comm :
+    forall t x y z,
+      tm_ty_open (tm_freshen t x) y z = tm_freshen (tm_ty_open t y z) x.
+  Proof.
+    intros. unfolds. rewrite tm_ty_freshen_freshen.
+    rewrite* tm_freshen_ty_bsubst.
   Qed.
 
   Lemma tm_open_defreshen_comm :
