@@ -1,14 +1,13 @@
 From MCore Require Import Syntax Typing Tactics.
-From TLC Require Import LibList.
 
 Module SmallStep (P : PAT).
   Module T := Typing P.
   Export T.
 
   Inductive is_value : term -> Prop :=
-  | VLam : forall {ty : type} {t : term},
+  | VLam : forall ty t,
       is_value (TmLam ty t)
-  | VTyLam : forall {k : kind} {t : term},
+  | VTyLam : forall k t,
       is_value (TmTyLam k t)
   (* | VProd : forall {v1 v2 : term}, *)
   (*     is_value v1 -> *)
@@ -40,11 +39,11 @@ Module SmallStep (P : PAT).
     Export M.
 
     Inductive is_context : (term -> term) -> Type :=
-    | CAppL : forall (t' : term), is_context (fun t => TmApp t t')
-    | CAppR : forall (v : term),
+    | CAppL : forall t', is_context (fun t => TmApp t t')
+    | CAppR : forall v,
         is_value v ->
         is_context (TmApp v)
-    | CTyApp : forall (ty : type), is_context (fun t => TmTyApp t ty)
+    | CTyApp : forall ty, is_context (fun t => TmTyApp t ty)
     (* | CFix : eval_context *)
     (* | CProdL : term -> eval_context *)
     (* | CProdR : forall (v : term), *)
@@ -65,12 +64,13 @@ Module SmallStep (P : PAT).
     #[export]
     Hint Constructors is_context : mcore.
 
+    Reserved Notation "t1 --> t2" (at level 50).
     Inductive eval_step : term -> term -> Prop :=
-    | EApp : forall {ty : type} {t v : term},
+    | EApp : forall ty t v,
         is_value v ->
-        eval_step (TmApp (TmLam ty t) v) (tm_bsubst t 0 v)
-    | ETyApp : forall {k : kind} {t : term} {ty : type},
-        eval_step (TmTyApp (TmTyLam k t) ty) (tm_ty_bsubst t 0 ty)
+        TmApp (TmLam ty t) v --> [0 ~> v]t
+    | ETyApp : forall k t ty,
+        TmTyApp (TmTyLam k t) ty --> [{0 ~> ty}]t
     (* | EFix : forall {ty : type} {t : term}, *)
     (*     eval_step (TmFix (TmLam ty t)) (tm_subst t (TmFix (TmLam ty t))) *)
     (* | EProj1 : forall {v1 v2 : term}, *)
@@ -107,9 +107,9 @@ Module SmallStep (P : PAT).
     | ECong : forall {f : term -> term},
         is_context f ->
         forall t1 t2,
-          eval_step t1 t2 ->
-          eval_step (f t1) (f t2)
-    .
+            t1 --> t2   ->
+          f t1 --> f t2
+    where "t1 --> t2" := (eval_step t1 t2).
     #[export]
     Hint Constructors eval_step : mcore.
 
