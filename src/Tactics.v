@@ -1,4 +1,4 @@
-From TLC Require Import LibLogic LibVar.
+From TLC Require Import LibVar.
 From TLC Require Export LibTactics.
 
 Create HintDb mcore.

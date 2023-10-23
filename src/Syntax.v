@@ -19,7 +19,7 @@ Module Syntax (P : PAT).
 
   Inductive kind : Type :=
   | KiType : kind
-  (* | KiData : data -> kind *)
+  | KiData : data -> kind
   .
 
   Inductive type : Type :=
@@ -28,9 +28,9 @@ Module Syntax (P : PAT).
   | TyArr  : type -> type -> type
   | TyAll  : kind -> type -> type
   (* | TyProd : type -> type -> type *)
-  (* | TyCon  : type -> tname -> type *)
+  | TyCon  : type -> tname -> type
   (* | TySem  : type -> type -> list pat -> type *)
-  (* | TyData : data -> type *)
+  | TyData : data -> type
   .
 
   #[export]
@@ -49,11 +49,11 @@ Module Syntax (P : PAT).
   (* | TmFix    : term -> term *)
   (* | TmProd   : term -> term -> term *)
   (* | TmProj   : fin2 -> term -> term *)
-  (* | TmCon    : con -> type -> term -> term *)
+  | TmCon    : con -> type -> term -> term
   (* | TmMatch  : term -> pat -> term -> term -> term *)
   (* | TmNever  : term *)
-  (* | TmType   : term -> term *)
-  (* | TmConDef : data -> type -> tname -> term -> term *)
+  | TmType   : term -> term
+  | TmConDef : data -> type -> tname -> term -> term
   (* | TmSem    : type -> list (pat * term) -> term *)
   (* | TmComp   : term -> term -> term *)
   (* | TmSemApp : term -> term -> term *)
@@ -83,6 +83,8 @@ Module Syntax (P : PAT).
     | TyFVar X => \{X}
     | TyArr T1 T2 => ftv T1 \u ftv T2
     | TyAll k T' => ftv T'
+    | TyCon ty T => ftv ty
+    | TyData d => \{}
     end
   .
 
@@ -94,6 +96,9 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => ftv_t t1 \u ftv_t t2
     | TmTyLam k t' => ftv_t t'
     | TmTyApp t' T => ftv_t t' \u ftv T
+    | TmCon K ty t' => ftv ty \u ftv_t t'
+    | TmType t' => ftv_t t'
+    | TmConDef d ty T t' => ftv ty \u ftv_t t'
     end
   .
 
@@ -105,6 +110,9 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => fv t1 \u fv t2
     | TmTyLam k t' => fv t'
     | TmTyApp t' T => fv t'
+    | TmCon K ty t' => fv t'
+    | TmType t' => fv t'
+    | TmConDef d ty T t' => fv t'
     end
   .
 
@@ -118,6 +126,8 @@ Module Syntax (P : PAT).
     | TyFVar _ => T
     | TyArr T1 T2 => TyArr ({X ~> U}T1) ({X ~> U}T2)
     | TyAll k T'  => TyAll k ({S X ~> U}T')
+    | TyCon ty T => TyCon ({X ~> U}ty) T
+    | TyData d => TyData d
     end
   where "{ X ~> U } T" := (topen X U T).
   #[export]
@@ -132,6 +142,9 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([{X ~> U}] t1) ([{X ~> U}] t2)
     | TmTyLam k t' => TmTyLam k ([{S X ~> U}] t')
     | TmTyApp t' T => TmTyApp ([{X ~> U}] t') ({X ~> U} T)
+    | TmCon K ty t' => TmCon K ({X ~> U}ty) ([{X ~> U}]t')
+    | TmType t' => TmType ([{X ~> U}]t')
+    | TmConDef d ty T t' => TmConDef d ({X ~> U}ty) T ([{X ~> U}]t')
     end
   where "[{ X ~> U }] t" := (topen_t X U t).
   #[export]
@@ -146,6 +159,9 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([k ~> u]t1) ([k ~> u]t2)
     | TmTyLam ki t' => TmTyLam ki ([k ~> u]t')
     | TmTyApp t' T => TmTyApp ([k ~> u]t') T
+    | TmCon K ty t' => TmCon K ty ([k ~> u]t')
+    | TmType t' => TmType ([k ~> u]t')
+    | TmConDef d ty T t' => TmConDef d ty T ([k ~> u]t')
     end
   where "[ k ~> u ] t " := (open k u t)
   .
@@ -158,17 +174,22 @@ Module Syntax (P : PAT).
   Inductive lct : type -> Prop :=
   | LCTFVar : forall X, lct (TyFVar X)
   | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
-  | LCTAll : forall L k T, (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
+  | LCTAll  : forall L k T, (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
+  | LCTCon  : forall ty T, lct ty -> lct (TyCon ty T)
+  | LCTData : forall d, lct (TyData d)
   .
   #[export]
    Hint Constructors lct : mcore.
 
   Inductive lc : term -> Prop :=
-  | LCFVar  : forall x, lc (TmFVar x)
-  | LCAbs   : forall L t T, lct T -> (forall x, x \notin L -> lc ([0 ~> TmFVar x]t)) -> lc (TmLam T t)
-  | LCApp   : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
+  | LCFVar   : forall x, lc (TmFVar x)
+  | LCAbs    : forall L t T, lct T -> (forall x, x \notin L -> lc ([0 ~> TmFVar x]t)) -> lc (TmLam T t)
+  | LCApp    : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
   | LCTyLam  : forall L k t, (forall X, X \notin L -> lc ([{0 ~> TyFVar X}] t)) -> lc (TmTyLam k t)
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
+  | LCCon    : forall K T t, lc t -> lct T -> lc (TmCon K T t)
+  | LCType   : forall t, lc t -> lc (TmType t)
+  | LCConDef : forall d ty T t, lc t -> lct ty -> lc (TmConDef d ty T t)
   .
   #[export]
    Hint Constructors lc : mcore.
@@ -181,6 +202,8 @@ Module Syntax (P : PAT).
     | TyFVar Y => (If X = Y then U else T)
     | TyArr T1 T2 => TyArr ({X => U}T1) ({X => U} T2)
     | TyAll k T' => TyAll k ({X => U}T')
+    | TyCon ty T => TyCon ({X => U}ty) T
+    | TyData d => TyData d
     end
   where "{ X => U } T" := (tsubst X U T).
 
@@ -194,6 +217,9 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([{X => U}]t1) ([{X => U}]t2)
     | TmTyLam k t' => TmTyLam k ([{X => U}]t')
     | TmTyApp t' T => TmTyApp ([{X => U}]t') ({X => U}T)
+    | TmCon K ty t' => TmCon K ({X => U}ty) ([{X => U}]t')
+    | TmType t' => TmType ([{X => U}]t')
+    | TmConDef d ty T t' => TmConDef d ({X => U}ty) T ([{X => U}]t')
     end
   where "[{ X => U }] t" := (tsubst_t X U t).
 
@@ -206,6 +232,9 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([x => u]t1) ([x => u]t2)
     | TmTyLam k t' => TmTyLam k ([x => u]t')
     | TmTyApp t' T => TmTyApp ([x => u]t') T
+    | TmCon K ty t' => TmCon K ty ([x => u]t')
+    | TmType t' => TmType ([x => u]t')
+    | TmConDef d ty T t' => TmConDef d ty T ([x => u]t')
     end
   where "[ x => u ] t" := (subst x u t).
   #[export]
@@ -460,12 +489,10 @@ Module Syntax (P : PAT).
       [{n ~> T}]t = t.
   Proof.
     introv Hlc. gen n.
-    solve_eq Hlc.
-    - rewrite* topen_lct.
+    solve_eq Hlc ; try rewrite~ topen_lct.
     - pick_fresh_gen L x. apply* topen_open_rec.
     - pick_fresh_gen L x.
       rewrite* (@topen_t_rec (S n) 0 T (TyFVar x)).
-    - rewrite* topen_lct.
   Qed.
 
   Lemma topen_t_subst_comm :

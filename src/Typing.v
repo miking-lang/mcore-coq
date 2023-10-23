@@ -29,11 +29,11 @@ Module Typing (P : PAT).
     .
 
     Inductive ok_kind : env -> kind -> Prop :=
-    | TypeOk : forall {Gamma : env},
+    | TypeOk : forall Gamma,
         ok_kind Gamma KiType
-    (* | DataOk : forall {Gamma : env} {d : data}, *)
-    (*     ok_data Gamma d -> *)
-    (*     ok_kind Gamma (KiData d) *)
+    | DataOk : forall Gamma d,
+        ok_data Gamma d ->
+        ok_kind Gamma (KiData d)
     .
     #[export]
      Hint Constructors ok_kind : mcore.
@@ -53,21 +53,22 @@ Module Typing (P : PAT).
         (forall X, X \notin L ->
                    (Gamma & X ~ BindTVar k) |= {0 ~> TyFVar X} ty ~:: KiType) ->
         Gamma |= TyAll k ty ~:: KiType
-    (* | TyProd' : forall {Gamma : env} {ty1 ty2 : type}, *)
+    (* | TyProd' : forall Gamma ty1 ty2, *)
     (*     ok_type Gamma ty1 KiType -> *)
     (*     ok_type Gamma ty2 KiType -> *)
     (*     ok_type Gamma (TyProd ty1 ty2) KiType *)
-    (* | TyCon' : forall {Gamma : env} {ty : type} {d : data} {T : tname}, *)
-    (*     ok_type Gamma ty (KiData d) -> *)
-    (*     T \indom d -> *)
-    (*     ok_type Gamma (TyCon ty T) KiType *)
+    | KCon : forall Gamma ty d T,
+        ok_type Gamma ty (KiData d) ->
+        T \indom d ->
+        ok_type Gamma (TyCon ty T) KiType
     (* | TySem' : forall {Gamma : env} {ty1 ty2 : type} {ps : list pat}, *)
     (*     ok_type Gamma ty1 KiType -> *)
     (*     ok_type Gamma ty2 KiType -> *)
     (*     ok_type Gamma (TySem ty1 ty2 ps) KiType *)
-    (* | TyData' : forall {Gamma : env} {d : data}, *)
-    (*     ok_data Gamma d -> *)
-    (*     ok_type Gamma (TyData d) (KiData d) *)
+    | KData : forall Gamma d,
+        ok_env Gamma ->
+        ok_data Gamma d ->
+        ok_type Gamma (TyData d) (KiData d)
     (* | TyDataSub' : forall {Gamma : env} {ty : type} {d1 d2 : data}, *)
     (*     ok_type Gamma ty (KiData d1) -> *)
     (*     d2 \c d1 -> *)
@@ -143,13 +144,12 @@ Module Typing (P : PAT).
     (* | TmProj2' : forall {Gamma : env} {ty1 ty2 : type} {t : term}, *)
     (*     ok_term Gamma t (TyProd ty1 ty2) -> *)
     (*     ok_term Gamma (TmProj F2 t) ty2 *)
-    (* | TmCon' : forall {Gamma : env} {K : con} {d : data} *)
-    (*                   {ty1 ty2 : type} {T : tname} {t : term}, *)
-    (*     con_in K d ty1 T Gamma.(cons) -> *)
-    (*     ok_type Gamma ty2 (KiData d) -> *)
-    (*     ok_type Gamma ty2 (KiData (T \:= \{K})) -> *)
-    (*     ok_term Gamma t (ty_subst ty1 ty2) -> *)
-    (*     ok_term Gamma (TmCon K ty2 t) (TyCon ty2 T) *)
+    | TCon : forall Gamma K d ty1 ty2 T t,
+        binds K (BindCon d ty1 T) Gamma ->
+        Gamma |= ty2 ~:: KiData d ->
+        Gamma |= ty2 ~:: KiData (T ~ \{K}) ->
+        Gamma |= t ~: ({0 ~> ty2}ty1) ->
+        Gamma |= TmCon K ty2 t ~: TyCon ty2 T
     (* | TmMatch' : forall {Gamma : env} {vs : var_env} {t t1 t2 : term} *)
     (*                     {ty1 ty2 : type} {p : pat}, *)
     (*     ok_term Gamma t ty1 -> *)
@@ -162,19 +162,17 @@ Module Typing (P : PAT).
     (* | TmNever' : forall {Gamma : env} {ty : type}, *)
     (*     matches_contradictory Gamma.(matches) -> *)
     (*     ok_term Gamma TmNever ty *)
-    (* | TmType' : forall {Gamma : env} {t : term} {ty : type}, *)
-    (*     ok_type Gamma ty KiType -> *)
-    (*     ok_term (Gamma <| tnames ::= S |>) t ty *)
-    (* | TmConDef' : forall {Gamma : env} {d : data} *)
-    (*                      {ty1 ty2 : type} {T : tname} *)
-    (*                      {t : term}, *)
-    (*     ok_data Gamma d -> *)
-    (*     ok_type (Gamma <| tvars ::= fun tv => KiData d :: tv |>) *)
-    (*             ty1 KiType -> *)
-    (*     ok_term (Gamma <| cons ::= fun Ks => (d, ty1, T) :: Ks |>) *)
-    (*             t ty2 -> *)
-    (*     ok_type Gamma ty2 KiType -> *)
-    (*     ok_term Gamma (TmConDef d ty1 T t) ty2 *)
+    | TType : forall Gamma t ty T,
+        Gamma |= ty ~:: KiType ->
+        Gamma & T ~ BindTName |= t ~: ty ->
+        Gamma |= TmType t ~: ty
+    | TConDef : forall L Gamma d ty1 ty2 T t K,
+        ok_data Gamma d ->
+        (forall X, X \notin L ->
+              Gamma & X ~ BindTVar (KiData d) |= ty1 ~:: KiType) ->
+        Gamma & K ~ BindCon d ty1 T |= t ~: ty2 ->
+        Gamma |= ty2 ~:: KiType ->
+        Gamma |= TmConDef d ty1 T t ~: ty2
     (* | TmSem' : forall {Gamma : env} {ty1 ty2 : type} *)
     (*                   {cases : list (pat * term)}, *)
     (*     ok_type Gamma ty1 KiType -> *)
@@ -218,11 +216,31 @@ Module Typing (P : PAT).
     #[export]
      Hint Resolve ok_env_ok : mcore.
 
+    Lemma ok_data_weakening :
+      forall G3 G1 G2 d,
+        ok_data (G1 & G3) d ->
+        (* ok_env (G1 & G2 & G3) -> *)
+        ok_data (G1 & G2 & G3) d.
+    Proof. Admitted.
+    (*   introv Hd Henv. unfolds ok_data. *)
+    (*   splits*. introv Hbind. *)
+    (*   lets [Hbind' Hk]: (proj2 Hd) Hbind. *)
+    (*   splits. *)
+    (*   - binds_cases Hbind' ; auto. *)
+    (*     applys~ binds_concat_left. applys~ binds_concat_left. *)
+    (*   - introv Hkin. lets [ ? (? & Hbindk) ] : Hk Hkin. *)
+    (*     binds_cases Hbindk ; eauto. *)
+    (* Qed. *)
+
     Lemma ok_kind_weakening :
       forall G3 G1 G2 k,
         ok_kind (G1 & G3) k ->
         ok_kind (G1 & G2 & G3) k.
-    Proof. introv Hk. induction* Hk. Qed.
+    Proof.
+      introv Hk.
+      remember (G1 & G3) as Gamma eqn:HGamma.
+      induction Hk; subst*. constructor. apply* ok_data_weakening.
+    Qed.
 
     Lemma ok_type_weakening :
       forall G3 G1 G2 T k,
@@ -237,6 +255,7 @@ Module Typing (P : PAT).
       { Case "TyAll". apply_fresh* KAll. apply* ok_kind_weakening.
         apply_ih_bind* H1.
         constructor*. apply* ok_kind_weakening. }
+      { Case "TyData". constructors*. apply* ok_data_weakening. }
     Qed.
 
     Lemma ok_env_ok_type :
@@ -284,6 +303,7 @@ Module Typing (P : PAT).
     Proof with eauto using ok_term_lct, ok_type_lct with mcore.
       introv Htype.
       induction* Htype; intros.
+      constructor~. pick_fresh X. specializes H0 X. apply* ok_type_lct.
     Qed.
     #[export]
      Hint Resolve ok_term_lc : mcore.
@@ -304,8 +324,7 @@ Module Typing (P : PAT).
         ok_env Gamma.
     Proof.
       introv hasType.
-      induction* hasType; pick_fresh_gen L x;
-        eauto using ok_env_push.
+      induction* hasType ; pick_fresh_gen L x; eauto using ok_env_push.
     Qed.
     #[export]
      Hint Resolve ok_type_ok_env : mcore.
@@ -330,16 +349,16 @@ Module Typing (P : PAT).
     Proof.
       introv hasType Henv. remember (G1 & G3) as H. gen G3.
       induction hasType; intros; substs*.
-      { Case "TmFVar". constructors*. apply* binds_weaken. }
+      { Case "TmFVar". constructors~. apply* binds_weaken. }
       { Case "TmLam". apply_fresh* TLam as y.
-        - apply* ok_type_weakening.
-        - apply_ih_bind* H1.
-          constructors*.
-          apply* ok_type_weakening. }
+        - apply~ ok_type_weakening.
+        - apply_ih_bind H1 ; auto.
+          constructors~.
+          apply~ ok_type_weakening. }
       { Case "TmTyLam". apply_fresh* TTyLam as X.
-        - apply* ok_kind_weakening.
-        - apply_ih_bind* H1. constructors*. apply* ok_kind_weakening. }
-      { Case "TmTyApp". constructors*. apply* ok_type_weakening. }
+        - apply~ ok_kind_weakening.
+        - apply_ih_bind H1 ; auto. constructors~. apply~ ok_kind_weakening. }
+      { Case "TmTyApp". constructors~. apply~ ok_type_weakening. }
     Qed.
 
     Lemma ok_data_strengthening :
