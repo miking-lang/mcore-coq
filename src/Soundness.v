@@ -1,5 +1,5 @@
+From TLC Require Import LibString LibLN.
 From MCore Require Import Syntax Typing SmallStep Tactics.
-From TLC Require Import LibString.
 
 Module Soundness (P : PAT).
   Module S := SmallStep P.
@@ -12,37 +12,42 @@ Module Soundness (P : PAT).
 
     Theorem progress :
       forall t ty,
-        ok_term empty_env t ty ->
-        is_value t \/ exists t', eval_step t t'.
+        empty |= t ~: ty ->
+        is_value t \/ exists t', t --> t'.
     Proof.
-      introv ttype.
-      remember empty_env as Gamma eqn:HGamma.
-      induction ttype ; subst
-      ; try (left; constructor).
-      { Case "TmFVar". with_hyp (var_in _ _ _) as Hvar. inversion Hvar. }
+      introv hasType.
+      remember empty as Gamma.
+      induction hasType; substs*.
+      { Case "TmFVar". false. apply* binds_empty_inv. }
       { Case "TmApp". right.
-        forwards* [Hval1 | (t1' & Hstep1)]: IHttype1.
-        forwards* [Hval2 | (t2' & Hstep2)]: IHttype2.
-        inverts* Hval1. inverts* ttype1. }
+        forwards* [Hval1 | (t1' & Hstep1)]: IHhasType1.
+        forwards* [Hval2 | (t2' & Hstep2)]: IHhasType2.
+        inverts Hval1; inverts* hasType1. }
       { Case "TmTyApp". right.
-        forwards* [Hval | (t' & Hstep)]: IHttype.
-        inverts* Hval. inverts ttype. }
+        forwards* [Hval | (t1 & Hstep)]: IHhasType.
+        inverts Hval; inverts* hasType. }
     Qed.
 
     Theorem preservation :
       forall Gamma t t' ty,
-        ok_term Gamma t ty ->
-        eval_step t t' ->
-        ok_term Gamma t' ty.
+        Gamma |= t ~: ty ->
+        t --> t' ->
+        Gamma |= t' ~: ty.
     Proof.
-      introv ttype tstep.
+      introv hasType Hstep.
       gen t'.
-      induction ttype ; intros ; inverts tstep
-      ; try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq
+      induction hasType; intros; inverts Hstep ;
+        try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq
              ; inverts ctx ; inverts* eq).
-      { Case "TmApp". inverts ttype1. rewrite tm_bsubst_close_open with (x := 0).
-        applys* tm_close_preservation empty_env Gamma ty1. }
-      { Case "TmTyApp". inverts ttype. applys* tm_ty_close_preservation. }
+      { Case "TmApp". inverts hasType1.
+        pick_fresh x. rewrite* (@subst_intro x).
+        apply_empty* ok_term_subst. }
+      { Case "TmTyApp". inverts hasType.
+        pick_fresh X.
+        rewrite* (@tsubst_intro X).
+        rewrite* (@tsubst_t_intro X).
+        apply_empty~ ok_term_tsubst. }
     Qed.
+
   End Soundness.
 End Soundness.

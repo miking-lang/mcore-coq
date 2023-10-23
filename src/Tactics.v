@@ -1,4 +1,4 @@
-From TLC Require Import LibLogic LibNat.
+From TLC Require Import LibLogic LibVar.
 From TLC Require Export LibTactics.
 
 Create HintDb mcore.
@@ -6,12 +6,9 @@ Ltac auto_star ::= try solve [ auto with mcore
                              | eauto with mcore
                              | intuition eauto with mcore].
 
-Ltac simple_math := nat_comp_to_peano ; repeat (simpls ; try cases_if ; rew_nat* ; try nat_math).
+Ltac solve_var := repeat (simpls ; try cases_if ; auto_star ; try notin_false).
 
-Ltac magic t := induction t ; intros ; simple_math ; fequals* ; try nat_math.
-
-#[export]
- Hint Resolve Nat.le_0_l : mcore.
+Ltac solve_eq t := induction t ; intros ; solve_var ; fequals*.
 
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=

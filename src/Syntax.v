@@ -1,4 +1,4 @@
-From TLC Require Import LibString LibLN LibEnv.
+From TLC Require Import LibString LibLN.
 From MCore Require Import Tactics.
 
 Module Type PAT.
@@ -109,8 +109,8 @@ Module Syntax (P : PAT).
   .
 
   (* Opening *)
-
   (* Opening a term replaces a bound variable by some other term. *)
+
   Reserved Notation "{ X ~> U } T" (at level 67).
   Fixpoint topen (X : nat) (U : type) (T : type) :=
     match T with
@@ -231,6 +231,12 @@ Module Syntax (P : PAT).
 
   Definition env := env binding.
 
+  Definition bsubst (X : var) (U : type) (b : binding) :=
+    match b with
+    | BindVar T => BindVar (tsubst X U T)
+    | BindCon d ty T => BindCon d (tsubst X U ty) T
+    | _ => b
+    end.
 
   (**********************************)
   (** TACTICS FOR LOCALLY NAMELESS **)
@@ -270,8 +276,7 @@ Module Syntax (P : PAT).
       {I ~> U}T = T.
   Proof.
     introv Hneq Heq. gen I J.
-    induction *T; intros; inverts Heq; simpls; fequals*.
-    - case_nat*. case_nat*.
+    solve_eq T; inverts* Heq.
   Qed.
 
   Lemma topen_lct :
@@ -280,9 +285,8 @@ Module Syntax (P : PAT).
       {K ~> U}T = T.
   Proof.
     introv Hlct. gen K.
-    induction Hlct; intros; simpls; fequals*.
-    - unfolds topen.
-      pick_fresh x.
+    solve_eq Hlct.
+    - pick_fresh x.
       rewrite topen_neq with (J := 0) (V := TyFVar x);
         auto.
   Qed.
@@ -293,21 +297,14 @@ Module Syntax (P : PAT).
       {X => U} ({k ~> T2}T1) = {k ~> {X => U}T2} ({X => U}T1).
   Proof.
     introv Hlct. gen k.
-    induction T1; intros; simpls*; fequals*.
-    + case_nat*.
-    + case_var*.
-      rewrite* topen_lct.
+    solve_eq T1. rewrite* topen_lct.
   Qed.
 
   Lemma tsubst_fresh :
     forall X T U,
       X \notin ftv T ->
       {X => U}T = T.
-  Proof.
-    introv Hfv.
-    induction T; simpls; fequals*.
-    - case_var*.
-  Qed.
+  Proof. introv Hfv ; solve_eq T. Qed.
 
   Lemma tsubst_intro :
     forall X T U,
@@ -316,8 +313,8 @@ Module Syntax (P : PAT).
       {0 ~> U} T = {X => U}({0 ~> TyFVar X}T).
   Proof.
     introv Hfv Hlc.
-    unfolds. rewrite* tsubst_topen_distr.
-    simpls. case_var. rewrite* tsubst_fresh.
+    rewrite* tsubst_topen_distr.
+    solve_var. rewrite* tsubst_fresh.
   Qed.
 
   Lemma tsubst_topen_comm :
@@ -327,9 +324,7 @@ Module Syntax (P : PAT).
       {n ~> TyFVar Y} ({X => U}T) = {X => U} ({n ~> TyFVar Y} T).
   Proof.
     introv Hneq Hlct. gen n.
-    induction *T; intros; simpls; fequals*.
-    - case_nat*. unfolds tsubst. case_var*.
-    - case_var*. rewrite* topen_lct.
+    solve_eq T ; rewrite* topen_lct.
   Qed.
 
   Lemma tsubst_lct :
@@ -339,10 +334,8 @@ Module Syntax (P : PAT).
       lct ({X => U}T).
   Proof.
     introv Hlct1 Hlct2.
-    induction* Hlct1; simpls*.
-    - case_var*.
+    induction* Hlct1; solve_var.
     - apply_fresh* LCTAll.
-      unfolds topen.
       rewrite* tsubst_topen_comm.
   Qed.
 
@@ -352,9 +345,7 @@ Module Syntax (P : PAT).
       [i ~> u]([j ~> v]t) = [j ~> v]t ->
       [i ~> u]t = t.
   Proof.
-    introv Hneq Heq. gen i j. unfolds open.
-    induction *t; intros; inverts Heq; simpls; fequals*.
-    - case_if* in H0. case_if*.
+    introv Hneq Heq. gen i j. solve_eq t ; inverts* Heq.
   Qed.
 
   Lemma open_topen_neq :
@@ -362,8 +353,7 @@ Module Syntax (P : PAT).
       [i ~> u]([{J ~> V}]t) = [{J ~> V}] t ->
       [i ~> u]t = t.
   Proof.
-    introv Heq. gen i J.
-    induction *t; intros; inverts Heq; simpls; fequals*.
+    introv Heq. gen i J. solve_eq t ; inverts* Heq.
   Qed.
 
   Lemma open_lc :
@@ -372,9 +362,8 @@ Module Syntax (P : PAT).
       [k ~> u]t = t.
   Proof.
     introv Hlc. gen k.
-    induction Hlc; intros; simpls; fequals*.
-    - unfolds open.
-      pick_fresh x.
+    solve_eq Hlc.
+    - pick_fresh x.
       rewrite open_neq with (j := 0) (v := TmFVar x);
         auto.
     - pick_fresh X.
@@ -387,112 +376,132 @@ Module Syntax (P : PAT).
       lc u ->
       [x => u] ([0 ~> t2] t1) = [0 ~> [x => u]t2]([x => u]t1).
   Proof.
-    introv Hlc.
-    unfolds open. generalize 0.
-    induction t1; intros; simpls*; fequals*.
-    - case_if*.
-    - case_var*.
-      rewrite* open_lc.
+    introv Hlc. generalize 0.
+    solve_eq t1. rewrite* open_lc.
   Qed.
 
-  (* Lemma subst_open_comm : *)
-  (*   forall x y u t, *)
-  (*     x <> y -> *)
-  (*     lc u -> *)
-  (*     ([x ~> u]t) ^ y = [x ~> u] (t ^ y). *)
-  (* Proof. *)
-  (*   introv Hneq Hlc. *)
-  (*   unfolds. generalize 0. *)
-  (*   induction *t; intros; simpl_open; fequals*; *)
-  (*     eauto using open_lc. *)
-  (*   - unfolds subst. case_var*. *)
-  (* Qed. *)
+  Lemma subst_open_comm :
+    forall x y u t,
+      x <> y ->
+      lc u ->
+      [0 ~> TmFVar y]([x => u]t) = [x => u] ([0 ~> TmFVar y]t).
+  Proof.
+    introv Hneq Hlc. generalize 0.
+    solve_eq t. apply* open_lc.
+  Qed.
 
-  (* Lemma subst_fresh : *)
-  (*   forall x t u, *)
-  (*     x \notin fv t -> *)
-  (*     [x ~> u]t = t. *)
-  (* Proof. *)
-  (*   introv Hfv. *)
-  (*   induction t; simpls; fequals*. *)
-  (*   - case_var*. *)
-  (* Qed. *)
+  Lemma subst_fresh :
+    forall x t u,
+      x \notin fv t ->
+      [x => u]t = t.
+  Proof. solve_eq t. Qed.
 
-  (* Lemma subst_intro : *)
-  (*   forall x t u, *)
-  (*     x \notin (fv t) -> *)
-  (*     t ^^ u = [x ~> u](t ^ x). *)
-  (* Proof. *)
-  (*   introv Hfv. unfolds. *)
-  (*   generalize 0. *)
-  (*   induction t; intros ; simpls; fequals*. *)
-  (*   - case_if*. simpls. case_if*. *)
-  (*   - case_var*. *)
-  (* Qed. *)
+  Lemma subst_intro :
+    forall x t u,
+      x \notin (fv t) ->
+      [0 ~> u] t = [x => u]([0 ~> TmFVar x]t).
+  Proof.
+    introv Hfv. unfolds.
+    generalize 0. solve_eq t.
+  Qed.
 
-  (* Lemma tsubst_t_topen_distr : *)
-  (*   forall X U T t, *)
-  (*     lct U -> *)
-  (*     [[X ~> U]] (topen_t T t) = topen_t ([{X ~> U}]T) ([[X ~> U]]t). *)
-  (* Proof. *)
-  (*   introv Hlct. *)
-  (*   unfolds topen_t. generalize 0. *)
-  (*   induction t; intros; simpls*; fequals*; *)
-  (*     eauto using tsubst_topen_distr. *)
-  (* Qed. *)
+  Lemma tsubst_t_topen_distr :
+    forall X U T t,
+      lct U ->
+      [{X => U}] ([{0 ~> T}] t) = [{0 ~> {X => U}T}] ([{X => U}]t).
+  Proof.
+    introv Hlct.
+    generalize 0. solve_eq t ;
+      apply* tsubst_topen_distr.
+  Qed.
 
-  (* Lemma tsubst_t_fresh : *)
-  (*   forall X t U, *)
-  (*     X \notin ftv_t t -> *)
-  (*     [[X ~> U]]t = t. *)
-  (* Proof. *)
-  (*   introv Hfv. *)
-  (*   induction t; simpls; fequals*; *)
-  (*     eauto using tsubst_fresh. *)
-  (* Qed. *)
+  Lemma tsubst_t_fresh :
+    forall X t U,
+      X \notin ftv_t t ->
+      [{X => U}]t = t.
+  Proof.
+    introv Hfv.
+    solve_eq t; apply* tsubst_fresh.
+  Qed.
 
-  (* Lemma tsubst_t_intro : *)
-  (*   forall X U t, *)
-  (*     X \notin (ftv_t t) -> *)
-  (*     lct U -> *)
-  (*     topen_t U t = [[X ~> U]] (topen_t (TFVar X) t). *)
-  (* Proof. *)
-  (*   introv Hftv Hlc. *)
-  (*   unfolds. rewrite* tsubst_t_topen_distr. *)
-  (*   simpls. case_var. rewrite* tsubst_t_fresh. *)
-  (* Qed. *)
+  Lemma tsubst_t_intro :
+    forall X U t,
+      X \notin (ftv_t t) ->
+      lct U ->
+      [{0 ~> U}]t = [{X => U}] ([{0 ~> TyFVar X}]t).
+  Proof.
+    introv Hftv Hlc.
+    rewrite* tsubst_t_topen_distr.
+    solve_var. rewrite* tsubst_t_fresh.
+  Qed.
 
-  (* Lemma topen_open_rec : *)
-  (*   forall n T t x, *)
-  (*     topen_t' n T (t ^ x) = t ^ x -> *)
-  (*     topen_t' n T t = t. *)
-  (* Proof. *)
-  (*   introv Heq. unfolds open. generalize dependent 0. gen n. *)
-  (*   induction t; intros; simpls*; inverts Heq; fequals*. *)
-  (* Qed. *)
+  Lemma topen_open_rec :
+    forall n T t x,
+      [{n ~> T}] ([0 ~> TmFVar x] t) = [0 ~> TmFVar x]t ->
+      [{n ~> T}] t = t.
+  Proof.
+    introv Heq. generalize dependent 0. gen n.
+    solve_eq t ; inverts* Heq.
+  Qed.
 
-  (* Lemma topen_t_rec : *)
-  (*   forall i j T U t, *)
-  (*     i <> j -> *)
-  (*     topen_t' i T (topen_t' j U t) = (topen_t' j U t) -> *)
-  (*     (topen_t' i T t) = t. *)
-  (* Proof with eauto using topen_neq. *)
-  (*   introv Hneq Heq. gen i j. *)
-  (*   induction t; intros; simpls*; inverts *Heq; fequals... *)
-  (* Qed. *)
+  Lemma topen_t_rec :
+    forall I J T U t,
+      I <> J ->
+      [{I ~> T}] ([{J ~> U}] t) = [{J ~> U}] t ->
+      [{I ~> T}]t = t.
+  Proof.
+    introv Hneq Heq. gen I J.
+    solve_eq t ; inverts* Heq; eauto using topen_neq.
+  Qed.
 
-  (* Lemma topen_t_lc : *)
-  (*   forall T t n, *)
-  (*     lc t -> *)
-  (*     topen_t' n T t = t. *)
-  (* Proof. *)
-  (*   introv Hlc. gen n. *)
-  (*   induction Hlc; intros; simpls; fequals*. *)
-  (*   - rewrite* topen_lct. *)
-  (*   - pick_fresh_gen L x. apply* topen_open_rec. *)
-  (*   - pick_fresh_gen L x. *)
-  (*     rewrite* (@topen_t_rec (S n) 0 T (TFVar x)). *)
-  (*   - rewrite* topen_lct. *)
-  (* Qed. *)
+  Lemma topen_t_lc :
+    forall T t n,
+      lc t ->
+      [{n ~> T}]t = t.
+  Proof.
+    introv Hlc. gen n.
+    solve_eq Hlc.
+    - rewrite* topen_lct.
+    - pick_fresh_gen L x. apply* topen_open_rec.
+    - pick_fresh_gen L x.
+      rewrite* (@topen_t_rec (S n) 0 T (TyFVar x)).
+    - rewrite* topen_lct.
+  Qed.
+
+  Lemma topen_t_subst_comm :
+    forall X x t1 t2,
+      X \notin ftv_t t2 ->
+      lc t2 ->
+      [{0 ~> TyFVar X}] ([x => t2]t1) = [x => t2]([{0 ~> TyFVar X}] t1).
+  Proof.
+    introv Hnin Hlc. generalize 0.
+    solve_eq t1. rewrite* topen_t_lc.
+  Qed.
+
+  Lemma tsubst_t_open_comm :
+    forall X x U t,
+      [0 ~> TmFVar x] ([{X => U}]t) = [{X => U}] ([0 ~> TmFVar x]t).
+  Proof. introv. generalize 0. solve_eq t. Qed.
+
+  Lemma topen_notin :
+    forall T X Y,
+      X \notin ftv ({0 ~> TyFVar Y}T) ->
+      X \notin ftv T.
+  Proof.
+    introv Hnin. generalize dependent 0.
+    induction T; intros; simpls*.
+    apply notin_union_r in Hnin as (Hnin1 & Hnin2) ; eauto.
+  Qed.
+
+  Lemma topen_t_tsubst_comm :
+    forall X Y T t,
+      X <> Y ->
+      lct T ->
+      [{0 ~> TyFVar Y}] ([{X => T}]t) =
+        [{X => T}]([{0 ~> TyFVar Y}] t).
+  Proof.
+    introv Hneq Hlct. generalize dependent 0.
+    solve_eq t ; rewrite* tsubst_topen_comm.
+  Qed.
 
 End Syntax.
