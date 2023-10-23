@@ -1,4 +1,4 @@
-From TLC Require Import LibString LibLN.
+From TLC Require Import LibString LibLogic LibSet LibMap.
 From MCore Require Import Tactics.
 
 Module Type PAT.
@@ -12,10 +12,11 @@ Module Syntax (P : PAT).
   (** SYNTAX DEFINITIONS **)
   (************************)
 
+  Definition var   : Set := nat.
   Definition bvar  : Set := nat.
   Definition tname : Set := var.
   Definition con   : Set := var.
-  Definition data  : Type := env vars.
+  Definition data  : Type := map tname (set con).
 
   Inductive kind : Type :=
   | KiType : kind
@@ -71,40 +72,40 @@ Module Syntax (P : PAT).
   (* Notation scheme:
      - curly braces indicate type-level operations, and square braces indicate term-level ones
      - curly arrows indicate operations on bound variables, and double ones indicate free variables
-     - type-level operation names generally start with t
+     - type-level operations generally start with t
      - type-level operations working over terms are suffixed by _t
    *)
 
-  (* Free variables *)
+  (* Freshness *)
 
-  Fixpoint ftv (T : type) :=
+  Fixpoint tfresh (Y : var) (T : type) :=
     match T with
-    | TyBVar X => \{}
-    | TyFVar X => \{X}
-    | TyArr T1 T2 => ftv T1 \u ftv T2
-    | TyAll k T' => ftv T'
+    | TyBVar X => True
+    | TyFVar X => X <> Y
+    | TyArr T1 T2 => tfresh Y T1 /\ tfresh Y T2
+    | TyAll k T' => tfresh Y T'
     end
   .
 
-  Fixpoint ftv_t (t : term) :=
+  Fixpoint tfresh_t (Y : var) (t : term) :=
     match t with
-    | TmBVar i => \{}
-    | TmFVar x => \{}
-    | TmLam T t' => ftv T \u ftv_t t'
-    | TmApp t1 t2 => ftv_t t1 \u ftv_t t2
-    | TmTyLam k t' => ftv_t t'
-    | TmTyApp t' T => ftv_t t' \u ftv T
+    | TmBVar i => False
+    | TmFVar x => False
+    | TmLam T t' => tfresh Y T /\ tfresh_t Y t'
+    | TmApp t1 t2 => tfresh_t Y t1 /\ tfresh_t Y t2
+    | TmTyLam k t' => tfresh_t Y t'
+    | TmTyApp t' T => tfresh_t Y t' /\ tfresh Y T
     end
   .
 
-  Fixpoint fv (t : term) :=
+  Fixpoint fresh (y : var) (t : term) :=
     match t with
-    | TmBVar i => \{}
-    | TmFVar x => \{x}
-    | TmLam T t' => fv t'
-    | TmApp t1 t2 => fv t1 \u fv t2
-    | TmTyLam k t' => fv t'
-    | TmTyApp t' T => fv t'
+    | TmBVar i => False
+    | TmFVar x => x <> y
+    | TmLam T t' => fresh y t'
+    | TmApp t1 t2 => fresh y t1 /\ fresh y t2
+    | TmTyLam k t' => fresh y t'
+    | TmTyApp t' T => fresh y t'
     end
   .
 
@@ -152,27 +153,6 @@ Module Syntax (P : PAT).
   #[export]
    Hint Unfold open : mcore.
 
-  (* Local closure *)
-  (* A locally closed term contains no unbound BVars. *)
-
-  Inductive lct : type -> Prop :=
-  | LCTFVar : forall X, lct (TyFVar X)
-  | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
-  | LCTAll : forall L k T, (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
-  .
-  #[export]
-   Hint Constructors lct : mcore.
-
-  Inductive lc : term -> Prop :=
-  | LCFVar  : forall x, lc (TmFVar x)
-  | LCAbs   : forall L t T, lct T -> (forall x, x \notin L -> lc ([0 ~> TmFVar x]t)) -> lc (TmLam T t)
-  | LCApp   : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
-  | LCTyLam  : forall L k t, (forall X, X \notin L -> lc ([{0 ~> TyFVar X}] t)) -> lc (TmTyLam k t)
-  | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
-  .
-  #[export]
-   Hint Constructors lc : mcore.
-
   (* Substitution *)
   Reserved Notation "{ X => U } T" (at level 67).
   Fixpoint tsubst (X : var) (U : type) (T : type) :=
@@ -185,7 +165,6 @@ Module Syntax (P : PAT).
   where "{ X => U } T" := (tsubst X U T).
 
   Reserved Notation "[{ X => U }] t" (at level 67).
-
   Fixpoint tsubst_t (X : var) (U : type) (t : term) :=
     match t with
     | TmBVar i => t
@@ -212,62 +191,35 @@ Module Syntax (P : PAT).
    Hint Unfold subst : mcore.
 
 
-  (*****************************)
-  (** ENVIRONMENT DEFINITIONS **)
-  (*****************************)
+  (**************************)
+  (** PROPERTIES OF SYNTAX **)
+  (**************************)
 
-  Inductive match_assum : Type :=
-  | Match   : term -> pat -> match_assum
-  | NoMatch : term -> pat -> match_assum
+  (* Local closure *)
+  (* A locally closed term contains no unbound BVars. *)
+
+  Inductive lct : type -> Prop :=
+  | LCTFVar : forall X, lct (TyFVar X)
+  | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
+  | LCTAll  : forall k T X, lct ({0 ~> TyFVar X}T) -> lct (TyAll k T)
   .
+  #[export]
+   Hint Constructors lct : mcore.
 
-  Inductive binding : Type :=
-  | BindTName : binding
-  | BindCon   : data -> type -> tname -> binding
-  | BindTVar  : kind -> binding
-  | BindVar   : type -> binding
-  | BindMatch : match_assum -> binding
+  Inductive lc : term -> Prop :=
+  | LCFVar  : forall x, lc (TmFVar x)
+  | LCAbs   : forall t T x, lct T -> lc ([0 ~> TmFVar x]t) -> lc (TmLam T t)
+  | LCApp   : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
+  | LCTyLam  : forall k t X, lc ([{0 ~> TyFVar X}] t) -> lc (TmTyLam k t)
+  | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
   .
+  #[export]
+   Hint Constructors lc : mcore.
 
-  Definition env := env binding.
-
-  Definition bsubst (X : var) (U : type) (b : binding) :=
-    match b with
-    | BindVar T => BindVar (tsubst X U T)
-    | BindCon d ty T => BindCon d (tsubst X U ty) T
-    | _ => b
-    end.
-
-  (**********************************)
-  (** TACTICS FOR LOCALLY NAMELESS **)
-  (**********************************)
-
-  Ltac gather_vars :=
-    let A := gather_vars_with (fun x : vars => x) in
-    let B := gather_vars_with (fun x : var => \{x}) in
-    let C := gather_vars_with (fun x : env => dom x) in
-    let D := gather_vars_with (fun x : term => fv x) in
-    let E := gather_vars_with (fun x : term => ftv_t x) in
-    let F := gather_vars_with (fun x : type => ftv x) in
-    constr:(A \u B \u C \u D \u E \u F).
-
-  Ltac pick_fresh x :=
-    let L := gather_vars in (pick_fresh_gen L x).
-
-  Tactic Notation "apply_fresh" constr(T) "as" ident(x) :=
-    apply_fresh_base T gather_vars x.
-
-  Tactic Notation "apply_fresh" "*" constr(T) "as" ident(x) :=
-    apply_fresh T as x; intuition eauto.
-  Tactic Notation "apply_fresh" constr(T) :=
-    apply_fresh_base T gather_vars ltac_no_arg.
-  Tactic Notation "apply_fresh" "*" constr(T) :=
-    apply_fresh T; auto_star.
-
-
-  (******************************)
-  (** PROPERTIES OF OPERATIONS **)
-  (******************************)
+  Lemma pick_tfresh : forall T, exists X, tfresh X T.
+  Proof. Admitted.
+  Lemma pick_fresh : forall t, exists x, fresh x t.
+  Proof. Admitted.
 
   Lemma topen_neq :
     forall I J U V T,
@@ -286,9 +238,8 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlct. gen K.
     solve_eq Hlct.
-    - pick_fresh x.
-      rewrite topen_neq with (J := 0) (V := TyFVar x);
-        auto.
+    rewrite topen_neq with (J := 0) (V := TyFVar X);
+      auto.
   Qed.
 
   Lemma tsubst_topen_distr :
@@ -302,13 +253,13 @@ Module Syntax (P : PAT).
 
   Lemma tsubst_fresh :
     forall X T U,
-      X \notin ftv T ->
+      tfresh X T ->
       {X => U}T = T.
   Proof. introv Hfv ; solve_eq T. Qed.
 
   Lemma tsubst_intro :
     forall X T U,
-      X \notin (ftv T) ->
+      tfresh X T ->
       lct U ->
       {0 ~> U} T = {X => U}({0 ~> TyFVar X}T).
   Proof.
@@ -335,9 +286,8 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlct1 Hlct2.
     induction* Hlct1; solve_var.
-    - apply_fresh* LCTAll.
-      rewrite* tsubst_topen_comm.
-  Qed.
+    (* - constructors. admit. intros. rewrite* tsubst_topen_comm. *)
+  Admitted.
 
   Lemma open_neq :
     forall i j u v t,
@@ -363,11 +313,9 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlc. gen k.
     solve_eq Hlc.
-    - pick_fresh x.
-      rewrite open_neq with (j := 0) (v := TmFVar x);
+    - rewrite open_neq with (j := 0) (v := TmFVar x);
         auto.
-    - pick_fresh X.
-      rewrite open_topen_neq with (J := 0) (V := TyFVar X);
+    - rewrite open_topen_neq with (J := 0) (V := TyFVar X);
         auto.
   Qed.
 
@@ -392,13 +340,13 @@ Module Syntax (P : PAT).
 
   Lemma subst_fresh :
     forall x t u,
-      x \notin fv t ->
+      fresh x t ->
       [x => u]t = t.
   Proof. solve_eq t. Qed.
 
   Lemma subst_intro :
     forall x t u,
-      x \notin (fv t) ->
+      fresh x t ->
       [0 ~> u] t = [x => u]([0 ~> TmFVar x]t).
   Proof.
     introv Hfv. unfolds.
@@ -417,7 +365,7 @@ Module Syntax (P : PAT).
 
   Lemma tsubst_t_fresh :
     forall X t U,
-      X \notin ftv_t t ->
+      tfresh_t X t ->
       [{X => U}]t = t.
   Proof.
     introv Hfv.
@@ -426,7 +374,7 @@ Module Syntax (P : PAT).
 
   Lemma tsubst_t_intro :
     forall X U t,
-      X \notin (ftv_t t) ->
+      tfresh_t X t ->
       lct U ->
       [{0 ~> U}]t = [{X => U}] ([{0 ~> TyFVar X}]t).
   Proof.
@@ -462,19 +410,17 @@ Module Syntax (P : PAT).
     introv Hlc. gen n.
     solve_eq Hlc.
     - rewrite* topen_lct.
-    - pick_fresh_gen L x. apply* topen_open_rec.
-    - pick_fresh_gen L x.
-      rewrite* (@topen_t_rec (S n) 0 T (TyFVar x)).
+    - applys* topen_open_rec x.
+    - rewrite* (@topen_t_rec (S n) 0 T (TyFVar X)).
     - rewrite* topen_lct.
   Qed.
 
   Lemma topen_t_subst_comm :
     forall X x t1 t2,
-      X \notin ftv_t t2 ->
       lc t2 ->
       [{0 ~> TyFVar X}] ([x => t2]t1) = [x => t2]([{0 ~> TyFVar X}] t1).
   Proof.
-    introv Hnin Hlc. generalize 0.
+    introv Hlc. generalize 0.
     solve_eq t1. rewrite* topen_t_lc.
   Qed.
 
@@ -485,12 +431,11 @@ Module Syntax (P : PAT).
 
   Lemma topen_notin :
     forall T X Y,
-      X \notin ftv ({0 ~> TyFVar Y}T) ->
-      X \notin ftv T.
+      tfresh X ({0 ~> TyFVar Y}T) ->
+      tfresh X T.
   Proof.
     introv Hnin. generalize dependent 0.
     induction T; intros; simpls*.
-    apply notin_union_r in Hnin as (Hnin1 & Hnin2) ; eauto.
   Qed.
 
   Lemma topen_t_tsubst_comm :

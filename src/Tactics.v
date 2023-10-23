@@ -1,4 +1,3 @@
-From TLC Require Import LibLogic LibVar.
 From TLC Require Export LibTactics.
 
 Create HintDb mcore.
@@ -6,7 +5,7 @@ Ltac auto_star ::= try solve [ auto with mcore
                              | eauto with mcore
                              | intuition eauto with mcore].
 
-Ltac solve_var := repeat (simpls ; try cases_if ; auto_star ; try notin_false).
+Ltac solve_var := repeat (simpls ; try cases_if ; auto_star).
 
 Ltac solve_eq t := induction t ; intros ; solve_var ; fequals*.
 
