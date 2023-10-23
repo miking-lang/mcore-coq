@@ -58,9 +58,9 @@ Module Typing (P : PAT).
     (*     ok_type Gamma ty2 KiType -> *)
     (*     ok_type Gamma (TyProd ty1 ty2) KiType *)
     | KCon : forall Gamma ty d T,
-        ok_type Gamma ty (KiData d) ->
+        Gamma |= ty ~:: KiData d ->
         T \indom d ->
-        ok_type Gamma (TyCon ty T) KiType
+        Gamma |= TyCon ty T ~:: KiType
     (* | TySem' : forall {Gamma : env} {ty1 ty2 : type} {ps : list pat}, *)
     (*     ok_type Gamma ty1 KiType -> *)
     (*     ok_type Gamma ty2 KiType -> *)
@@ -68,7 +68,7 @@ Module Typing (P : PAT).
     | KData : forall Gamma d,
         ok_env Gamma ->
         ok_data Gamma d ->
-        ok_type Gamma (TyData d) (KiData d)
+        Gamma |= TyData d ~:: KiData d
     (* | TyDataSub' : forall {Gamma : env} {ty : type} {d1 d2 : data}, *)
     (*     ok_type Gamma ty (KiData d1) -> *)
     (*     d2 \c d1 -> *)
@@ -169,7 +169,7 @@ Module Typing (P : PAT).
     | TConDef : forall L Gamma d ty1 ty2 T t K,
         ok_data Gamma d ->
         (forall X, X \notin L ->
-              Gamma & X ~ BindTVar (KiData d) |= ty1 ~:: KiType) ->
+              Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty1 ~:: KiType) ->
         Gamma & K ~ BindCon d ty1 T |= t ~: ty2 ->
         Gamma |= ty2 ~:: KiType ->
         Gamma |= TmConDef d ty1 T t ~: ty2
@@ -219,22 +219,25 @@ Module Typing (P : PAT).
     Lemma ok_data_weakening :
       forall G3 G1 G2 d,
         ok_data (G1 & G3) d ->
-        (* ok_env (G1 & G2 & G3) -> *)
+        ok_env  (G1 & G2 & G3) ->
         ok_data (G1 & G2 & G3) d.
-    Proof. Admitted.
-    (*   introv Hd Henv. unfolds ok_data. *)
-    (*   splits*. introv Hbind. *)
-    (*   lets [Hbind' Hk]: (proj2 Hd) Hbind. *)
-    (*   splits. *)
-    (*   - binds_cases Hbind' ; auto. *)
-    (*     applys~ binds_concat_left. applys~ binds_concat_left. *)
-    (*   - introv Hkin. lets [ ? (? & Hbindk) ] : Hk Hkin. *)
-    (*     binds_cases Hbindk ; eauto. *)
-    (* Qed. *)
+    Proof.
+      introv Hd Henv. unfolds ok_data.
+      splits*. introv Hbind.
+      lets [Hbind' Hk]: (proj2 Hd) Hbind.
+      assert (Hok : ok (G1 & G2)) by applys* ok_concat_inv_l G3.
+      splits.
+      - binds_cases Hbind' ; auto.
+        applys~ binds_concat_left. applys~ binds_concat_left_ok.
+      - introv Hkin. lets [ d' (ty & Hbindk) ] : Hk Hkin.
+        binds_cases Hbindk ; eauto.
+        exists d' ty. applys~ binds_concat_left. applys~ binds_concat_left_ok.
+    Qed.
 
     Lemma ok_kind_weakening :
       forall G3 G1 G2 k,
         ok_kind (G1 & G3) k ->
+        ok_env  (G1 & G2 & G3) ->
         ok_kind (G1 & G2 & G3) k.
     Proof.
       introv Hk.
@@ -359,6 +362,7 @@ Module Typing (P : PAT).
         - apply~ ok_kind_weakening.
         - apply_ih_bind H1 ; auto. constructors~. apply~ ok_kind_weakening. }
       { Case "TmTyApp". constructors~. apply~ ok_type_weakening. }
+      { Case "TmCon". constructors~. apply~ ok_type_weakening. }
     Qed.
 
     Lemma ok_data_strengthening :
