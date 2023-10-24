@@ -1,5 +1,8 @@
-From TLC Require Import LibString LibLN.
+From TLC Require Import LibString LibList.
 From MCore Require Import Syntax Typing SmallStep Tactics.
+Import LibListNotation.
+
+Open Scope liblist_scope.
 
 Module Soundness (P : PAT).
   Module S := SmallStep P.
@@ -18,7 +21,7 @@ Module Soundness (P : PAT).
       introv hasType.
       remember empty as Gamma.
       induction hasType; substs*.
-      { Case "TmFVar". false. apply* binds_empty_inv. }
+      { Case "TmFVar". inverts H0. }
       { Case "TmApp". right.
         forwards* [Hval1 | (t1' & Hstep1)]: IHhasType1.
         forwards* [Hval2 | (t2' & Hstep2)]: IHhasType2.
@@ -29,19 +32,24 @@ Module Soundness (P : PAT).
     Qed.
 
     Theorem preservation :
-      forall Gamma t t' ty,
-        Gamma |= t ~: ty ->
+      forall G1 t t' ty,
+        G1 |= t ~: ty ->
         t --> t' ->
-        Gamma |= t' ~: ty.
+        exists G2, refines G1 G2 /\ G2 |= t' ~: ty.
     Proof.
       introv hasType Hstep.
       gen t'.
-      induction hasType; intros; inverts Hstep ;
-        try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq
-             ; inverts ctx ; inverts* eq).
-      { Case "TmApp". inverts hasType1.
-        pick_fresh x. rewrite* (@subst_intro x).
-        apply_empty* ok_term_subst. }
+      induction hasType; intros.
+      - inverts Hstep.
+        try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq ; inverts ctx ; inverts* eq).
+      - inverts Hstep.
+        try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq ; inverts ctx ; inverts* eq).
+      - Case "TmApp". inverts* Hstep. inverts hasType1.
+        rewrite* (@subst_intro (length Gamma)).
+        assert (Gamma & Skip |= [length Gamma => t2] ([0 ~> TmFVar (length Gamma)] t) ~: ty2).
+        applys_eq (ok_term_subst empty Gamma) ; rew_list*.
+        exists (Gamma & Skip). split. admit. auto. admit.
+        with_hyp (is_context _) as ctx. inverts ctx.
       { Case "TmTyApp". inverts hasType.
         pick_fresh X.
         rewrite* (@tsubst_intro X).

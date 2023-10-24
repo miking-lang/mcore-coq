@@ -1,5 +1,7 @@
-From TLC Require Import LibString LibLogic LibSet LibMap.
+From TLC Require Import LibString LibLogic LibSet LibMap LibNat.
 From MCore Require Import Tactics.
+
+Open Scope nat_scope.
 
 Module Type PAT.
   Parameter pat : Type.
@@ -76,39 +78,6 @@ Module Syntax (P : PAT).
      - type-level operations working over terms are suffixed by _t
    *)
 
-  (* Freshness *)
-
-  Fixpoint tfresh (Y : var) (T : type) :=
-    match T with
-    | TyBVar X => True
-    | TyFVar X => X <> Y
-    | TyArr T1 T2 => tfresh Y T1 /\ tfresh Y T2
-    | TyAll k T' => tfresh Y T'
-    end
-  .
-
-  Fixpoint tfresh_t (Y : var) (t : term) :=
-    match t with
-    | TmBVar i => False
-    | TmFVar x => False
-    | TmLam T t' => tfresh Y T /\ tfresh_t Y t'
-    | TmApp t1 t2 => tfresh_t Y t1 /\ tfresh_t Y t2
-    | TmTyLam k t' => tfresh_t Y t'
-    | TmTyApp t' T => tfresh_t Y t' /\ tfresh Y T
-    end
-  .
-
-  Fixpoint fresh (y : var) (t : term) :=
-    match t with
-    | TmBVar i => False
-    | TmFVar x => x <> y
-    | TmLam T t' => fresh y t'
-    | TmApp t1 t2 => fresh y t1 /\ fresh y t2
-    | TmTyLam k t' => fresh y t'
-    | TmTyApp t' T => fresh y t'
-    end
-  .
-
   (* Opening *)
   (* Opening a term replaces a bound variable by some other term. *)
 
@@ -154,6 +123,7 @@ Module Syntax (P : PAT).
    Hint Unfold open : mcore.
 
   (* Substitution *)
+
   Reserved Notation "{ X => U } T" (at level 67).
   Fixpoint tsubst (X : var) (U : type) (T : type) :=
     match T with
@@ -190,10 +160,42 @@ Module Syntax (P : PAT).
   #[export]
    Hint Unfold subst : mcore.
 
-
   (**************************)
   (** PROPERTIES OF SYNTAX **)
   (**************************)
+
+  (* Freshness *)
+
+  Fixpoint tfresh (Y : var) (T : type) :=
+    match T with
+    | TyBVar X => True
+    | TyFVar X => X <> Y
+    | TyArr T1 T2 => tfresh Y T1 /\ tfresh Y T2
+    | TyAll k T' => tfresh Y T'
+    end
+  .
+
+  Fixpoint tfresh_t (Y : var) (t : term) :=
+    match t with
+    | TmBVar i => False
+    | TmFVar x => False
+    | TmLam T t' => tfresh Y T /\ tfresh_t Y t'
+    | TmApp t1 t2 => tfresh_t Y t1 /\ tfresh_t Y t2
+    | TmTyLam k t' => tfresh_t Y t'
+    | TmTyApp t' T => tfresh_t Y t' /\ tfresh Y T
+    end
+  .
+
+  Fixpoint fresh (y : var) (t : term) :=
+    match t with
+    | TmBVar i => False
+    | TmFVar x => x <> y
+    | TmLam T t' => fresh y t'
+    | TmApp t1 t2 => fresh y t1 /\ fresh y t2
+    | TmTyLam k t' => fresh y t'
+    | TmTyApp t' T => fresh y t'
+    end
+  .
 
   (* Local closure *)
   (* A locally closed term contains no unbound BVars. *)
@@ -201,25 +203,20 @@ Module Syntax (P : PAT).
   Inductive lct : type -> Prop :=
   | LCTFVar : forall X, lct (TyFVar X)
   | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
-  | LCTAll  : forall k T X, lct ({0 ~> TyFVar X}T) -> lct (TyAll k T)
+  | LCTAll  : forall X k T, lct ({0 ~> TyFVar X}T) -> lct (TyAll k T)
   .
   #[export]
    Hint Constructors lct : mcore.
 
   Inductive lc : term -> Prop :=
   | LCFVar  : forall x, lc (TmFVar x)
-  | LCAbs   : forall t T x, lct T -> lc ([0 ~> TmFVar x]t) -> lc (TmLam T t)
+  | LCAbs   : forall x t T, lct T -> lc ([0 ~> TmFVar x]t) -> lc (TmLam T t)
   | LCApp   : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
-  | LCTyLam  : forall k t X, lc ([{0 ~> TyFVar X}] t) -> lc (TmTyLam k t)
+  | LCTyLam  : forall X k t, lc ([{0 ~> TyFVar X}] t) -> lc (TmTyLam k t)
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
   .
   #[export]
    Hint Constructors lc : mcore.
-
-  Lemma pick_tfresh : forall T, exists X, tfresh X T.
-  Proof. Admitted.
-  Lemma pick_fresh : forall t, exists x, fresh x t.
-  Proof. Admitted.
 
   Lemma topen_neq :
     forall I J U V T,
@@ -228,7 +225,7 @@ Module Syntax (P : PAT).
       {I ~> U}T = T.
   Proof.
     introv Hneq Heq. gen I J.
-    solve_eq T; inverts* Heq.
+    simple_eq T; inverts* Heq.
   Qed.
 
   Lemma topen_lct :
@@ -237,7 +234,7 @@ Module Syntax (P : PAT).
       {K ~> U}T = T.
   Proof.
     introv Hlct. gen K.
-    solve_eq Hlct.
+    simple_eq Hlct.
     rewrite topen_neq with (J := 0) (V := TyFVar X);
       auto.
   Qed.
@@ -248,14 +245,14 @@ Module Syntax (P : PAT).
       {X => U} ({k ~> T2}T1) = {k ~> {X => U}T2} ({X => U}T1).
   Proof.
     introv Hlct. gen k.
-    solve_eq T1. rewrite* topen_lct.
+    simple_eq T1. rewrite* topen_lct.
   Qed.
 
   Lemma tsubst_fresh :
     forall X T U,
       tfresh X T ->
       {X => U}T = T.
-  Proof. introv Hfv ; solve_eq T. Qed.
+  Proof. introv Hfv ; simple_eq T. Qed.
 
   Lemma tsubst_intro :
     forall X T U,
@@ -265,7 +262,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hfv Hlc.
     rewrite* tsubst_topen_distr.
-    solve_var. rewrite* tsubst_fresh.
+    simple_math. rewrite* tsubst_fresh.
   Qed.
 
   Lemma tsubst_topen_comm :
@@ -275,7 +272,7 @@ Module Syntax (P : PAT).
       {n ~> TyFVar Y} ({X => U}T) = {X => U} ({n ~> TyFVar Y} T).
   Proof.
     introv Hneq Hlct. gen n.
-    solve_eq T ; rewrite* topen_lct.
+    simple_eq T ; rewrite* topen_lct.
   Qed.
 
   Lemma tsubst_lct :
@@ -283,10 +280,12 @@ Module Syntax (P : PAT).
       lct T ->
       lct U ->
       lct ({X => U}T).
-  Proof.
+  Proof with simple_math.
     introv Hlct1 Hlct2.
-    induction* Hlct1; solve_var.
-    (* - constructors. admit. intros. rewrite* tsubst_topen_comm. *)
+    induction Hlct1...
+    - admit.
+      (* apply (LCTAll (Nat.max X X0)). intros. *)
+      (* rewrite tsubst_topen_comm... apply H0... *)
   Admitted.
 
   Lemma open_neq :
@@ -295,7 +294,7 @@ Module Syntax (P : PAT).
       [i ~> u]([j ~> v]t) = [j ~> v]t ->
       [i ~> u]t = t.
   Proof.
-    introv Hneq Heq. gen i j. solve_eq t ; inverts* Heq.
+    introv Hneq Heq. gen i j. simple_eq t ; inverts* Heq.
   Qed.
 
   Lemma open_topen_neq :
@@ -303,7 +302,7 @@ Module Syntax (P : PAT).
       [i ~> u]([{J ~> V}]t) = [{J ~> V}] t ->
       [i ~> u]t = t.
   Proof.
-    introv Heq. gen i J. solve_eq t ; inverts* Heq.
+    introv Heq. gen i J. simple_eq t ; inverts* Heq.
   Qed.
 
   Lemma open_lc :
@@ -312,7 +311,7 @@ Module Syntax (P : PAT).
       [k ~> u]t = t.
   Proof.
     introv Hlc. gen k.
-    solve_eq Hlc.
+    simple_eq Hlc.
     - rewrite open_neq with (j := 0) (v := TmFVar x);
         auto.
     - rewrite open_topen_neq with (J := 0) (V := TyFVar X);
@@ -325,7 +324,7 @@ Module Syntax (P : PAT).
       [x => u] ([0 ~> t2] t1) = [0 ~> [x => u]t2]([x => u]t1).
   Proof.
     introv Hlc. generalize 0.
-    solve_eq t1. rewrite* open_lc.
+    simple_eq t1. rewrite* open_lc.
   Qed.
 
   Lemma subst_open_comm :
@@ -335,14 +334,14 @@ Module Syntax (P : PAT).
       [0 ~> TmFVar y]([x => u]t) = [x => u] ([0 ~> TmFVar y]t).
   Proof.
     introv Hneq Hlc. generalize 0.
-    solve_eq t. apply* open_lc.
+    simple_eq t. apply* open_lc.
   Qed.
 
   Lemma subst_fresh :
     forall x t u,
       fresh x t ->
       [x => u]t = t.
-  Proof. solve_eq t. Qed.
+  Proof. simple_eq t. Qed.
 
   Lemma subst_intro :
     forall x t u,
@@ -350,7 +349,7 @@ Module Syntax (P : PAT).
       [0 ~> u] t = [x => u]([0 ~> TmFVar x]t).
   Proof.
     introv Hfv. unfolds.
-    generalize 0. solve_eq t.
+    generalize 0. simple_eq t.
   Qed.
 
   Lemma tsubst_t_topen_distr :
@@ -359,7 +358,7 @@ Module Syntax (P : PAT).
       [{X => U}] ([{0 ~> T}] t) = [{0 ~> {X => U}T}] ([{X => U}]t).
   Proof.
     introv Hlct.
-    generalize 0. solve_eq t ;
+    generalize 0. simple_eq t ;
       apply* tsubst_topen_distr.
   Qed.
 
@@ -369,7 +368,7 @@ Module Syntax (P : PAT).
       [{X => U}]t = t.
   Proof.
     introv Hfv.
-    solve_eq t; apply* tsubst_fresh.
+    simple_eq t; apply* tsubst_fresh.
   Qed.
 
   Lemma tsubst_t_intro :
@@ -380,7 +379,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hftv Hlc.
     rewrite* tsubst_t_topen_distr.
-    solve_var. rewrite* tsubst_t_fresh.
+    simple_math. rewrite* tsubst_t_fresh.
   Qed.
 
   Lemma topen_open_rec :
@@ -389,7 +388,7 @@ Module Syntax (P : PAT).
       [{n ~> T}] t = t.
   Proof.
     introv Heq. generalize dependent 0. gen n.
-    solve_eq t ; inverts* Heq.
+    simple_eq t ; inverts* Heq.
   Qed.
 
   Lemma topen_t_rec :
@@ -399,7 +398,7 @@ Module Syntax (P : PAT).
       [{I ~> T}]t = t.
   Proof.
     introv Hneq Heq. gen I J.
-    solve_eq t ; inverts* Heq; eauto using topen_neq.
+    simple_eq t ; inverts* Heq; eauto using topen_neq.
   Qed.
 
   Lemma topen_t_lc :
@@ -408,7 +407,7 @@ Module Syntax (P : PAT).
       [{n ~> T}]t = t.
   Proof.
     introv Hlc. gen n.
-    solve_eq Hlc.
+    simple_eq Hlc.
     - rewrite* topen_lct.
     - applys* topen_open_rec x.
     - rewrite* (@topen_t_rec (S n) 0 T (TyFVar X)).
@@ -421,13 +420,13 @@ Module Syntax (P : PAT).
       [{0 ~> TyFVar X}] ([x => t2]t1) = [x => t2]([{0 ~> TyFVar X}] t1).
   Proof.
     introv Hlc. generalize 0.
-    solve_eq t1. rewrite* topen_t_lc.
+    simple_eq t1. rewrite* topen_t_lc.
   Qed.
 
   Lemma tsubst_t_open_comm :
     forall X x U t,
       [0 ~> TmFVar x] ([{X => U}]t) = [{X => U}] ([0 ~> TmFVar x]t).
-  Proof. introv. generalize 0. solve_eq t. Qed.
+  Proof. introv. generalize 0. simple_eq t. Qed.
 
   Lemma topen_notin :
     forall T X Y,
@@ -446,7 +445,7 @@ Module Syntax (P : PAT).
         [{X => T}]([{0 ~> TyFVar Y}] t).
   Proof.
     introv Hneq Hlct. generalize dependent 0.
-    solve_eq t ; rewrite* tsubst_topen_comm.
+    simple_eq t ; rewrite* tsubst_topen_comm.
   Qed.
 
 End Syntax.
