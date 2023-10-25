@@ -1,5 +1,6 @@
-From TLC Require Import LibString LibLN.
+From TLC Require Import LibString LibListAssoc LibLN.
 From MCore Require Import Syntax Tactics.
+Import LibList.LibListNotation.
 
 Module Typing (P : PAT).
   Module S := Syntax P.
@@ -19,14 +20,29 @@ Module Typing (P : PAT).
     (** TYPING RELATION DEFINITIONS **)
     (*********************************)
 
-    Definition ok_data (Gamma : env) (d : data) : Prop :=
-      ok d /\
-      forall T cons,
-        binds T cons d ->
-        binds T BindTName Gamma /\
-          forall K,
-            K \in cons -> exists d ty, binds K (BindCon d ty T) Gamma
+    Inductive ok_cons : env -> list con -> tname -> Prop :=
+    | CNil  : forall Gamma T, ok_cons Gamma nil T
+    | CCons : forall Gamma K Ks d ty T,
+        ok_cons Gamma Ks T ->
+        ~ LibList.mem (FCon K) Ks ->
+        binds K (BindCon d ty T) Gamma ->
+        ok_cons Gamma (FCon K :: Ks) T
     .
+    #[export]
+     Hint Constructors ok_cons : mcore.
+
+    Inductive ok_data : env -> data -> Prop :=
+    | DNil  : forall Gamma, ok_data Gamma nil
+    | DCons :
+      forall Gamma d T Ks,
+        ok_data Gamma d ->
+        (forall Ks, ~ Assoc (FTName T) Ks d) ->
+        binds T BindTName Gamma ->
+        ok_cons Gamma Ks (FTName T) ->
+        ok_data Gamma ((FTName T , Ks) :: d)
+    .
+    #[export]
+     Hint Constructors ok_data : mcore.
 
     Inductive ok_kind : env -> kind -> Prop :=
     | TypeOk : forall Gamma,
@@ -57,10 +73,10 @@ Module Typing (P : PAT).
     (*     ok_type Gamma ty1 KiType -> *)
     (*     ok_type Gamma ty2 KiType -> *)
     (*     ok_type Gamma (TyProd ty1 ty2) KiType *)
-    | KCon : forall Gamma ty d T,
+    | KCon : forall Gamma ty d T Ks,
         Gamma |= ty ~:: KiData d ->
-        T \indom d ->
-        Gamma |= TyCon ty T ~:: KiType
+        Assoc (FTName T) Ks d ->
+        Gamma |= TyCon ty (FTName T) ~:: KiType
     (* | TySem' : forall {Gamma : env} {ty1 ty2 : type} {ps : list pat}, *)
     (*     ok_type Gamma ty1 KiType -> *)
     (*     ok_type Gamma ty2 KiType -> *)
@@ -86,7 +102,7 @@ Module Typing (P : PAT).
         ok_data Gamma d ->
         Gamma |= ty ~:: KiType ->
         binds T BindTName Gamma ->
-        ok_env (Gamma & K ~ BindCon d ty T)
+        ok_env (Gamma & K ~ BindCon d ty (FTName T))
     | EnvTVar : forall Gamma X k,
         ok_env Gamma ->
         X # Gamma ->
@@ -97,10 +113,10 @@ Module Typing (P : PAT).
         x # Gamma ->
         Gamma |= ty ~:: KiType ->
         ok_env (Gamma & x ~ BindVar ty)
-    | EnvMatch : forall Gamma M m,
-        ok_env Gamma ->
-        M # Gamma ->
-        ok_env (Gamma & M ~ BindMatch m)
+    (* | EnvMatch : forall Gamma M m, *)
+    (*     ok_env Gamma -> *)
+    (*     M # Gamma -> *)
+    (*     ok_env (Gamma & M ~ BindMatch m) *)
     .
     #[export]
      Hint Constructors ok_type : mcore.
@@ -145,11 +161,11 @@ Module Typing (P : PAT).
     (*     ok_term Gamma t (TyProd ty1 ty2) -> *)
     (*     ok_term Gamma (TmProj F2 t) ty2 *)
     | TCon : forall Gamma K d ty1 ty2 T t,
-        binds K (BindCon d ty1 T) Gamma ->
+        binds K (BindCon d ty1 (FTName T)) Gamma ->
         Gamma |= ty2 ~:: KiData d ->
-        Gamma |= ty2 ~:: KiData (T ~ \{K}) ->
+        Gamma |= ty2 ~:: KiData [ (FTName T , FCon K :: []) ] ->
         Gamma |= t ~: ({0 ~> ty2}ty1) ->
-        Gamma |= TmCon K ty2 t ~: TyCon ty2 T
+        Gamma |= TmCon (FCon K) ty2 t ~: TyCon ty2 (FTName T)
     (* | TmMatch' : forall {Gamma : env} {vs : var_env} {t t1 t2 : term} *)
     (*                     {ty1 ty2 : type} {p : pat}, *)
     (*     ok_term Gamma t ty1 -> *)
@@ -162,17 +178,19 @@ Module Typing (P : PAT).
     (* | TmNever' : forall {Gamma : env} {ty : type}, *)
     (*     matches_contradictory Gamma.(matches) -> *)
     (*     ok_term Gamma TmNever ty *)
-    | TType : forall Gamma t ty T,
+    | TType : forall L Gamma t ty,
         Gamma |= ty ~:: KiType ->
-        Gamma & T ~ BindTName |= t ~: ty ->
+        (forall T, T \notin L ->
+              Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty) ->
         Gamma |= TmType t ~: ty
-    | TConDef : forall L Gamma d ty1 ty2 T t K,
+    | TConDef : forall L Gamma d ty1 ty2 T t,
         ok_data Gamma d ->
         (forall X, X \notin L ->
               Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty1 ~:: KiType) ->
-        Gamma & K ~ BindCon d ty1 T |= t ~: ty2 ->
         Gamma |= ty2 ~:: KiType ->
-        Gamma |= TmConDef d ty1 T t ~: ty2
+        (forall K, K \notin L ->
+              Gamma & K ~ BindCon d ty1 (FTName T) |= Kopen_t 0 (FCon K) t ~: ty2) ->
+        Gamma |= TmConDef d ty1 (FTName T) t ~: ty2
     (* | TmSem' : forall {Gamma : env} {ty1 ty2 : type} *)
     (*                   {cases : list (pat * term)}, *)
     (*     ok_type Gamma ty1 KiType -> *)
