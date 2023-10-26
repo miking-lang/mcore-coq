@@ -96,11 +96,11 @@ Module Typing (P : PAT).
     | EnvEmpty : ok_env empty
     | EnvTName : forall Gamma X, ok_env Gamma -> X # Gamma -> ok_env (Gamma & X ~ BindTName)
     | EnvCon   :
-      forall Gamma K d ty T,
+      forall L Gamma K d ty T,
         ok_env Gamma ->
         K # Gamma ->
         ok_data Gamma d ->
-        Gamma |= ty ~:: KiType ->
+        (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType) ->
         binds T BindTName Gamma ->
         ok_env (Gamma & K ~ BindCon d ty (FTName T))
     | EnvTVar : forall Gamma X k,
@@ -187,6 +187,7 @@ Module Typing (P : PAT).
         ok_data Gamma d ->
         (forall X, X \notin L ->
               Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty1 ~:: KiType) ->
+        binds T BindTName Gamma ->
         Gamma |= ty2 ~:: KiType ->
         (forall K, K \notin L ->
               Gamma & K ~ BindCon d ty1 (FTName T) |= Kopen_t 0 (FCon K) t ~: ty2) ->
@@ -240,16 +241,13 @@ Module Typing (P : PAT).
         ok_env  (G1 & G2 & G3) ->
         ok_data (G1 & G2 & G3) d.
     Proof.
-      introv Hd Henv. unfolds ok_data.
-      splits*. introv Hbind.
-      lets [Hbind' Hk]: (proj2 Hd) Hbind.
+      introv Hd Henv.
+      remember (G1 & G3) as Gamma eqn:HGamma.
       assert (Hok : ok (G1 & G2)) by applys* ok_concat_inv_l G3.
-      splits.
-      - binds_cases Hbind' ; auto.
-        applys~ binds_concat_left. applys~ binds_concat_left_ok.
-      - introv Hkin. lets [ d' (ty & Hbindk) ] : Hk Hkin.
-        binds_cases Hbindk ; eauto.
-        exists d' ty. applys~ binds_concat_left. applys~ binds_concat_left_ok.
+      induction Hd ; constructor*.
+      - substs ; apply* binds_weaken.
+      - induction H1 ; substs ; constructors*.
+        apply* binds_weaken.
     Qed.
 
     Lemma ok_kind_weakening :
@@ -260,7 +258,7 @@ Module Typing (P : PAT).
     Proof.
       introv Hk.
       remember (G1 & G3) as Gamma eqn:HGamma.
-      induction Hk; subst*. constructor. apply* ok_data_weakening.
+      destruct Hk; subst*. constructor. apply* ok_data_weakening.
     Qed.
 
     Lemma ok_type_weakening :
@@ -269,9 +267,9 @@ Module Typing (P : PAT).
         ok_env (G1 & G2 & G3) ->
         G1 & G2 & G3 |= T ~:: k.
     Proof.
-      introv Hk Henv.
+      introv Htk Henv.
       remember (G1 & G3) as Gamma. gen G3.
-      induction* Hk; intros; substs.
+      induction* Htk; intros; substs.
       { Case "TyFVar". constructors*. apply* binds_weaken. }
       { Case "TyAll". apply_fresh* KAll. apply* ok_kind_weakening.
         apply_ih_bind* H1.
@@ -291,11 +289,25 @@ Module Typing (P : PAT).
       { Case "EnvVar". inverts* EQ. }
     Qed.
 
+    Lemma ok_data_lcd : forall Gamma d, ok_data Gamma d -> lcd d.
+    Proof.
+      introv Hd. unfolds.
+      induction Hd ; rew_listx*. splits*. splits*.
+      induction H1 ; rew_listx*.
+    Qed.
+    #[export]
+     Hint Resolve ok_data_lcd : mcore.
+
+    Lemma ok_kind_lck : forall Gamma k, ok_kind Gamma k -> lck k.
+    Proof. introv Hk. destruct* Hk. Qed.
+    #[export]
+     Hint Resolve ok_kind_lck : mcore.
+
     Lemma ok_type_lct :
       forall Gamma T k,
         Gamma |= T ~:: k ->
         lct T.
-    Proof. introv Hk ; induction* Hk. Qed.
+    Proof. introv Htk ; induction* Htk. Qed.
     #[export]
      Hint Resolve ok_type_lct : mcore.
 
@@ -321,11 +333,7 @@ Module Typing (P : PAT).
       forall Gamma t T,
         Gamma |= t ~: T ->
         lc t.
-    Proof with eauto using ok_term_lct, ok_type_lct with mcore.
-      introv Htype.
-      induction* Htype; intros.
-      constructor~. pick_fresh X. specializes H0 X. apply* ok_type_lct.
-    Qed.
+    Proof. introv Htype; induction* Htype. Qed.
     #[export]
      Hint Resolve ok_term_lc : mcore.
 
@@ -334,8 +342,8 @@ Module Typing (P : PAT).
         ok_env (G1 & x ~ b) ->
         ok_env G1.
     Proof.
-      introv Hwf.
-      inverts Hwf ; try (apply eq_push_inv in H; inverts H as []; substs*).
+      introv Henv.
+      inverts Henv ; try (apply eq_push_inv in H; inverts H as []; substs*).
       false. apply *empty_push_inv.
     Qed.
 
@@ -367,20 +375,25 @@ Module Typing (P : PAT).
         G1 & G3 |= t ~: T ->
         ok_env (G1 & G2 & G3) ->
         G1 & G2 & G3 |= t ~: T.
-    Proof.
+    Proof with eauto using ok_type_weakening, ok_kind_weakening, ok_data_weakening with mcore.
       introv hasType Henv. remember (G1 & G3) as H. gen G3.
-      induction hasType; intros; substs*.
+      induction hasType; intros; substs...
       { Case "TmFVar". constructors~. apply* binds_weaken. }
-      { Case "TmLam". apply_fresh* TLam as y.
-        - apply~ ok_type_weakening.
-        - apply_ih_bind H1 ; auto.
-          constructors~.
-          apply~ ok_type_weakening. }
-      { Case "TmTyLam". apply_fresh* TTyLam as X.
-        - apply~ ok_kind_weakening.
-        - apply_ih_bind H1 ; auto. constructors~. apply~ ok_kind_weakening. }
-      { Case "TmTyApp". constructors~. apply~ ok_type_weakening. }
-      { Case "TmCon". constructors~. apply~ ok_type_weakening. }
+      { Case "TmLam". apply_fresh* TLam as y...
+        apply_ih_bind H1 ; auto. constructor... }
+      { Case "TmTyLam". apply_fresh* TTyLam as X...
+        apply_ih_bind H1 ; auto. constructor... }
+      { Case "TmCon". constructors...
+        apply* binds_weaken. }
+      { Case "TmType". apply_fresh TType as T...
+        apply_ih_bind H1 ; auto. constructor... }
+      { Case "TmConDef". apply_fresh TConDef as K...
+        - apply_ih_bind ok_type_weakening...
+        - apply* binds_weaken.
+        - apply_ih_bind H4 ; auto.
+          apply_fresh EnvCon as X...
+          + apply_ih_bind ok_type_weakening...
+          + apply* binds_weaken. }
     Qed.
 
     Lemma ok_data_strengthening :
@@ -388,20 +401,22 @@ Module Typing (P : PAT).
         ok_data (G1 & x ~ BindVar T & G2) d ->
         ok_data (G1 & G2) d.
     Proof.
-      introv Hd. unfolds ok_data.
-      splits*. introv Hbind.
-      lets [Hbind' Hk]: (proj2 Hd) Hbind.
-      splits.
-      - binds_cases Hbind' ; auto.
-      - introv Hkin. lets [ ? (? & Hbindk) ] : Hk Hkin.
-        binds_cases Hbindk ; eauto.
+      introv Hd.
+      remember (G1 & x ~ BindVar T & G2) as Gamma.
+      induction Hd ; constructor*.
+      - substs ; binds_cases H0 ; auto.
+      - induction* H1 ; substs ; constructors*.
+        binds_cases H3 ; eauto.
     Qed.
 
     Lemma ok_kind_strengthening :
       forall G1 G2 x T k,
         ok_kind (G1 & x ~ BindVar T & G2) k ->
         ok_kind (G1 & G2) k.
-    Proof. introv Hk. induction* Hk. Qed.
+    Proof.
+      introv Hk. remember (G1 & x ~ BindVar T & G2) as G.
+      destruct Hk ; substs*. constructor. apply* ok_data_strengthening.
+    Qed.
 
     Lemma ok_type_strengthening :
       forall G1 G2 x T1 T2 k,
@@ -416,16 +431,22 @@ Module Typing (P : PAT).
       { Case "TyAll". apply_fresh* KAll as X.
         apply* ok_kind_strengthening.
         apply_ih_bind* H1. constructor*. apply* ok_kind_strengthening. }
+      { Case "TyData". constructor*. apply* ok_data_strengthening. }
     Qed.
 
     Lemma ok_env_con_inv :
       forall Gamma K d ty T,
         ok_env (Gamma & K ~ BindCon d ty T) ->
-        ok_data Gamma d /\ Gamma |= ty ~:: KiType /\ binds T BindTName Gamma.
+        exists L T',
+          T = FTName T'
+          /\ ok_data Gamma d
+          /\ (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType)
+          /\ binds T' BindTName Gamma.
     Proof.
       introv Henv.
-      inverts Henv ; try (apply eq_push_inv in H as (? & ? & ?); substs* ; splits* ; fequals).
-      false. apply* empty_push_inv.
+      inverts Henv ; try (apply eq_push_inv in H as (? & ? & ?)) ; try discriminate.
+      - false. apply* empty_push_inv.
+      - substs ; inverts* H5. exists* L T0.
     Qed.
 
     Lemma ok_env_tvar_inv :
@@ -460,16 +481,18 @@ Module Typing (P : PAT).
         lets [? Hdisj] : ok_push_inv (ok_env_ok _ Henv).
         destruct v.
         { SCase "BindTName". constructor~. }
-        { SCase "BindCon". forwards [ Hd (Htk & HT)]: ok_env_con_inv Henv.
-          constructor~.
-          - applys ok_data_strengthening Hd.
-          - applys* ok_type_strengthening Htk.
+        { SCase "BindCon". forwards (L & T' & Heq & Hd & Htk & HT): ok_env_con_inv Henv.
+          substs. apply_fresh* EnvCon as K.
+          - apply* ok_data_strengthening.
+          - apply_ih_bind ok_type_strengthening ; eauto.
+            constructor~. constructor~. apply* ok_data_strengthening.
           - binds_cases HT ; auto. }
         { SCase "BindTVar". forwards Hk: ok_env_tvar_inv Henv.
           constructor~. applys ok_kind_strengthening Hk. }
         { SCase "BindVar". forwards Htk: ok_env_var_inv Henv.
           constructor~. applys* ok_type_strengthening Htk. }
-        { SCase "BindMatch". constructor~. } }
+        (* { SCase "BindMatch". constructor~. } *)
+      }
     Qed.
 
     Lemma ok_term_subst :
@@ -477,7 +500,8 @@ Module Typing (P : PAT).
         G1 & x ~ BindVar T2 & G2 |= t1 ~: T1 ->
         G1 |= t2 ~: T2 ->
         G1 & G2 |= [x => t2]t1 ~: T1.
-    Proof with eauto using ok_term_lc, ok_env_strengthening, ok_type_strengthening with mcore.
+    Proof with eauto using ok_data_strengthening, ok_kind_strengthening,
+        ok_type_strengthening, ok_env_strengthening with mcore.
       introv hasType1 hasType2.
       remember (G1 & x ~ BindVar T2 & G2) as G. gen G2.
       induction hasType1; intros; simpls; substs...
@@ -486,9 +510,16 @@ Module Typing (P : PAT).
         - binds_cases H0... }
       { Case "TmLam". apply_fresh* TLam as y...
         rewrite subst_open_comm... apply_ih_bind* H1. }
-      { Case "TmTyLam". apply_fresh* TTyLam as X. apply* ok_kind_strengthening.
+      { Case "TmTyLam". apply_fresh* TTyLam as X...
         rewrite* topen_t_subst_comm. apply_ih_bind* H1. }
-      { Case "TmTyApp". constructors*. apply* ok_type_strengthening. }
+      { Case "TmTyApp". constructors... }
+      { Case "TmCon". constructors... binds_cases H ; auto. }
+      { Case "TmType". apply_fresh* TType as T...
+        rewrite* Topen_t_subst_comm. apply_ih_bind* H1. }
+      { Case "TmConDef". apply_fresh* TConDef as K...
+        - apply_ih_bind ok_type_strengthening ; eauto. constructor...
+        - binds_cases H1; auto.
+        - rewrite* Kopen_t_subst_comm. apply_ih_bind* H4. }
     Qed.
 
     Lemma ok_data_tvar_strengthening :
@@ -496,13 +527,12 @@ Module Typing (P : PAT).
         ok_data (G1 & x ~ BindTVar k & G2) d ->
         ok_data (G1 & G2) d.
     Proof.
-      introv Hd. unfolds ok_data.
-      splits*. introv Hbind.
-      lets [Hbind' Hk]: (proj2 Hd) Hbind.
-      splits.
-      - binds_cases Hbind' ; auto.
-      - introv Hkin. lets [ ? (? & Hbindk) ] : Hk Hkin.
-        binds_cases Hbindk ; eauto.
+      introv Hd.
+      remember (G1 & x ~ BindTVar k & G2) as Gamma.
+      induction Hd ; constructor*.
+      - substs ; binds_cases H0 ; auto.
+      - induction* H1 ; substs ; constructors*.
+        binds_cases H3 ; eauto.
     Qed.
 
     Lemma ok_data_bsubst :
@@ -510,29 +540,33 @@ Module Typing (P : PAT).
         ok_data (G1 & G2) d ->
         ok_data (G1 & map (bsubst X T) G2) d.
     Proof.
-      introv Hd. unfolds ok_data.
-      splits*. introv Hbind.
-      lets [Hbind' Hk]: (proj2 Hd) Hbind.
-      splits.
-      - binds_cases Hbind' ; auto.
+      introv Hd.
+      remember (G1 & G2) as Gamma.
+      induction Hd ; constructor*.
+      - substs ; binds_cases H0 ; auto.
         replaces BindTName with (bsubst X T BindTName) ; auto.
-      - introv Hkin. lets [ d' (ty & Hbindk) ] : Hk Hkin.
-        binds_cases Hbindk ; eauto.
-        exists d' ({X => T} ty).
-        replaces (BindCon d' ({X => T} ty) T0) with (bsubst X T (BindCon d' ty T0)) ; auto.
+      - induction* H1 ; substs.
+        binds_cases H3 ; constructors*.
+        replaces (BindCon d0 ({X => T} ty) T1) with (bsubst X T (BindCon d0 ty T1)) ; auto.
     Qed.
 
     Lemma ok_kind_tvar_strengthening :
       forall G1 G2 x k' k,
         ok_kind (G1 & x ~ BindTVar k' & G2) k ->
         ok_kind (G1 & G2) k.
-    Proof. introv Hk. induction* Hk. Qed.
+    Proof.
+      introv Hk. remember (G1 & x ~ BindTVar k' & G2) as Gamma.
+      destruct* Hk. constructor. substs. apply* ok_data_tvar_strengthening.
+    Qed.
 
     Lemma ok_kind_bsubst :
       forall G1 G2 X T k,
         ok_kind (G1 & G2) k ->
         ok_kind (G1 & map (bsubst X T) G2) k.
-    Proof. introv Hk. induction* Hk. Qed.
+    Proof.
+      introv Hk. remember (G1 & G2) as Gamma.
+      destruct* Hk. constructor. substs. apply* ok_data_bsubst.
+    Qed.
 
     Lemma ok_type_tsubst :
       forall G1 G2 X T1 T2 k k',
@@ -541,9 +575,9 @@ Module Typing (P : PAT).
         ok_env (G1 & map (bsubst X T2) G2) ->
         G1 & map (bsubst X T2) G2 |= {X => T2} T1 ~:: k.
     Proof with eauto with mcore.
-      introv Hkt1 Hkt2 Henv.
+      introv Htk1 Htk2 Henv.
       remember (G1 & X ~ BindTVar k' & G2) as G. gen G2.
-      induction Hkt1; intros; substs; simpls*.
+      induction Htk1; intros; substs; simpls*.
       { Case "TyFVar". solve_var.
         + binds_get H0. lets* [Hok ?] : ok_concat_inv (ok_env_ok _ Henv).
           apply_empty* ok_type_weakening.
@@ -561,6 +595,7 @@ Module Typing (P : PAT).
         + apply~ H1.
           * autorewrite with rew_env_concat ; auto.
           * autorewrite with rew_env_map rew_env_concat... }
+      { Case "TyData". constructor~. apply~ ok_data_tvar_strengthening. apply* ok_data_bsubst. }
     Qed.
 
     Lemma bsubst_ok_env :
@@ -578,17 +613,21 @@ Module Typing (P : PAT).
         lets [? Hdisj] : ok_push_inv (ok_env_ok _ Henv).
         destruct v.
         { SCase "BindTName". constructor~. }
-        { SCase "BindCon". forwards (Hd & Htk' & HT): ok_env_con_inv Henv.
-          constructor~.
+        { SCase "BindCon". forwards (L & T' & Heq & Hd & Htk' & HT): ok_env_con_inv Henv.
+          substs. apply_fresh* EnvCon as K.
           - applys ok_data_bsubst. apply* ok_data_tvar_strengthening.
-          - applys* ok_type_tsubst Htk.
+          - replaces (BindTVar (KiData d)) with (bsubst X T2 (BindTVar (KiData d))) ; auto.
+            rewrite~ tsubst_topen_comm ; try apply* ok_type_lct.
+            do_rew concat_assoc_map_push (applys~ ok_type_tsubst k ; try (rew_env_concat ; apply* Htk')).
+            constructor~. constructor. apply ok_data_bsubst. apply* ok_data_tvar_strengthening.
           - binds_cases HT ; auto.
             replaces BindTName with (bsubst X T2 BindTName) ; auto. }
         { SCase "BindTVar". forwards Hk: ok_env_tvar_inv Henv.
           constructor~. applys ok_kind_bsubst. apply* ok_kind_tvar_strengthening. }
         { SCase "BindVar". forwards Htk': ok_env_var_inv Henv.
           constructor~. applys* ok_type_tsubst Htk'. }
-        { SCase "BindMatch". constructor~. } }
+        (* { SCase "BindMatch". constructor~. } *)
+      }
     Qed.
 
     Lemma ok_env_concat :
@@ -603,11 +642,61 @@ Module Typing (P : PAT).
         apply* ok_env_push. }
     Qed.
 
+    Lemma ok_type_ok_kind :
+      forall Gamma T k,
+        Gamma |= T ~:: k ->
+        ok_kind Gamma k.
+    Proof.
+      introv Htk.
+      induction* Htk. induction Gamma using env_ind.
+      - false. apply* binds_empty_inv.
+      - binds_cases H0.
+        + apply_empty~ ok_kind_weakening. apply~ IHGamma. apply* ok_env_push.
+        + substs. forwards* Hk: ok_env_tvar_inv. apply_empty~ ok_kind_weakening.
+    Qed.
+
+    Lemma ok_data_notin :
+      forall Gamma d X,
+        ok_data Gamma d ->
+        X # Gamma ->
+        X \notin dfv d.
+    Proof.
+      introv Hd Hfresh. unfolds dfv. unfolds Tfv. unfolds Kfv.
+      induction Hd ; rew_listx~.
+      do 2 rewrite notin_union. splits*.
+      - rewrite notin_singleton. intro. substs.
+        forwards~ Hin : get_some_inv H0.
+      - induction H1 ; rew_listx~.
+        rewrite notin_union. splits*.
+        rewrite notin_singleton. intro. substs.
+        forwards~ Hin : get_some_inv H3.
+    Qed.
+
+    Lemma ok_kind_notin :
+      forall Gamma k X,
+        ok_kind Gamma k ->
+        X # Gamma ->
+        X \notin kfv k.
+    Proof.
+      introv Hk Hfresh. unfolds kfv.
+      destruct~ Hk. apply* ok_data_notin.
+    Qed.
+
+    Lemma assoc_data_in :
+      forall d T Ks,
+        Assoc (FTName T) Ks d -> T \in dfv d.
+    Proof.
+      introv Hassoc. unfolds dfv. unfolds Tfv.
+      induction Hassoc ; rew_listx ; rewrite in_union.
+      - rewrite~ in_singleton.
+      - rewrite~ in_union.
+    Qed.
+
     Lemma ok_type_notin :
       forall Gamma T k X,
         Gamma |= T ~:: k ->
         X # Gamma ->
-        X \notin ftv T.
+        X \notin tfv T.
     Proof.
       introv Htk Hfresh.
       induction Htk; simpls*.
@@ -617,8 +706,15 @@ Module Typing (P : PAT).
         apply binds_get in H0.
         fequals. }
       { Case "TyAll". pick_fresh Y.
-        forwards~ Hnin: H0 Y.
-        applys~ topen_notin Y. }
+        forwards~ Htk: H1 Y.
+        forwards Hnin1 : topen_notin Htk.
+        forwards~ Hnin2 : ok_kind_notin X H. }
+      { Case "TyCon".
+        forwards Hk: ok_type_ok_kind Htk.
+        forwards~ Hnin : ok_kind_notin X Hk.
+        assert (X <> T) by (intro ; substs ; apply Hnin ; applys* assoc_data_in).
+        auto. }
+      { Case "TyData". apply* ok_data_notin. }
     Qed.
 
     Lemma env_bsubst_fresh :
@@ -634,8 +730,9 @@ Module Typing (P : PAT).
         rewrite <- IHGamma...
         destruct~ v ; repeat fequals ; unfold bsubst ; rewrite* tsubst_fresh.
         { SCase "BindCon".
-          apply ok_env_con_inv in Henv as (? & Hkt & ?).
-          apply* ok_type_notin. }
+          apply ok_env_con_inv in Henv as (? & ? & ? & ? & Htk & ?).
+          pick_fresh X'. forwards~ Hnin : ok_type_notin X (Htk X').
+          applys~ topen_notin Hnin. }
         { SCase "BindVar".
           apply ok_env_var_inv in Henv.
           apply* ok_type_notin. } }
@@ -674,7 +771,35 @@ Module Typing (P : PAT).
       { Case "TmTyApp".
         rewrite tsubst_topen_distr... constructors*.
         apply* ok_type_tsubst. }
-    Qed.
+      { Case "TmCon".
+        binds_cases H.
+        - constructors* ; try apply* ok_type_tsubst.
+          assert (X \notin tfv ty1). admit.
+          rewrite <- (tsubst_fresh X ty1 T2) ; auto.
+          rewrite <- tsubst_topen_distr ; eauto. apply* ok_type_lct.
+        - constructors ; try apply* ok_type_tsubst.
+          replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
+          rewrite <- tsubst_topen_distr ; eauto. apply* ok_type_lct. }
+      { Case "TmType". apply_fresh* TType.
+        - applys ok_type_tsubst...
+        - replaces BindTName with (bsubst X T2 BindTName) ; auto.
+          rewrite <- concat_assoc_map_push.
+          rewrite~ Topen_t_tsubst_comm. apply* H1. rew_env_concat ; auto. apply* ok_type_lct. }
+      { Case "TmConDef".
+        apply_fresh* TConDef.
+        - apply* ok_data_bsubst. apply* ok_data_tvar_strengthening.
+        - replaces (BindTVar (KiData d)) with (bsubst X T2 (BindTVar (KiData d))) ; auto.
+          rewrite <- concat_assoc_map_push. rewrite~ tsubst_topen_comm ; try apply* ok_type_lct.
+          apply* ok_type_tsubst. rew_env_concat. apply* H0.
+          apply* bsubst_ok_env. rew_env_concat. constructor...
+        - binds_cases H1 ; auto.
+          replaces BindTName with (bsubst X T2 BindTName) ; auto.
+        - apply* ok_type_tsubst...
+        - rewrite~ Kopen_t_tsubst_comm.
+          replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
+          rewrite <- concat_assoc_map_push.
+          apply* H4. rew_env_concat ; auto. apply* ok_type_lct.
+    Admitted.
 
   End Typing.
 End Typing.

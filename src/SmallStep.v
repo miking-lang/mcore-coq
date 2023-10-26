@@ -13,9 +13,9 @@ Module SmallStep (P : PAT).
   (*     is_value v1 -> *)
   (*     is_value v2 -> *)
   (*     is_value (TmProd v1 v2) *)
-  (* | VCon : forall {c : con} {ty : type} {v : term}, *)
-  (*     is_value v -> *)
-  (*     is_value (TmCon c ty v) *)
+  | VCon : forall c ty v,
+      is_value v ->
+      is_value (TmCon c ty v)
   (* | VSem : forall {ty : type} {cases : list (pat * term)}, *)
   (*     is_value (TmSem ty cases) *)
   .
@@ -50,8 +50,10 @@ Module SmallStep (P : PAT).
     (*     is_value v -> *)
     (*     eval_context *)
     (* | CProj : fin2 -> eval_context *)
-    (* | CCon : con -> type -> eval_context *)
+    | CCon : forall K ty, is_context (TmCon K ty)
     (* | CMatch : pat -> term -> term -> eval_context *)
+    | CType : is_context TmType
+    | CConDef : forall d ty T, is_context (TmConDef d ty T)
     (* | CCompL : term -> eval_context *)
     (* | CCompR : forall (v : term), *)
     (*     is_value v -> *)
@@ -81,6 +83,12 @@ Module SmallStep (P : PAT).
     (*     is_value v1 -> *)
     (*     is_value v2 -> *)
     (*     eval_step (TmProj F2 (TmProd v1 v2)) v2 *)
+    | EType : forall v,
+        is_value v ->
+        TmType v --> v
+    | EConDef : forall d ty T v,
+        is_value v ->
+        TmConDef d ty T v --> v
     (* | EMatchThen : forall {v t1 t2 : term} {p : pat} *)
     (*                       {theta : list term} *)
     (*                       (vval : is_value v), *)
@@ -90,10 +98,6 @@ Module SmallStep (P : PAT).
     (*                       (vval : is_value v), *)
     (*     match1 vval p = None -> *)
     (*     eval_step (TmMatch v p t1 t2) t2 *)
-    (* | EType : forall {t : term}, *)
-    (*     eval_step (TmType t) t *)
-    (* | EConDef : forall {d : data} {ty : type} {T : tname} {t : term}, *)
-    (*     eval_step (TmConDef d ty T t) t *)
     (* | EComp : forall {cases1 cases2 : list (pat * term)} {ty : type}, *)
     (*     eval_step (TmComp (TmSem ty cases1) (TmSem ty cases2)) *)
     (*               (TmSem ty (cases1 ++ cases2)) *)
@@ -119,5 +123,12 @@ Module SmallStep (P : PAT).
     #[export] Hint Resolve econg_CAppR : mcore.
     Definition econg_CTyApp ty := ECong (CTyApp ty).
     #[export] Hint Resolve econg_CTyApp : mcore.
+    Definition econg_CCon K ty := ECong (CCon K ty).
+    #[export] Hint Resolve econg_CCon : mcore.
+    Definition econg_CType := ECong CType.
+    #[export] Hint Resolve econg_CType : mcore.
+    Definition econg_CConDef d ty T := ECong (CConDef d ty T).
+    #[export] Hint Resolve econg_CConDef : mcore.
+
   End SmallStep.
 End SmallStep.

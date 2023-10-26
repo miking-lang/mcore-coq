@@ -106,7 +106,8 @@ Module Syntax (P : PAT).
     fold_right
       (fun '(T,Ks) fvs =>
          Tfv T \u
-         fold_right (fun con fvs' => Kfv con \u fvs') \{} Ks)
+             fold_right (fun con fvs' => Kfv con \u fvs') \{} Ks \u
+             fvs)
       \{}
       d.
 
@@ -167,7 +168,7 @@ Module Syntax (P : PAT).
     | TmTyApp t' T => TmTyApp ([{X ~> U}] t') ({X ~> U} T)
     | TmCon K ty t' => TmCon K ({X ~> U}ty) ([{X ~> U}]t')
     | TmType t' => TmType ([{X ~> U}]t')
-    | TmConDef d ty T t' => TmConDef d ({X ~> U}ty) T ([{X ~> U}]t')
+    | TmConDef d ty T t' => TmConDef d ({S X ~> U}ty) T ([{X ~> U}]t')
     end
   where "[{ X ~> U }] t" := (topen_t X U t).
   #[export]
@@ -277,9 +278,13 @@ Module Syntax (P : PAT).
 
   Inductive lcT : tname -> Prop :=
   | LCTName : forall X, lcT (FTName X).
+  #[export]
+   Hint Constructors lcT : mcore.
 
   Inductive lcK : con -> Prop :=
   | LCKCon : forall X, lcK (FCon X).
+  #[export]
+   Hint Constructors lcK : mcore.
 
   Definition lcd (d : data) : Prop :=
     Forall (fun '(T, Ks) => lcT T /\ Forall lcK Ks) d.
@@ -288,6 +293,8 @@ Module Syntax (P : PAT).
   | LCKType : lck KiType
   | LCKData : forall d, lcd d -> lck (KiData d)
   .
+  #[export]
+   Hint Constructors lck : mcore.
 
   Inductive lct : type -> Prop :=
   | LCTFVar : forall X, lct (TyFVar X)
@@ -307,7 +314,12 @@ Module Syntax (P : PAT).
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
   | LCCon    : forall K T t, lcK K ->  lct T -> lc t -> lc (TmCon K T t)
   | LCType   : forall L t, (forall X, X \notin L -> lc (Topen_t 0 (FTName X) t)) -> lc (TmType t)
-  | LCConDef : forall L d ty T t, lcd d -> lct ty -> lcT T -> (forall X, X \notin L -> lc (Kopen_t 0 (FCon X) t)) -> lc (TmConDef d ty T t)
+  | LCConDef : forall L d ty T t,
+      lcd d ->
+      (forall X, X \notin L -> lct ({0 ~> TyFVar X}ty)) ->
+      lcT T ->
+      (forall X, X \notin L -> lc (Kopen_t 0 (FCon X) t)) ->
+      lc (TmConDef d ty T t)
   .
   #[export]
    Hint Constructors lc : mcore.
@@ -457,15 +469,10 @@ Module Syntax (P : PAT).
   Proof. introv Hfv ; solve_eq T. Qed.
 
   Lemma tsubst_intro :
-    forall X T U,
-      X \notin (tfv T) ->
-      lct U ->
-      {0 ~> U} T = {X => U}({0 ~> TyFVar X}T).
-  Proof.
-    introv Hfv Hlc.
-    rewrite* tsubst_topen_distr.
-    solve_var. rewrite* tsubst_fresh.
-  Qed.
+    forall X T U n,
+      X \notin tfv T ->
+      {n ~> U} T = {X => U}({n ~> TyFVar X}T).
+  Proof. introv Hfv. gen n. solve_eq T. Qed.
 
   Lemma tsubst_topen_comm :
     forall X Y U T n,
@@ -544,21 +551,21 @@ Module Syntax (P : PAT).
   Qed.
 
   Lemma subst_open_distr :
-    forall x u t1 t2,
+    forall x u n t1 t2,
       lc u ->
-      [x => u] ([0 ~> t2] t1) = [0 ~> [x => u]t2]([x => u]t1).
+      [x => u] ([n ~> t2] t1) = [n ~> [x => u]t2]([x => u]t1).
   Proof.
-    introv Hlc. generalize 0.
+    introv Hlc. gen n.
     solve_eq t1. rewrite* open_lc.
   Qed.
 
   Lemma subst_open_comm :
-    forall x y u t,
+    forall x y n u t,
       x <> y ->
       lc u ->
-      [0 ~> TmFVar y]([x => u]t) = [x => u] ([0 ~> TmFVar y]t).
+      [n ~> TmFVar y]([x => u]t) = [x => u] ([n ~> TmFVar y]t).
   Proof.
-    introv Hneq Hlc. generalize 0.
+    introv Hneq Hlc. gen n.
     solve_eq t. apply* open_lc.
   Qed.
 
@@ -569,21 +576,18 @@ Module Syntax (P : PAT).
   Proof. solve_eq t. Qed.
 
   Lemma subst_intro :
-    forall x t u,
+    forall x t u n,
       x \notin (fv t) ->
-      [0 ~> u] t = [x => u]([0 ~> TmFVar x]t).
-  Proof.
-    introv Hfv. unfolds.
-    generalize 0. solve_eq t.
-  Qed.
+      [n ~> u] t = [x => u]([n ~> TmFVar x]t).
+  Proof. introv Hfv. gen n. solve_eq t. Qed.
 
   Lemma tsubst_t_topen_distr :
-    forall X U T t,
+    forall X U n T t,
       lct U ->
-      [{X => U}] ([{0 ~> T}] t) = [{0 ~> {X => U}T}] ([{X => U}]t).
+      [{X => U}] ([{n ~> T}] t) = [{n ~> {X => U}T}] ([{X => U}]t).
   Proof.
     introv Hlct.
-    generalize 0. solve_eq t ;
+    gen n. solve_eq t ;
       apply* tsubst_topen_distr.
   Qed.
 
@@ -608,11 +612,11 @@ Module Syntax (P : PAT).
   Qed.
 
   Lemma topen_open_rec :
-    forall n T t x,
-      [{n ~> T}] ([0 ~> TmFVar x] t) = [0 ~> TmFVar x]t ->
-      [{n ~> T}] t = t.
+    forall i j T t u,
+      [{i ~> T}] ([j ~> u] t) = [j ~> u]t ->
+      [{i ~> T}] t = t.
   Proof.
-    introv Heq. generalize dependent 0. gen n.
+    introv Heq. gen i j.
     solve_eq t ; inverts* Heq.
   Qed.
 
@@ -627,8 +631,8 @@ Module Syntax (P : PAT).
   Qed.
 
   Lemma topen_Topen_rec :
-    forall i j T U X,
-      {i ~> T} (Topen_ty j (FTName X) U) = Topen_ty j (FTName X) U ->
+    forall i j T U T',
+      {i ~> T} (Topen_ty j T' U) = Topen_ty j T' U ->
       {i ~> T}U = U.
   Proof.
     introv Heq. gen i.
@@ -636,17 +640,17 @@ Module Syntax (P : PAT).
   Qed.
 
   Lemma topen_t_Topen_rec :
-    forall n T t X,
-      [{n ~> T}] (Topen_t 0 (FTName X) t) = Topen_t 0 (FTName X) t ->
-      [{n ~> T}]t = t.
+    forall i j T t T',
+      [{i ~> T}] (Topen_t j T' t) = Topen_t j T' t ->
+      [{i ~> T}]t = t.
   Proof.
-    introv Heq. generalize dependent 0. gen n.
+    introv Heq. gen i j.
     solve_eq t ; inverts* Heq ; apply* topen_Topen_rec.
   Qed.
 
   Lemma topen_Kopen_rec :
-    forall i j T U X,
-      {i ~> T} (Kopen_ty j (FCon X) U) = Kopen_ty j (FCon X) U ->
+    forall i j T U K,
+      {i ~> T} (Kopen_ty j K U) = Kopen_ty j K U ->
       {i ~> T}U = U.
   Proof.
     introv Heq. gen i.
@@ -654,64 +658,479 @@ Module Syntax (P : PAT).
   Qed.
 
   Lemma topen_t_Kopen_rec :
-    forall n T t X,
-      [{n ~> T}] (Kopen_t 0 (FCon X) t) = Kopen_t 0 (FCon X) t ->
-      [{n ~> T}]t = t.
+    forall i j T t K,
+      [{i ~> T}] (Kopen_t j K t) = Kopen_t j K t ->
+      [{i ~> T}]t = t.
   Proof.
-    introv Heq. generalize dependent 0. gen n.
+    introv Heq. gen i j.
     solve_eq t ; inverts* Heq ; apply* topen_Kopen_rec.
   Qed.
 
   Lemma topen_t_lc :
-    forall T t n,
+    forall X t n,
       lc t ->
-      [{n ~> T}]t = t.
+      [{n ~> TyFVar X}]t = t.
   Proof.
     introv Hlc. gen n.
-    solve_eq Hlc ; try rewrite~ topen_lct.
-    - pick_fresh_gen L x. apply* topen_open_rec.
-    - pick_fresh_gen L x.
-      rewrite* (@topen_t_neq (S n) 0 T (TyFVar x)).
-    - pick_fresh_gen L x.
-      apply* topen_t_Topen_rec.
-    - pick_fresh_gen L x.
-      apply* topen_t_Kopen_rec.
+    solve_eq Hlc ; try solve [ rewrite~ topen_lct ] ; pick_fresh_gen L x.
+    - apply* topen_open_rec.
+    - apply* (topen_t_neq (S n) 0 (TyFVar X) (TyFVar x)).
+    - apply* topen_t_Topen_rec.
+    - apply topen_neq with (J := 0) (V := TyFVar x) ; auto.
+      apply* topen_lct.
+    - apply* topen_t_Kopen_rec.
   Qed.
 
   Lemma topen_t_subst_comm :
-    forall X x t1 t2,
+    forall X x n t1 t2,
       X \notin fv t2 ->
       lc t2 ->
-      [{0 ~> TyFVar X}] ([x => t2]t1) = [x => t2]([{0 ~> TyFVar X}] t1).
+      [{n ~> TyFVar X}] ([x => t2]t1) = [x => t2]([{n ~> TyFVar X}] t1).
   Proof.
-    introv Hnin Hlc. generalize 0.
+    introv Hnin Hlc. gen n.
     solve_eq t1. rewrite* topen_t_lc.
   Qed.
 
   Lemma tsubst_t_open_comm :
-    forall X x U t,
-      [0 ~> TmFVar x] ([{X => U}]t) = [{X => U}] ([0 ~> TmFVar x]t).
-  Proof. introv. generalize 0. solve_eq t. Qed.
+    forall X x n U t,
+      [n ~> TmFVar x] ([{X => U}]t) = [{X => U}] ([n ~> TmFVar x]t).
+  Proof. intros. gen n. solve_eq t. Qed.
 
   Lemma topen_notin :
-    forall T X Y,
-      X \notin tfv ({0 ~> TyFVar Y}T) ->
+    forall T X Y n,
+      X \notin tfv ({n ~> TyFVar Y}T) ->
       X \notin tfv T.
   Proof.
-    introv Hnin. generalize dependent 0.
+    introv Hnin. gen n.
     induction T; intros; simpls* ;
       apply notin_union_r in Hnin as (Hnin1 & Hnin2) ; eauto.
   Qed.
 
   Lemma topen_t_tsubst_comm :
-    forall X Y T t,
+    forall X Y T n t,
       X <> Y ->
       lct T ->
-      [{0 ~> TyFVar Y}] ([{X => T}]t) =
-        [{X => T}]([{0 ~> TyFVar Y}] t).
+      [{n ~> TyFVar Y}] ([{X => T}]t) =
+        [{X => T}]([{n ~> TyFVar Y}] t).
   Proof.
-    introv Hneq Hlct. generalize dependent 0.
+    introv Hneq Hlct. gen n.
     solve_eq t ; rewrite* tsubst_topen_comm.
+  Qed.
+
+  Lemma Topen_lcT :
+    forall j T T',
+      lcT T ->
+      Topen j T' T = T.
+  Proof. introv HlcT. inverts* HlcT. Qed.
+
+  Lemma Topen_Topen_neq :
+    forall i j T T' T0,
+      i <> j ->
+      Topen i T (Topen j T' T0) = Topen j T' T0 ->
+      Topen i T T0 = T0.
+  Proof. introv Hneq Heq. solve_eq T0. Qed.
+
+  Lemma Topen_d_lcd :
+    forall j T d,
+      lcd d ->
+      Topen_d j T d = d.
+  Proof.
+    introv Hlcd.
+    solve_eq Hlcd. unfolds Topen_d. rew_listx.
+    destruct x. destruct H.
+    inverts H. rewrite~ IHHlcd.
+  Qed.
+
+  Lemma Topen_Topen_d_neq :
+    forall i j T T' d,
+      i <> j ->
+      Topen_d i T (Topen_d j T' d) = Topen_d j T' d ->
+      Topen_d i T d = d.
+  Proof.
+    introv Hneq Heq. unfolds Topen_d.
+    induction~ d.
+    rew_listx in *. destruct a. inverts Heq.
+    rewrite Topen_Topen_neq with (j := j) (T' := T') ; auto.
+    rewrite~ IHd.
+  Qed.
+
+  Lemma Topen_Kopen_d_rec :
+    forall i j T K d,
+      Topen_d i T (Kopen_d j K d) = Kopen_d j K d ->
+      Topen_d i T d = d.
+  Proof.
+    introv Heq. unfolds Topen_d. unfolds Kopen_d.
+    induction~ d.
+    rew_listx in *. destruct a. injection Heq ; intros. rewrite H0.
+    rewrite~ IHd.
+  Qed.
+
+  Lemma Topen_k_lck :
+    forall j T k,
+      lck k ->
+      Topen_k j T k = k.
+  Proof.
+    introv Hlck. solve_eq Hlck. rewrite~ Topen_d_lcd.
+  Qed.
+
+  Lemma Topen_Topen_k_neq :
+    forall i j T T' k,
+      i <> j ->
+      Topen_k i T (Topen_k j T' k) = Topen_k j T' k ->
+      Topen_k i T k = k.
+  Proof.
+    introv Hneq Heq.
+    solve_eq k. inverts Heq. apply Topen_Topen_d_neq with (j := j) (T' := T') ; auto.
+  Qed.
+
+  Lemma Topen_Kopen_k_rec :
+    forall i j T K k,
+      Topen_k i T (Kopen_k j K k) = Kopen_k j K k ->
+      Topen_k i T k = k.
+  Proof.
+    introv Heq. solve_eq k ; inverts Heq. apply* Topen_Kopen_d_rec.
+  Qed.
+
+  Lemma Topen_topen_rec :
+    forall i j T U ty,
+      Topen_ty i T ({j ~> U} ty) = {j ~> U}ty ->
+      Topen_ty i T ty = ty.
+  Proof.
+    introv Heq. gen j.
+    solve_eq ty ; inverts* Heq.
+  Qed.
+
+  Lemma Topen_ty_lct :
+    forall k T ty,
+      lct ty ->
+      Topen_ty k T ty = ty.
+  Proof.
+    introv Hlct.
+    solve_eq Hlct ;
+      try solve [ apply* Topen_lcT
+                | apply* Topen_d_lcd
+                | apply* Topen_k_lck ] ;
+      pick_fresh_gen L x.
+    - apply* Topen_topen_rec.
+  Qed.
+
+  Lemma Topen_Topen_ty_neq :
+    forall i j T T' ty,
+      i <> j ->
+      Topen_ty i T (Topen_ty j T' ty) = Topen_ty j T' ty ->
+      Topen_ty i T ty = ty.
+  Proof.
+    introv Hneq Heq. gen i j.
+    solve_eq ty ; inverts* Heq.
+    - apply Topen_Topen_k_neq with (j := j) (T' := T') ; auto.
+    - apply Topen_Topen_neq with (j := j) (T' := T') ; auto.
+    - apply Topen_Topen_d_neq with (j := j) (T' := T') ; auto.
+  Qed.
+
+  Lemma Topen_Kopen_ty_rec :
+    forall i j T K ty,
+      Topen_ty i T (Kopen_ty j K ty) = Kopen_ty j K ty ->
+      Topen_ty i T ty = ty.
+  Proof.
+    introv Heq.
+    solve_eq ty ; inverts* Heq.
+    - apply* Topen_Kopen_k_rec.
+    - apply* Topen_Kopen_d_rec.
+  Qed.
+
+  Lemma Topen_open_rec :
+    forall i j T u t,
+      Topen_t i T ([j ~> u] t) = [j ~> u]t ->
+      Topen_t i T t = t.
+  Proof.
+    introv Heq. gen i j.
+    solve_eq t ; inverts* Heq.
+  Qed.
+
+  Lemma Topen_topen_t_rec :
+    forall i j T ty t,
+      Topen_t i T ([{j ~> ty}] t) = [{j ~> ty}] t ->
+      Topen_t i T t = t.
+  Proof.
+    introv Heq. gen i j.
+    solve_eq t ; inverts* Heq ; apply* Topen_topen_rec.
+  Qed.
+
+  Lemma Topen_Topen_t_neq :
+    forall i j T T' t,
+      i <> j ->
+      Topen_t i T (Topen_t j T' t) = Topen_t j T' t ->
+      Topen_t i T t = t.
+  Proof.
+    introv Hneq Heq. gen i j.
+    solve_eq t ; inverts* Heq ;
+      solve [ apply Topen_Topen_neq with (j := j) (T' := T') ; auto
+            | apply Topen_Topen_d_neq with (j := j) (T' := T') ; auto
+            | apply Topen_Topen_k_neq with (j := j) (T' := T') ; auto
+            | apply Topen_Topen_ty_neq with (j := j) (T' := T') ; auto ].
+  Qed.
+
+  Lemma Topen_Kopen_t_rec :
+    forall i j T K t,
+      Topen_t i T (Kopen_t j K t) = Kopen_t j K t ->
+      Topen_t i T t = t.
+  Proof.
+    introv Heq. gen i j.
+    solve_eq t ; inverts* Heq ;
+      solve [ apply* Topen_Kopen_d_rec
+            | apply* Topen_Kopen_k_rec
+            | apply* Topen_Kopen_ty_rec ].
+  Qed.
+
+  Lemma Topen_t_lc :
+    forall k T t,
+      lc t ->
+      Topen_t k T t = t.
+  Proof.
+    introv Hlc. gen k.
+    solve_eq Hlc ;
+      try solve [ apply* Topen_lcT
+                | apply* Topen_d_lcd
+                | apply* Topen_k_lck
+                | apply* Topen_ty_lct ] ;
+      pick_fresh_gen L x.
+    - apply* Topen_open_rec.
+    - apply* Topen_topen_t_rec.
+    - apply* (Topen_Topen_t_neq (S k) 0 T (FTName x)).
+    - apply* Topen_topen_rec.
+      apply* Topen_ty_lct.
+    - apply* Topen_Kopen_t_rec.
+  Qed.
+
+  Lemma Topen_t_subst_comm :
+    forall x n T t1 t2,
+      lc t2 ->
+      Topen_t n T ([x => t2]t1) = [x => t2] (Topen_t n T t1).
+  Proof.
+    introv Hlc. gen n. solve_eq t1. apply* Topen_t_lc.
+  Qed.
+
+  Lemma Topen_tsubst_comm :
+    forall X n T U ty,
+      lct U ->
+      Topen_ty n T ({X => U}ty) = {X => U} (Topen_ty n T ty).
+  Proof. Admitted.
+
+  Lemma Topen_t_tsubst_comm :
+    forall X n T U t,
+      lct U ->
+      Topen_t n T ([{X => U}]t) = [{X => U}] (Topen_t n T t).
+  Proof.
+    introv Hlc. gen n. solve_eq t ; apply* Topen_tsubst_comm.
+  Qed.
+
+
+  Lemma Kopen_lcK :
+    forall j K K',
+      lcK K ->
+      Kopen j K' K = K.
+  Proof. introv HlcK. inverts* HlcK. Qed.
+
+  Lemma Kopen_Kopen_neq :
+    forall i j K K' K0,
+      i <> j ->
+      Kopen i K (Kopen j K' K0) = Kopen j K' K0 ->
+      Kopen i K K0 = K0.
+  Proof. introv Hneq Heq. solve_eq K0. Qed.
+
+  Lemma Kopen_d_lcd :
+    forall j T d,
+      lcd d ->
+      Kopen_d j T d = d.
+  Proof.
+    introv Hlcd.
+    solve_eq Hlcd. unfolds Kopen_d. rew_listx.
+    destruct x. destruct H. rewrite~ IHHlcd.
+    induction~ l0. rew_listx in *. destruct H0. inverts H0. simpls.
+    apply IHl0 in H1. injection H1 ; intros. rewrite* H0.
+  Qed.
+
+  Lemma Kopen_Kopen_d_neq :
+    forall i j K K' d,
+      i <> j ->
+      Kopen_d i K (Kopen_d j K' d) = Kopen_d j K' d ->
+      Kopen_d i K d = d.
+  Proof.
+    introv Hneq Heq. unfolds Kopen_d.
+    induction~ d.
+    rew_listx in *. destruct a. inverts Heq.
+    rewrite~ IHd. repeat fequals.
+    induction~ l. rew_listx in *. inverts H0. rewrite~ IHl.
+    rewrite Kopen_Kopen_neq with (j := j) (K' := K') ; auto.
+  Qed.
+
+  Lemma Kopen_Topen_d_rec :
+    forall i j T K d,
+      Kopen_d i K (Topen_d j T d) = Topen_d j T d ->
+      Kopen_d i K d = d.
+  Proof.
+    introv Heq. unfolds Kopen_d. unfolds Topen_d.
+    induction~ d.
+    rew_listx in *. destruct a. injection Heq ; intros. rewrite H0.
+    rewrite~ IHd.
+  Qed.
+
+  Lemma Kopen_k_lck :
+    forall j T k,
+      lck k ->
+      Kopen_k j T k = k.
+  Proof.
+    introv Hlck. solve_eq Hlck. rewrite~ Kopen_d_lcd.
+  Qed.
+
+  Lemma Kopen_Kopen_k_neq :
+    forall i j K K' k,
+      i <> j ->
+      Kopen_k i K (Kopen_k j K' k) = Kopen_k j K' k ->
+      Kopen_k i K k = k.
+  Proof.
+    introv Hneq Heq.
+    solve_eq k. inverts Heq. apply Kopen_Kopen_d_neq with (j := j) (K' := K') ; auto.
+  Qed.
+
+  Lemma Kopen_Topen_k_rec :
+    forall i j T K k,
+      Kopen_k i K (Topen_k j T k) = Topen_k j T k ->
+      Kopen_k i K k = k.
+  Proof.
+    introv Heq. solve_eq k ; inverts Heq. apply* Kopen_Topen_d_rec.
+  Qed.
+
+  Lemma Kopen_topen_rec :
+    forall i j T U ty,
+      Kopen_ty i T ({j ~> U} ty) = {j ~> U}ty ->
+      Kopen_ty i T ty = ty.
+  Proof.
+    introv Heq. gen j.
+    solve_eq ty ; inverts* Heq.
+  Qed.
+
+  Lemma Kopen_ty_lct :
+    forall k T ty,
+      lct ty ->
+      Kopen_ty k T ty = ty.
+  Proof.
+    introv Hlct.
+    solve_eq Hlct ;
+      try solve [ apply* Kopen_lcT
+                | apply* Kopen_d_lcd
+                | apply* Kopen_k_lck ] ;
+      pick_fresh_gen L x.
+    - apply* Kopen_topen_rec.
+  Qed.
+
+  Lemma Kopen_Kopen_ty_neq :
+    forall i j K K' ty,
+      i <> j ->
+      Kopen_ty i K (Kopen_ty j K' ty) = Kopen_ty j K' ty ->
+      Kopen_ty i K ty = ty.
+  Proof.
+    introv Hneq Heq. gen i j.
+    solve_eq ty ; inverts* Heq.
+    - apply Kopen_Kopen_k_neq with (j := j) (K' := K') ; auto.
+    - apply Kopen_Kopen_d_neq with (j := j) (K' := K') ; auto.
+  Qed.
+
+  Lemma Kopen_Topen_ty_rec :
+    forall i j T K ty,
+      Kopen_ty i K (Topen_ty j T ty) = Topen_ty j T ty ->
+      Kopen_ty i K ty = ty.
+  Proof.
+    introv Heq.
+    solve_eq ty ; inverts* Heq.
+    - apply* Kopen_Topen_k_rec.
+    - apply* Kopen_Topen_d_rec.
+  Qed.
+
+  Lemma Kopen_open_rec :
+    forall i j T u t,
+      Kopen_t i T ([j ~> u] t) = [j ~> u]t ->
+      Kopen_t i T t = t.
+  Proof.
+    introv Heq. gen i j.
+    solve_eq t ; inverts* Heq.
+  Qed.
+
+  Lemma Kopen_topen_t_rec :
+    forall i j T ty t,
+      Kopen_t i T ([{j ~> ty}] t) = [{j ~> ty}] t ->
+      Kopen_t i T t = t.
+  Proof.
+    introv Heq. gen i j.
+    solve_eq t ; inverts* Heq ; apply* Kopen_topen_rec.
+  Qed.
+
+  Lemma Kopen_Kopen_t_neq :
+    forall i j K K' t,
+      i <> j ->
+      Kopen_t i K (Kopen_t j K' t) = Kopen_t j K' t ->
+      Kopen_t i K t = t.
+  Proof.
+    introv Hneq Heq. gen i j.
+    solve_eq t ; inverts* Heq ;
+      try solve [ apply Kopen_Kopen_neq with (j := j) (K' := K') ; auto
+                | apply Kopen_Kopen_d_neq with (j := j) (K' := K') ; auto
+                | apply Kopen_Kopen_k_neq with (j := j) (K' := K') ; auto
+                | apply Kopen_Kopen_ty_neq with (j := j) (K' := K') ; auto ].
+  Qed.
+
+  Lemma Kopen_Topen_t_rec :
+    forall i j T K t,
+      Kopen_t i K (Topen_t j T t) = Topen_t j T t ->
+      Kopen_t i K t = t.
+  Proof.
+    introv Heq. gen i j.
+    solve_eq t ; inverts* Heq ;
+      solve [ apply* Kopen_Topen_d_rec
+            | apply* Kopen_Topen_k_rec
+            | apply* Kopen_Topen_ty_rec ].
+  Qed.
+
+  Lemma Kopen_t_lc :
+    forall k K t,
+      lc t ->
+      Kopen_t k K t = t.
+  Proof.
+    introv Hlc. gen k.
+    solve_eq Hlc ;
+      try solve [ apply* Kopen_lcK
+                | apply* Kopen_d_lcd
+                | apply* Kopen_k_lck
+                | apply* Kopen_ty_lct ] ;
+      pick_fresh_gen L x.
+    - apply* Kopen_open_rec.
+    - apply* Kopen_topen_t_rec.
+    - apply* Kopen_Topen_t_rec.
+    - apply* Kopen_topen_rec.
+      apply* Kopen_ty_lct.
+    - apply* (Kopen_Kopen_t_neq (S k) 0 K (FCon x)).
+  Qed.
+
+  Lemma Kopen_t_subst_comm :
+    forall x n K t1 t2,
+      lc t2 ->
+      Kopen_t n K ([x => t2]t1) = [x => t2] (Kopen_t n K t1).
+  Proof.
+    introv Hlc. gen n. solve_eq t1. apply* Kopen_t_lc.
+  Qed.
+
+  Lemma Kopen_tsubst_comm :
+    forall X n T U ty,
+      lct U ->
+      Kopen_ty n T ({X => U}ty) = {X => U} (Kopen_ty n T ty).
+  Proof. Admitted.
+
+  Lemma Kopen_t_tsubst_comm :
+    forall X n T U t,
+      lct U ->
+      Kopen_t n T ([{X => U}]t) = [{X => U}] (Kopen_t n T t).
+  Proof.
+    introv Hlc. gen n. solve_eq t ; apply* Kopen_tsubst_comm.
   Qed.
 
 End Syntax.

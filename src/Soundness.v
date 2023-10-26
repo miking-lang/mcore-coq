@@ -26,7 +26,11 @@ Module Soundness (P : PAT).
       { Case "TmTyApp". right.
         forwards* [Hval | (t1 & Hstep)]: IHhasType.
         inverts Hval; inverts* hasType. }
-    Qed.
+      { Case "TmCon".
+        forwards* [Hval | (t' & Hstep)]: IHhasType. }
+      { Case "TmType". admit. }
+      { Case "TmConDef". admit. }
+    Admitted.
 
     Theorem preservation :
       forall Gamma t t' ty,
@@ -47,7 +51,7 @@ Module Soundness (P : PAT).
         rewrite* (@tsubst_intro X).
         rewrite* (@tsubst_t_intro X).
         apply_empty~ ok_term_tsubst. }
-    Qed.
+    Admitted.
 
   End Soundness.
 End Soundness.
