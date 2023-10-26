@@ -130,5 +130,51 @@ Module SmallStep (P : PAT).
     Definition econg_CConDef d ty T := ECong (CConDef d ty T).
     #[export] Hint Resolve econg_CConDef : mcore.
 
+    Lemma Topen_value : forall i T t, is_value (Topen_t i T t) -> is_value t.
+    Proof. introv Hv. induction t ; inverts* Hv. Qed.
+
+    Lemma value_Topen : forall i T t, is_value t -> is_value (Topen_t i T t).
+    Proof. introv Hv. induction t ; inverts* Hv. Qed.
+
+    Lemma Topen_step :
+      forall i T t1 t2,
+        Topen_t i T t1 --> t2 ->
+        exists t2', t1 --> t2'.
+    Proof. Admitted.
+      (* introv Hstep. *)
+      (* induction t1. *)
+      (* - inverts Hstep. *)
+      (*   with_hyp (is_context _) as ctx. with_hyp (_ = _) as eq. inverts ctx ; inverts eq. *)
+      (* - inverts Hstep. *)
+      (*   with_hyp (is_context _) as ctx. with_hyp (_ = _) as eq. inverts ctx ; inverts eq. *)
+      (* - inverts Hstep. *)
+      (*   with_hyp (is_context _) as ctx. with_hyp (_ = _) as eq. inverts ctx ; inverts eq. *)
+      (* - simpls. inverts Hstep. *)
+      (*   + substs H *)
+
+    Lemma step_Topen :
+      forall i T t1 t2,
+        t1 --> t2 ->
+        Topen_t i T t1 --> Topen_t i T t2.
+    Admitted.
+
+    Lemma Kopen_value : forall i K t, is_value (Kopen_t i K t) -> is_value t.
+    Proof. introv Hv. induction t ; inverts* Hv. Qed.
+
+    Lemma value_Kopen : forall i K t, is_value t -> is_value (Kopen_t i K t).
+    Proof. introv Hv. induction t ; inverts* Hv. Qed.
+
+    Lemma Kopen_step :
+      forall i K t1 t2,
+        Kopen_t i K t1 --> t2 ->
+        exists t2', t1 --> t2'.
+    Proof. Admitted.
+
+    Lemma step_Kopen :
+      forall i K t1 t2,
+        t1 --> t2 ->
+        Kopen_t i K t1 --> Kopen_t i K t2.
+    Admitted.
+
   End SmallStep.
 End SmallStep.

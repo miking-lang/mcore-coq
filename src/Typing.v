@@ -642,18 +642,49 @@ Module Typing (P : PAT).
         apply* ok_env_push. }
     Qed.
 
+    Lemma ok_env_binds_con_inv :
+      forall Gamma K d ty T,
+        ok_env Gamma  ->
+        binds K (BindCon d ty T) Gamma ->
+        exists L T',
+          T = FTName T'
+          /\ ok_data Gamma d
+          /\ (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType)
+          /\ binds T' BindTName Gamma.
+    Proof.
+      introv Henv Hbinds.
+      induction Gamma using env_ind.
+      - false. apply* binds_empty_inv.
+      - binds_cases Hbinds.
+        + destruct~ IHGamma as (L & T' & Heq & Hd & Htk & Hbinds'). apply* ok_env_push.
+          exists (L \u dom Gamma \u \{x}) T'. splits*. apply_empty~ ok_data_weakening.
+          introv Hfresh. apply~ ok_type_weakening. constructor~. constructor.
+          apply_empty~ ok_data_weakening. apply* binds_concat_left_ok.
+        + inverts EQ. forwards* (L & T' & Heq & Hd & Htk & Hbinds') : ok_env_con_inv.
+          exists (L \u dom Gamma \u \{K}) T'. splits~. apply_empty~ ok_data_weakening.
+          introv Hfresh. apply~ ok_type_weakening. constructor~. constructor.
+          apply_empty~ ok_data_weakening. apply* binds_concat_left_ok.
+    Qed.
+
+    Lemma ok_env_binds_tvar_inv :
+      forall Gamma X k,
+      ok_env Gamma ->
+      binds X (BindTVar k) Gamma ->
+      ok_kind Gamma k.
+    Proof.
+      introv Henv Hbinds.
+      induction Gamma using env_ind.
+      - false. apply* binds_empty_inv.
+      - binds_cases Hbinds.
+        + apply_empty~ ok_kind_weakening. apply~ IHGamma. apply* ok_env_push.
+        + substs. forwards* Hk: ok_env_tvar_inv. apply_empty~ ok_kind_weakening.
+    Qed.
+
     Lemma ok_type_ok_kind :
       forall Gamma T k,
         Gamma |= T ~:: k ->
         ok_kind Gamma k.
-    Proof.
-      introv Htk.
-      induction* Htk. induction Gamma using env_ind.
-      - false. apply* binds_empty_inv.
-      - binds_cases H0.
-        + apply_empty~ ok_kind_weakening. apply~ IHGamma. apply* ok_env_push.
-        + substs. forwards* Hk: ok_env_tvar_inv. apply_empty~ ok_kind_weakening.
-    Qed.
+    Proof. introv Htk. induction* Htk. apply* ok_env_binds_tvar_inv. Qed.
 
     Lemma ok_data_notin :
       forall Gamma d X,
@@ -774,7 +805,12 @@ Module Typing (P : PAT).
       { Case "TmCon".
         binds_cases H.
         - constructors* ; try apply* ok_type_tsubst.
-          assert (X \notin tfv ty1). admit.
+          assert (X \notin tfv ty1).
+          { forwards* (? & ? & ? & ? & Htk & ?) : ok_env_binds_con_inv B0.
+            pick_fresh Y.
+            forwards~ Hnin : ok_type_notin X (Htk Y).
+            forwards* (Hdisj & ?) : ok_middle_inv G1 G2 X.
+            forwards~ Hnin' : topen_notin Hnin. }
           rewrite <- (tsubst_fresh X ty1 T2) ; auto.
           rewrite <- tsubst_topen_distr ; eauto. apply* ok_type_lct.
         - constructors ; try apply* ok_type_tsubst.
@@ -798,8 +834,38 @@ Module Typing (P : PAT).
         - rewrite~ Kopen_t_tsubst_comm.
           replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
           rewrite <- concat_assoc_map_push.
-          apply* H4. rew_env_concat ; auto. apply* ok_type_lct.
-    Admitted.
+          apply* H4. rew_env_concat ; auto. apply* ok_type_lct. }
+    Qed.
+
+    Lemma ok_term_notin :
+      forall Gamma t ty T,
+        Gamma |= t ~: ty ->
+        T # Gamma ->
+        T \notin fv t.
+    Proof with eauto using ok_type_notin, ok_kind_notin, ok_data_notin.
+      introv Htk Hfresh.
+      induction Htk; simpls...
+      { Case "TmFVar". intros contra.
+        rewrite in_singleton in contra. substs.
+        apply get_none in Hfresh.
+        apply binds_get in H0.
+        fequals. }
+      { Case "TmLam". pick_fresh x.
+        forwards Hnin: open_notin (H1 x)... }
+      { Case "TmTyLam". pick_fresh X.
+        forwards Hnin: topen_t_notin (H1 X)... }
+      { Case "TmCon".
+        forwards Hk : ok_type_ok_kind H1.
+        forwards~ Hnin : ok_kind_notin T Hk.
+        unfolds kfv. unfolds dfv. rew_listx in Hnin. simpls... }
+      { Case "TmType". pick_fresh T'.
+        forwards Hnin: Topen_t_notin (H1 T')... }
+      { Case "TmConDef". pick_fresh K. pick_fresh X.
+        forwards~ Hnin: Kopen_t_notin (H4 K).
+        assert (T <> T0) by (intro ; forwards Hin: get_some_inv H1 ; substs~).
+        forwards~ Hnin': ok_type_notin T (H0 X).
+        forwards~ Hnin'': topen_notin T Hnin'... }
+    Qed.
 
   End Typing.
 End Typing.

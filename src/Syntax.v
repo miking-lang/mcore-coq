@@ -1133,4 +1133,55 @@ Module Syntax (P : PAT).
     introv Hlc. gen n. solve_eq t ; apply* Kopen_tsubst_comm.
   Qed.
 
+
+  Lemma open_notin :
+    forall t X Y n,
+      X \notin fv ([n ~> TmFVar Y]t) ->
+      X \notin fv t.
+  Proof.
+    introv Hnin. gen n.
+    induction t ; intros ; simpls* ;
+      apply notin_union_r in Hnin  as (Hnin1 & Hnin2) ;
+      try apply notin_union_r in Hnin2 as (Hnin2 & Hnin3) ;
+      try apply notin_union_r in Hnin3 as (Hnin3 & Hnin4) ;
+      eauto.
+  Qed.
+
+  Lemma topen_t_notin :
+    forall t X Y n,
+      X \notin fv ([{n ~> TyFVar Y}]t) ->
+      X \notin fv t.
+  Proof.
+    introv Hnin. gen n.
+    induction t ; intros ; simpls* ;
+      apply notin_union_r in Hnin  as (Hnin1 & Hnin2) ;
+      try apply notin_union_r in Hnin2 as (Hnin2 & Hnin3) ;
+      try apply notin_union_r in Hnin3 as (Hnin3 & Hnin4) ;
+      eauto using open_notin, topen_notin.
+  Qed.
+
+  Lemma Topen_t_notin :
+    forall t X T n,
+      X \notin fv (Topen_t n (FTName T) t) ->
+      X \notin fv t.
+  Admitted.
+
+  Lemma Kopen_t_notin :
+    forall t X K n,
+      X \notin fv (Kopen_t n (FCon K) t) ->
+      X \notin fv t.
+  Admitted.
+
+  Lemma notin_Topen :
+    forall T i t,
+      T \notin fv (Topen_t i (FTName T) t) ->
+      Topen_t i (FTName T) t = t.
+  Admitted.
+
+  Lemma notin_Kopen :
+    forall K i t,
+      K \notin fv (Kopen_t i (FCon K) t) ->
+      Kopen_t i (FCon K) t = t.
+  Admitted.
+
 End Syntax.
