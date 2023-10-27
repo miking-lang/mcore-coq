@@ -837,35 +837,5 @@ Module Typing (P : PAT).
           apply* H4. rew_env_concat ; auto. apply* ok_type_lct. }
     Qed.
 
-    Lemma ok_term_notin :
-      forall Gamma t ty T,
-        Gamma |= t ~: ty ->
-        T # Gamma ->
-        T \notin fv t.
-    Proof with eauto using ok_type_notin, ok_kind_notin, ok_data_notin.
-      introv Htk Hfresh.
-      induction Htk; simpls...
-      { Case "TmFVar". intros contra.
-        rewrite in_singleton in contra. substs.
-        apply get_none in Hfresh.
-        apply binds_get in H0.
-        fequals. }
-      { Case "TmLam". pick_fresh x.
-        forwards Hnin: open_notin (H1 x)... }
-      { Case "TmTyLam". pick_fresh X.
-        forwards Hnin: topen_t_notin (H1 X)... }
-      { Case "TmCon".
-        forwards Hk : ok_type_ok_kind H1.
-        forwards~ Hnin : ok_kind_notin T Hk.
-        unfolds kfv. unfolds dfv. rew_listx in Hnin. simpls... }
-      { Case "TmType". pick_fresh T'.
-        forwards Hnin: Topen_t_notin (H1 T')... }
-      { Case "TmConDef". pick_fresh K. pick_fresh X.
-        forwards~ Hnin: Kopen_t_notin (H4 K).
-        assert (T <> T0) by (intro ; forwards Hin: get_some_inv H1 ; substs~).
-        forwards~ Hnin': ok_type_notin T (H0 X).
-        forwards~ Hnin'': topen_notin T Hnin'... }
-    Qed.
-
   End Typing.
 End Typing.

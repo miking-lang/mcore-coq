@@ -10,20 +10,18 @@ Module Soundness (P : PAT).
     Module SmallStep := SmallStep M.
     Import Typing SmallStep.
 
-    Lemma tname_value_weakening :
-      forall G2 G1 ty t T,
-        T \notin tfv ty ->
-        is_value t ->
-        G1 & T ~ BindTName & G2 |= t ~: ty ->
-        G1 & G2 |= t ~: ty.
+    Lemma ok_term_Topen_push :
+      forall Gamma T t t' ty,
+      Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty ->
+      push_value TmType t t' ->
+      Gamma |= t' ~: ty.
     Admitted.
 
-    Lemma con_value_weakening :
-      forall G2 G1 ty t K d ty' T,
-        K \notin tfv ty ->
-        is_value t ->
-        G1 & K ~ BindCon d ty' T & G2 |= t ~: ty ->
-        G1 & G2 |= t ~: ty.
+    Lemma ok_term_Kopen_push :
+      forall Gamma K d ty' T t t' ty,
+      Gamma & K ~ BindCon d ty' T |= Kopen_t 0 (FCon K) t ~: ty ->
+      push_value (TmConDef d ty' T) t t' ->
+      Gamma |= t' ~: ty.
     Admitted.
 
     Definition no_vars (Gamma : env) : Prop :=
@@ -47,17 +45,18 @@ Module Soundness (P : PAT).
         inverts Hval; inverts* hasType. }
       { Case "TmCon".
         forwards* [Hval | (t' & Hstep)]: IHhasType. }
-      { Case "TmType". right. pick_fresh T.
-        forwards* [Hval | (t' & Hstep)]: H1 T.
-        + introv Hb. binds_cases Hb. apply* Hnv.
-        + forwards* Hv : Topen_value Hval.
-        + forwards* (t'0 & Hstep') : Topen_step Hstep. }
-      { Case "TmConDef". right. pick_fresh K.
-        forwards* [Hval | (t' & Hstep)]: H4 K.
-        + introv Hb. binds_cases Hb. apply* Hnv.
-        + forwards* Hv : Kopen_value Hval.
-        + forwards* (t'0 & Hstep') : Kopen_step Hstep. }
-    Qed.
+      Admitted.
+    (*   { Case "TmType". right. pick_fresh T. *)
+    (*     forwards* [Hval | (t' & Hstep)]: H1 T. *)
+    (*     + introv Hb. binds_cases Hb. apply* Hnv. *)
+    (*     + forwards* (v' & Hpush): Topen_push Hval. *)
+    (*     + forwards~ (t'0 & Heq) : Topen_step Hstep. rewrite* Heq in Hstep. } *)
+    (*   { Case "TmConDef". right. pick_fresh K. *)
+    (*     forwards* [Hval | (t' & Hstep)]: H4 K. *)
+    (*     + introv Hb. binds_cases Hb. apply* Hnv. *)
+    (*     + forwards* (v' & Hpush): Kopen_push Hval. *)
+    (*     + forwards (t'0 & Heq) : Kopen_step Hstep. rewrite* Heq in Hstep. } *)
+    (* Qed. *)
 
     Theorem preservation :
       forall Gamma t t' ty,
@@ -78,20 +77,14 @@ Module Soundness (P : PAT).
         rewrite* (@tsubst_intro X).
         rewrite* (@tsubst_t_intro X).
         apply_empty~ ok_term_tsubst. }
-      { Case "TmType". pick_fresh T.
-        assert (Htype : Gamma |= Topen_t 0 (FTName T) t' ~: ty).
-        { apply_empty* tname_value_weakening. auto. apply~ value_Topen. }
-        forwards~ Hnin : ok_term_notin T Htype.
-        forwards Heq : notin_Topen Hnin. rewrite~ Heq in Htype. }
-      { Case "TmTypeCong". apply_fresh TType as T ; auto.
-        forwards* Hstep': step_Topen t t2. }
-      { Case "TmConDef". pick_fresh K.
-        assert (Htype : Gamma |= Kopen_t 0 (FCon K) t' ~: ty2).
-        { apply_empty* con_value_weakening. auto. apply~ value_Kopen. }
-        forwards~ Hnin : ok_term_notin K Htype.
-        forwards Heq : notin_Kopen Hnin. rewrite~ Heq in Htype. }
-      { Case "TmConDefCong". apply_fresh TConDef as K; auto.
-        forwards* Hstep': step_Kopen t t2. }
+      { Case "TmType". pick_fresh T'.
+        applys* ok_term_Topen_push T'. }
+      { Case "TmTypeCong". apply_fresh TType as T' ; auto.
+        apply~ H1. apply* Topen_step_change. }
+      { Case "TmConDef". pick_fresh K'.
+        applys* ok_term_Kopen_push K'. }
+      { Case "TmConDefCong". apply_fresh TConDef as K'; auto.
+        apply~ H4. apply* Kopen_step_change. }
     Qed.
 
   End Soundness.

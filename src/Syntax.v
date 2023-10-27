@@ -312,7 +312,7 @@ Module Syntax (P : PAT).
   | LCApp    : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
   | LCTyLam  : forall L k t, lck k -> (forall X, X \notin L -> lc ([{0 ~> TyFVar X}] t)) -> lc (TmTyLam k t)
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
-  | LCCon    : forall K T t, lcK K ->  lct T -> lc t -> lc (TmCon K T t)
+  | LCCon    : forall K T t, lcK K -> lct T -> lc t -> lc (TmCon K T t)
   | LCType   : forall L t, (forall X, X \notin L -> lc (Topen_t 0 (FTName X) t)) -> lc (TmType t)
   | LCConDef : forall L d ty T t,
       lcd d ->
@@ -914,7 +914,9 @@ Module Syntax (P : PAT).
     forall X n T U ty,
       lct U ->
       Topen_ty n T ({X => U}ty) = {X => U} (Topen_ty n T ty).
-  Proof. Admitted.
+  Proof.
+    introv Hlct. gen n. solve_eq ty ; apply* Topen_ty_lct.
+  Qed.
 
   Lemma Topen_t_tsubst_comm :
     forall X n T U t,
@@ -1116,14 +1118,16 @@ Module Syntax (P : PAT).
       lc t2 ->
       Kopen_t n K ([x => t2]t1) = [x => t2] (Kopen_t n K t1).
   Proof.
-    introv Hlc. gen n. solve_eq t1. apply* Kopen_t_lc.
+    introv Hlc. gen n. solve_eq t1 ; apply* Kopen_t_lc.
   Qed.
 
   Lemma Kopen_tsubst_comm :
     forall X n T U ty,
       lct U ->
       Kopen_ty n T ({X => U}ty) = {X => U} (Kopen_ty n T ty).
-  Proof. Admitted.
+  Proof.
+    introv Hlct. gen n. solve_eq ty ; apply* Kopen_ty_lct.
+  Qed.
 
   Lemma Kopen_t_tsubst_comm :
     forall X n T U t,
@@ -1133,55 +1137,12 @@ Module Syntax (P : PAT).
     introv Hlc. gen n. solve_eq t ; apply* Kopen_tsubst_comm.
   Qed.
 
-
-  Lemma open_notin :
-    forall t X Y n,
-      X \notin fv ([n ~> TmFVar Y]t) ->
-      X \notin fv t.
-  Proof.
-    introv Hnin. gen n.
-    induction t ; intros ; simpls* ;
-      apply notin_union_r in Hnin  as (Hnin1 & Hnin2) ;
-      try apply notin_union_r in Hnin2 as (Hnin2 & Hnin3) ;
-      try apply notin_union_r in Hnin3 as (Hnin3 & Hnin4) ;
-      eauto.
-  Qed.
-
-  Lemma topen_t_notin :
-    forall t X Y n,
-      X \notin fv ([{n ~> TyFVar Y}]t) ->
-      X \notin fv t.
-  Proof.
-    introv Hnin. gen n.
-    induction t ; intros ; simpls* ;
-      apply notin_union_r in Hnin  as (Hnin1 & Hnin2) ;
-      try apply notin_union_r in Hnin2 as (Hnin2 & Hnin3) ;
-      try apply notin_union_r in Hnin3 as (Hnin3 & Hnin4) ;
-      eauto using open_notin, topen_notin.
-  Qed.
-
-  Lemma Topen_t_notin :
-    forall t X T n,
-      X \notin fv (Topen_t n (FTName T) t) ->
-      X \notin fv t.
-  Admitted.
-
-  Lemma Kopen_t_notin :
-    forall t X K n,
-      X \notin fv (Kopen_t n (FCon K) t) ->
-      X \notin fv t.
-  Admitted.
-
-  Lemma notin_Topen :
-    forall T i t,
-      T \notin fv (Topen_t i (FTName T) t) ->
-      Topen_t i (FTName T) t = t.
-  Admitted.
-
-  Lemma notin_Kopen :
-    forall K i t,
-      K \notin fv (Kopen_t i (FCon K) t) ->
-      Kopen_t i (FCon K) t = t.
-  Admitted.
+  (* Lemma Topen_t_open_comm : *)
+  (*   forall i n T v t, *)
+  (*     lc v -> *)
+  (*     Topen_t i T ([n ~> v] t) = [n ~> v] (Topen_t i T t). *)
+  (* Proof. *)
+  (*   introv Hlc. gen n i. solve_eq t. apply* Topen_t_lc. *)
+  (* Qed. *)
 
 End Syntax.

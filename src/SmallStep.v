@@ -1,3 +1,4 @@
+From TLC Require Import LibLN.
 From MCore Require Import Syntax Typing Tactics.
 
 Module SmallStep (P : PAT).
@@ -5,22 +6,28 @@ Module SmallStep (P : PAT).
   Export T.
 
   Inductive is_value : term -> Prop :=
-  | VLam : forall ty t,
-      is_value (TmLam ty t)
-  | VTyLam : forall k t,
-      is_value (TmTyLam k t)
+  | VLam   : forall ty t, is_value (TmLam ty t)
+  | VTyLam : forall k t,  is_value (TmTyLam k t)
   (* | VProd : forall {v1 v2 : term}, *)
   (*     is_value v1 -> *)
   (*     is_value v2 -> *)
   (*     is_value (TmProd v1 v2) *)
-  | VCon : forall c ty v,
+  | VCon : forall K ty v,
       is_value v ->
-      is_value (TmCon c ty v)
+      is_value (TmCon K ty v)
   (* | VSem : forall {ty : type} {cases : list (pat * term)}, *)
   (*     is_value (TmSem ty cases) *)
   .
   #[export]
    Hint Constructors is_value : mcore.
+
+  Inductive push_value : (term -> term) -> term -> term -> Prop :=
+  | PLam   : forall ty t f, push_value f (TmLam ty t) (TmLam ty (f t))
+  | PTyLam : forall k t f,  push_value f (TmTyLam k t) (TmTyLam k (f t))
+  | PCon   : forall K ty t t' f,
+      push_value f t t' ->
+      push_value f (TmCon K ty t) (TmCon K ty t')
+  .
 
   Module Type MATCH.
     Parameter match1 :
@@ -52,8 +59,6 @@ Module SmallStep (P : PAT).
     (* | CProj : fin2 -> eval_context *)
     | CCon : forall K ty, is_context (TmCon K ty)
     (* | CMatch : pat -> term -> term -> eval_context *)
-    | CType : is_context TmType
-    | CConDef : forall d ty T, is_context (TmConDef d ty T)
     (* | CCompL : term -> eval_context *)
     (* | CCompR : forall (v : term), *)
     (*     is_value v -> *)
@@ -83,12 +88,20 @@ Module SmallStep (P : PAT).
     (*     is_value v1 -> *)
     (*     is_value v2 -> *)
     (*     eval_step (TmProj F2 (TmProd v1 v2)) v2 *)
-    | EType : forall v,
+    | EType : forall v v',
         is_value v ->
-        TmType v --> v
-    | EConDef : forall d ty T v,
+        push_value TmType v v' ->
+        TmType v --> v'
+    | EConDef : forall d ty T v v',
         is_value v ->
-        TmConDef d ty T v --> v
+        push_value (TmConDef d ty T) v v' ->
+        TmConDef d ty T v --> v'
+    | ETypeCong : forall T t1 t2,
+        Topen_t 0 (FTName T) t1 --> Topen_t 0 (FTName T) t2 ->
+        TmType t1 --> TmType t2
+    | EConDefCong : forall K d ty T t1 t2,
+         Kopen_t 0 (FCon K) t1 --> Kopen_t 0 (FCon K) t2 ->
+        TmConDef d ty T t1 --> TmConDef d ty T t2
     (* | EMatchThen : forall {v t1 t2 : term} {p : pat} *)
     (*                       {theta : list term} *)
     (*                       (vval : is_value v), *)
@@ -108,7 +121,7 @@ Module SmallStep (P : PAT).
     (*     match_n vval (map fst cases) = Some (i, theta) -> *)
     (*     eval_step (TmSemApp (TmSem ty cases) v) *)
     (*               (tm_subst_n (nth i (map snd cases)) theta) *)
-    | ECong : forall {f : term -> term},
+    | ECong : forall {f},
         is_context f ->
         forall t1 t2,
             t1 --> t2   ->
@@ -125,55 +138,32 @@ Module SmallStep (P : PAT).
     #[export] Hint Resolve econg_CTyApp : mcore.
     Definition econg_CCon K ty := ECong (CCon K ty).
     #[export] Hint Resolve econg_CCon : mcore.
-    Definition econg_CType := ECong CType.
-    #[export] Hint Resolve econg_CType : mcore.
-    Definition econg_CConDef d ty T := ECong (CConDef d ty T).
-    #[export] Hint Resolve econg_CConDef : mcore.
 
-    Lemma Topen_value : forall i T t, is_value (Topen_t i T t) -> is_value t.
-    Proof. introv Hv. induction t ; inverts* Hv. Qed.
-
-    Lemma value_Topen : forall i T t, is_value t -> is_value (Topen_t i T t).
-    Proof. introv Hv. induction t ; inverts* Hv. Qed.
+    Lemma is_value_push : forall f v, is_value v -> exists v', push_value f v v'.
+    Proof. Admitted.
 
     Lemma Topen_step :
       forall i T t1 t2,
         Topen_t i T t1 --> t2 ->
-        exists t2', t1 --> t2'.
+        exists t2', t2 = Topen_t i T t2'.
     Proof. Admitted.
-      (* introv Hstep. *)
-      (* induction t1. *)
-      (* - inverts Hstep. *)
-      (*   with_hyp (is_context _) as ctx. with_hyp (_ = _) as eq. inverts ctx ; inverts eq. *)
-      (* - inverts Hstep. *)
-      (*   with_hyp (is_context _) as ctx. with_hyp (_ = _) as eq. inverts ctx ; inverts eq. *)
-      (* - inverts Hstep. *)
-      (*   with_hyp (is_context _) as ctx. with_hyp (_ = _) as eq. inverts ctx ; inverts eq. *)
-      (* - simpls. inverts Hstep. *)
-      (*   + substs H *)
 
-    Lemma step_Topen :
-      forall i T t1 t2,
-        t1 --> t2 ->
-        Topen_t i T t1 --> Topen_t i T t2.
+    Lemma Topen_step_change :
+      forall i T T' t1 t2,
+        Topen_t i T t1 --> Topen_t i T t2 ->
+        Topen_t i T' t1 --> Topen_t i T' t2.
     Admitted.
-
-    Lemma Kopen_value : forall i K t, is_value (Kopen_t i K t) -> is_value t.
-    Proof. introv Hv. induction t ; inverts* Hv. Qed.
-
-    Lemma value_Kopen : forall i K t, is_value t -> is_value (Kopen_t i K t).
-    Proof. introv Hv. induction t ; inverts* Hv. Qed.
 
     Lemma Kopen_step :
       forall i K t1 t2,
         Kopen_t i K t1 --> t2 ->
-        exists t2', t1 --> t2'.
+        exists t2', t2 = Kopen_t i K t2'.
     Proof. Admitted.
 
-    Lemma step_Kopen :
-      forall i K t1 t2,
-        t1 --> t2 ->
-        Kopen_t i K t1 --> Kopen_t i K t2.
+    Lemma Kopen_step_change :
+      forall i K K' t1 t2,
+        Kopen_t i K t1 --> Kopen_t i K t2 ->
+        Kopen_t i K' t1 --> Kopen_t i K' t2.
     Admitted.
 
   End SmallStep.
