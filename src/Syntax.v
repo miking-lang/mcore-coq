@@ -1145,4 +1145,32 @@ Module Syntax (P : PAT).
   (*   introv Hlc. gen n i. solve_eq t. apply* Topen_t_lc. *)
   (* Qed. *)
 
+  (* Lemma Topen_ty_topen_comm : *)
+  (*   forall i n T ty1 ty2, *)
+  (*     lct ty1 -> *)
+  (*     Topen_ty i T ({n ~> ty1} ty2) = {n ~> ty1} (Topen_ty i T ty2). *)
+  (* Proof. *)
+  (*   introv. gen n. solve_eq ty2. apply* Topen_ty_lct. *)
+  (* Qed. *)
+
+  (* Lemma Topen_t_topen_comm : *)
+  (*   forall i n T ty t, *)
+  (*     lct ty -> *)
+  (*     Topen_t i T ([{n ~> ty}] t) = [{n ~> ty}] (Topen_t i T t). *)
+  (* Proof. *)
+  (*   introv. gen n i. solve_eq t ; apply* Topen_ty_topen_comm. *)
+  (* Qed. *)
+
+  Lemma Topen_t_close :
+    forall i T t,
+      lc t ->
+      exists t', t = Topen_t i T t'.
+  Proof. Admitted.
+
+  Lemma Kopen_t_close :
+    forall i K t,
+      lc t ->
+      exists t', t = Kopen_t i K t'.
+  Proof. Admitted.
+
 End Syntax.

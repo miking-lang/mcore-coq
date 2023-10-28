@@ -837,5 +837,12 @@ Module Typing (P : PAT).
           apply* H4. rew_env_concat ; auto. apply* ok_type_lct. }
     Qed.
 
+    (* Lemma ok_type_tname_strengthening : *)
+    (*   forall G1 G2 T ty k, *)
+    (*     G1 & T ~ BindTName & G2 |= ty ~:: k -> *)
+    (*     ok_env (G1 & G2) -> *)
+    (*     G1 & G2 |= T1 ~:: k. *)
+    (* Proof. *)
+
   End Typing.
 End Typing.

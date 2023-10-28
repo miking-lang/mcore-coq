@@ -6,8 +6,10 @@ Module SmallStep (P : PAT).
   Export T.
 
   Inductive is_value : term -> Prop :=
-  | VLam   : forall ty t, is_value (TmLam ty t)
-  | VTyLam : forall k t,  is_value (TmTyLam k t)
+  | VLam   : forall ty t,
+      is_value (TmLam ty t)
+  | VTyLam : forall k t,
+      is_value (TmTyLam k t)
   (* | VProd : forall {v1 v2 : term}, *)
   (*     is_value v1 -> *)
   (*     is_value v2 -> *)
@@ -22,21 +24,25 @@ Module SmallStep (P : PAT).
    Hint Constructors is_value : mcore.
 
   Inductive push_value : (term -> term) -> term -> term -> Prop :=
-  | PLam   : forall ty t f, push_value f (TmLam ty t) (TmLam ty (f t))
-  | PTyLam : forall k t f,  push_value f (TmTyLam k t) (TmTyLam k (f t))
+  | PLam   : forall ty t f,
+      push_value f (TmLam ty t) (TmLam ty (f t))
+  | PTyLam : forall k t f,
+      push_value f (TmTyLam k t) (TmTyLam k (f t))
   | PCon   : forall K ty t t' f,
       push_value f t t' ->
       push_value f (TmCon K ty t) (TmCon K ty t')
   .
+  #[export]
+   Hint Constructors push_value : mcore.
 
   Module Type MATCH.
     Parameter match1 :
-      forall {v : term},
+      forall v,
         is_value v ->
         pat ->
         option (list term).
     Parameter match_n :
-      forall {v : term},
+      forall v,
         is_value v ->
         list pat ->
         option (nat * list term).
@@ -96,11 +102,13 @@ Module SmallStep (P : PAT).
         is_value v ->
         push_value (TmConDef d ty T) v v' ->
         TmConDef d ty T v --> v'
-    | ETypeCong : forall T t1 t2,
-        Topen_t 0 (FTName T) t1 --> Topen_t 0 (FTName T) t2 ->
+    | ETypeCong : forall L t1 t2,
+        (forall T, T \notin L ->
+              Topen_t 0 (FTName T) t1 --> Topen_t 0 (FTName T) t2) ->
         TmType t1 --> TmType t2
-    | EConDefCong : forall K d ty T t1 t2,
-         Kopen_t 0 (FCon K) t1 --> Kopen_t 0 (FCon K) t2 ->
+    | EConDefCong : forall L d ty T t1 t2,
+        (forall K, K \notin L ->
+              Kopen_t 0 (FCon K) t1 --> Kopen_t 0 (FCon K) t2) ->
         TmConDef d ty T t1 --> TmConDef d ty T t2
     (* | EMatchThen : forall {v t1 t2 : term} {p : pat} *)
     (*                       {theta : list term} *)
@@ -140,13 +148,16 @@ Module SmallStep (P : PAT).
     #[export] Hint Resolve econg_CCon : mcore.
 
     Lemma is_value_push : forall f v, is_value v -> exists v', push_value f v v'.
-    Proof. Admitted.
+    Proof. introv Hval. induction* Hval. destruct* IHHval. Qed.
 
-    Lemma Topen_step :
-      forall i T t1 t2,
-        Topen_t i T t1 --> t2 ->
-        exists t2', t2 = Topen_t i T t2'.
-    Proof. Admitted.
+    Lemma Topen_is_value :
+      forall i T v,
+        is_value (Topen_t i T v) ->
+        is_value v.
+    Proof.
+      introv Hval.
+      induction v ; inverts* Hval.
+    Qed.
 
     Lemma Topen_step_change :
       forall i T T' t1 t2,
@@ -154,11 +165,14 @@ Module SmallStep (P : PAT).
         Topen_t i T' t1 --> Topen_t i T' t2.
     Admitted.
 
-    Lemma Kopen_step :
-      forall i K t1 t2,
-        Kopen_t i K t1 --> t2 ->
-        exists t2', t2 = Kopen_t i K t2'.
-    Proof. Admitted.
+    Lemma Kopen_is_value :
+      forall i K v,
+        is_value (Kopen_t i K v) ->
+        is_value v.
+    Proof.
+      introv Hval.
+      induction v ; inverts* Hval.
+    Qed.
 
     Lemma Kopen_step_change :
       forall i K K' t1 t2,
