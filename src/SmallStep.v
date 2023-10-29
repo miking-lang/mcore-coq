@@ -159,11 +159,55 @@ Module SmallStep (P : PAT).
       induction v ; inverts* Hval.
     Qed.
 
+    Lemma is_value_Tsubst :
+      forall X T v,
+        is_value v ->
+        is_value (Tsubst_t X T v).
+    Proof.
+      introv Hval.
+      induction v ; inverts* Hval.
+    Qed.
+
+    Lemma push_Tsubst :
+      forall f f' X T t1 t2,
+        (forall t, Tsubst_t X T (f t) = f' (Tsubst_t X T t)) ->
+        push_value f t1 t2 ->
+        push_value f' (Tsubst_t X T t1) (Tsubst_t X T t2).
+    Proof.
+      introv Heq Hpush.
+      induction Hpush ; simpls* ; rewrite* Heq.
+    Qed.
+
+    Lemma step_Tsubst :
+      forall X T t1 t2,
+        t1 --> t2 ->
+        Tsubst_t X (FTName T) t1 --> Tsubst_t X (FTName T) t2.
+    Proof.
+      introv Hstep.
+      induction Hstep ; simpls.
+      - rewrite Tsubst_t_open_distr.
+        forwards* Hval: is_value_Tsubst H.
+      - rewrite* Tsubst_t_topen_distr.
+      - forwards Hval: is_value_Tsubst H.
+        forwards* Hpush: push_Tsubst TmType H0.
+      - forwards Hval: is_value_Tsubst H.
+        forwards* Hpush: push_Tsubst (TmConDef d ty T0) H0.
+      - apply_fresh ETypeCong. rewrite_all~ Tsubst_t_Topen_comm.
+      - apply_fresh EConDefCong. rewrite_all~ Tsubst_t_Kopen_comm.
+      - inverts X0 ; simpls*.
+        forwards* Hval: is_value_Tsubst H.
+    Qed.
+
     Lemma Topen_step_change :
-      forall i T T' t1 t2,
-        Topen_t i T t1 --> Topen_t i T t2 ->
-        Topen_t i T' t1 --> Topen_t i T' t2.
-    Admitted.
+      forall i T U t1 t2,
+        T \notin Tfv_t t1 \u Tfv_t t2 ->
+        Topen_t i (FTName T) t1 --> Topen_t i (FTName T) t2 ->
+        Topen_t i (FTName U) t1 --> Topen_t i (FTName U) t2.
+    Proof.
+      introv Hfresh. rewrite_all~ (Tsubst_t_intro T (FTName U)).
+      apply step_Tsubst.
+    Qed.
+
 
     Lemma Kopen_is_value :
       forall i K v,
@@ -174,11 +218,54 @@ Module SmallStep (P : PAT).
       induction v ; inverts* Hval.
     Qed.
 
+    Lemma is_value_Ksubst :
+      forall X K v,
+        is_value v ->
+        is_value (Ksubst_t X K v).
+    Proof.
+      introv Hval.
+      induction v ; inverts* Hval.
+    Qed.
+
+    Lemma push_Ksubst :
+      forall f f' X T t1 t2,
+        (forall t, Ksubst_t X T (f t) = f' (Ksubst_t X T t)) ->
+        push_value f t1 t2 ->
+        push_value f' (Ksubst_t X T t1) (Ksubst_t X T t2).
+    Proof.
+      introv Heq Hpush.
+      induction Hpush ; simpls* ; rewrite* Heq.
+    Qed.
+
+    Lemma step_Ksubst :
+      forall X K t1 t2,
+        t1 --> t2 ->
+        Ksubst_t X (FCon K) t1 --> Ksubst_t X (FCon K) t2.
+    Proof.
+      introv Hstep.
+      induction Hstep ; simpls.
+      - rewrite Ksubst_t_open_distr.
+        forwards* Hval: is_value_Ksubst H.
+      - rewrite* Ksubst_t_topen_distr.
+      - forwards Hval: is_value_Ksubst H.
+        forwards* Hpush: push_Ksubst TmType H0.
+      - forwards Hval: is_value_Ksubst H.
+        forwards* Hpush: push_Ksubst (TmConDef d ty T) H0.
+      - apply_fresh ETypeCong. rewrite_all~ Ksubst_t_Topen_comm.
+      - apply_fresh EConDefCong. rewrite_all~ Ksubst_t_Kopen_comm.
+      - inverts X0 ; simpls*.
+        forwards* Hval: is_value_Ksubst H.
+    Qed.
+
     Lemma Kopen_step_change :
-      forall i K K' t1 t2,
-        Kopen_t i K t1 --> Kopen_t i K t2 ->
-        Kopen_t i K' t1 --> Kopen_t i K' t2.
-    Admitted.
+      forall i K U t1 t2,
+        K \notin Kfv_t t1 \u Kfv_t t2 ->
+        Kopen_t i (FCon K) t1 --> Kopen_t i (FCon K) t2 ->
+        Kopen_t i (FCon U) t1 --> Kopen_t i (FCon U) t2.
+    Proof.
+      introv Hfresh. rewrite_all~ (Ksubst_t_intro K (FCon U)).
+      apply step_Ksubst.
+    Qed.
 
   End SmallStep.
 End SmallStep.

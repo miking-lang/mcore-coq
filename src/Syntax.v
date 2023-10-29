@@ -88,56 +88,119 @@ Module Syntax (P : PAT).
 
   (* Free variables *)
 
-  Definition Tfv (T : tname) :=
-    match T with
-    | BTName X => \{}
-    | FTName X => \{X}
-    end
-  .
-
-  Definition Kfv (K : con) :=
-    match K with
-    | BCon X => \{}
-    | FCon X => \{X}
-    end
-  .
-
-  Definition dfv (d : data) : vars :=
-    fold_right
-      (fun '(T,Ks) fvs =>
-         Tfv T \u
-             fold_right (fun con fvs' => Kfv con \u fvs') \{} Ks \u
-             fvs)
-      \{}
-      d.
-
-  Definition kfv (k : kind) : vars :=
-    match k with
-    | KiType => \{}
-    | KiData d => dfv d
-    end.
-
-  Fixpoint tfv (T : type) : vars :=
+  Fixpoint tfv (T : type) :=
     match T with
     | TyBVar X => \{}
     | TyFVar X => \{X}
     | TyArr T1 T2 => tfv T1 \u tfv T2
-    | TyAll k T' => kfv k \u tfv T'
-    | TyCon ty T => tfv ty \u Tfv T
-    | TyData d => dfv d
+    | TyAll k T' => tfv T'
+    | TyCon ty T => tfv ty
+    | TyData d => \{}
     end.
 
-  Fixpoint fv (t : term) : vars :=
+  Fixpoint tfv_t (t : term) :=
+    match t with
+    | TmBVar i => \{}
+    | TmFVar x => \{}
+    | TmLam T t' => tfv T \u tfv_t t'
+    | TmApp t1 t2 => tfv_t t1 \u tfv_t t2
+    | TmTyLam k t' => tfv_t t'
+    | TmTyApp t' T => tfv_t t' \u tfv T
+    | TmCon K ty t' => tfv ty \u tfv_t t'
+    | TmType t' => tfv_t t'
+    | TmConDef d ty T t' => tfv ty \u tfv_t t'
+    end.
+
+  Fixpoint fv (t : term) :=
     match t with
     | TmBVar i => \{}
     | TmFVar x => \{x}
-    | TmLam T t' => tfv T \u fv t'
+    | TmLam T t' => fv t'
     | TmApp t1 t2 => fv t1 \u fv t2
-    | TmTyLam k t' => kfv k \u fv t'
-    | TmTyApp t' T => fv t' \u tfv T
-    | TmCon K ty t' => Kfv K \u tfv ty \u fv t'
+    | TmTyLam k t' => fv t'
+    | TmTyApp t' T => fv t'
+    | TmCon K ty t' => fv t'
     | TmType t' => fv t'
-    | TmConDef d ty T t' => dfv d \u tfv ty \u Tfv T \u fv t'
+    | TmConDef d ty T t' => fv t'
+    end.
+
+  Notation Tfv T :=
+    match T with
+    | BTName X => \{}
+    | FTName X => \{X}
+    end.
+
+  Definition Tfv_d (d : data) : vars :=
+    fold_right (fun '(T, Ks) fvs => Tfv T \u fvs) \{} d.
+
+  Definition Tfv_k (k : kind) : vars :=
+    match k with
+    | KiType => \{}
+    | KiData d => Tfv_d d
+    end.
+
+  Fixpoint Tfv_ty (T : type) : vars :=
+    match T with
+    | TyBVar X => \{}
+    | TyFVar X => \{}
+    | TyArr T1 T2 => Tfv_ty T1 \u Tfv_ty T2
+    | TyAll k T' => Tfv_k k \u Tfv_ty T'
+    | TyCon ty T => Tfv_ty ty \u Tfv T
+    | TyData d => Tfv_d d
+    end.
+
+  Fixpoint Tfv_t (t : term) : vars :=
+    match t with
+    | TmBVar i => \{}
+    | TmFVar x => \{}
+    | TmLam T t' => Tfv_ty T \u Tfv_t t'
+    | TmApp t1 t2 => Tfv_t t1 \u Tfv_t t2
+    | TmTyLam k t' => Tfv_k k \u Tfv_t t'
+    | TmTyApp t' T => Tfv_t t' \u Tfv_ty T
+    | TmCon K ty t' => Tfv_ty ty \u Tfv_t t'
+    | TmType t' => Tfv_t t'
+    | TmConDef d ty T t' => Tfv_d d \u Tfv_ty ty \u Tfv T \u Tfv_t t'
+    end.
+
+  Notation Kfv K :=
+    match K with
+    | BCon X => \{}
+    | FCon X => \{X}
+    end.
+
+  Definition Kfv_d (d : data) : vars :=
+    fold_right (fun '(T, Ks) fvs =>
+                  fold_right (fun K fvs => Kfv K \u fvs) \{} Ks
+                             \u fvs)
+               \{} d.
+
+  Definition Kfv_k (k : kind) : vars :=
+    match k with
+    | KiType => \{}
+    | KiData d => Kfv_d d
+    end.
+
+  Fixpoint Kfv_ty (T : type) : vars :=
+    match T with
+    | TyBVar X => \{}
+    | TyFVar X => \{}
+    | TyArr T1 T2 => Kfv_ty T1 \u Kfv_ty T2
+    | TyAll k T' => Kfv_k k \u Kfv_ty T'
+    | TyCon ty T => Kfv_ty ty
+    | TyData d => Kfv_d d
+    end.
+
+  Fixpoint Kfv_t (t : term) : vars :=
+    match t with
+    | TmBVar i => \{}
+    | TmFVar x => \{}
+    | TmLam T t' => Kfv_ty T \u Kfv_t t'
+    | TmApp t1 t2 => Kfv_t t1 \u Kfv_t t2
+    | TmTyLam k t' => Kfv_k k \u Kfv_t t'
+    | TmTyApp t' T => Kfv_t t' \u Kfv_ty T
+    | TmCon K ty t' => Kfv K \u Kfv_ty ty \u Kfv_t t'
+    | TmType t' => Kfv_t t'
+    | TmConDef d ty T t' => Kfv_d d \u Kfv_ty ty \u Kfv_t t'
     end.
 
   (* Opening *)
@@ -276,18 +339,11 @@ Module Syntax (P : PAT).
   (* Local closure *)
   (* A locally closed term contains no unbound BVars. *)
 
-  Inductive lcT : tname -> Prop :=
-  | LCTName : forall X, lcT (FTName X).
-  #[export]
-   Hint Constructors lcT : mcore.
-
-  Inductive lcK : con -> Prop :=
-  | LCKCon : forall X, lcK (FCon X).
-  #[export]
-   Hint Constructors lcK : mcore.
+  Notation lcT T := (exists T', T = FTName T').
+  Notation lcK K := (exists K', K = FCon K').
 
   Definition lcd (d : data) : Prop :=
-    Forall (fun '(T, Ks) => lcT T /\ Forall lcK Ks) d.
+    Forall (fun '(T, Ks) => lcT T /\ Forall (fun K => lcK K) Ks) d.
 
   Inductive lck : kind -> Prop :=
   | LCKType : lck KiType
@@ -300,7 +356,7 @@ Module Syntax (P : PAT).
   | LCTFVar : forall X, lct (TyFVar X)
   | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
   | LCTAll  : forall L k T, lck k -> (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
-  | LCTCon  : forall ty T, lct ty -> lcT T -> lct (TyCon ty T)
+  | LCTCon  : forall ty T, lct ty -> lct (TyCon ty (FTName T))
   | LCTData : forall d, lcd d -> lct (TyData d)
   .
   #[export]
@@ -312,14 +368,13 @@ Module Syntax (P : PAT).
   | LCApp    : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
   | LCTyLam  : forall L k t, lck k -> (forall X, X \notin L -> lc ([{0 ~> TyFVar X}] t)) -> lc (TmTyLam k t)
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
-  | LCCon    : forall K T t, lcK K -> lct T -> lc t -> lc (TmCon K T t)
+  | LCCon    : forall K T t, lct T -> lc t -> lc (TmCon (FCon K) T t)
   | LCType   : forall L t, (forall X, X \notin L -> lc (Topen_t 0 (FTName X) t)) -> lc (TmType t)
   | LCConDef : forall L d ty T t,
       lcd d ->
       (forall X, X \notin L -> lct ({0 ~> TyFVar X}ty)) ->
-      lcT T ->
       (forall X, X \notin L -> lc (Kopen_t 0 (FCon X) t)) ->
-      lc (TmConDef d ty T t)
+      lc (TmConDef d ty (FTName T) t)
   .
   #[export]
    Hint Constructors lc : mcore.
@@ -371,6 +426,86 @@ Module Syntax (P : PAT).
    Hint Unfold subst : mcore.
 
 
+  Definition Tsubst (X : var) (U : tname) (T : tname) :=
+    match T with
+    | BTName _ => T
+    | FTName Y => (If X = Y then U else T)
+    end.
+
+  Definition Tsubst_d (X : var) (U : tname) (d : data) : data :=
+    LibList.map (fun '(T, Ks) => (Tsubst X U T, Ks)) d.
+
+  Definition Tsubst_k (X : var) (U : tname) (k : kind) :=
+    match k with
+    | KiType => k
+    | KiData d => KiData (Tsubst_d X U d)
+    end.
+
+  Fixpoint Tsubst_ty (X : var) (U : tname) (T : type) :=
+    match T with
+    | TyBVar X => T
+    | TyFVar X => T
+    | TyArr T1 T2 => TyArr (Tsubst_ty X U T1) (Tsubst_ty X U T2)
+    | TyAll k T' => TyAll (Tsubst_k X U k) (Tsubst_ty X U T')
+    | TyCon ty T => TyCon (Tsubst_ty X U ty) (Tsubst X U T)
+    | TyData d => TyData (Tsubst_d X U d)
+    end.
+
+  Fixpoint Tsubst_t (X : var) (U : tname) (t : term) :=
+    match t with
+    | TmBVar i => t
+    | TmFVar x => t
+    | TmLam T t' => TmLam (Tsubst_ty X U T) (Tsubst_t X U t')
+    | TmApp t1 t2 => TmApp (Tsubst_t X U t1) (Tsubst_t X U t2)
+    | TmTyLam k t' => TmTyLam (Tsubst_k X U k) (Tsubst_t X U t')
+    | TmTyApp t' T => TmTyApp (Tsubst_t X U t') (Tsubst_ty X U T)
+    | TmCon K ty t' => TmCon K (Tsubst_ty X U ty) (Tsubst_t X U t')
+    | TmType t' => TmType (Tsubst_t X U t')
+    | TmConDef d ty T t' =>
+        TmConDef (Tsubst_d X U d) (Tsubst_ty X U ty) (Tsubst X U T) (Tsubst_t X U t')
+    end.
+
+
+  Definition Ksubst (X : var) (U : con) (K : con) :=
+    match K with
+    | BCon _ => K
+    | FCon Y => (If X = Y then U else K)
+    end.
+
+  Definition Ksubst_d (X : var) (U : con) (d : data) : data :=
+    LibList.map (fun '(T, Ks) => (T, LibList.map (Ksubst X U) Ks)) d.
+
+  Definition Ksubst_k (X : var) (U : con) (k : kind) :=
+    match k with
+    | KiType => k
+    | KiData d => KiData (Ksubst_d X U d)
+    end.
+
+  Fixpoint Ksubst_ty (X : var) (U : con) (T : type) :=
+    match T with
+    | TyBVar X => T
+    | TyFVar X => T
+    | TyArr T1 T2 => TyArr (Ksubst_ty X U T1) (Ksubst_ty X U T2)
+    | TyAll k T' => TyAll (Ksubst_k X U k) (Ksubst_ty X U T')
+    | TyCon ty T => TyCon (Ksubst_ty X U ty) T
+    | TyData d => TyData (Ksubst_d X U d)
+    end.
+
+  Fixpoint Ksubst_t (X : var) (U : con) (t : term) :=
+    match t with
+    | TmBVar i => t
+    | TmFVar x => t
+    | TmLam T t' => TmLam (Ksubst_ty X U T) (Ksubst_t X U t')
+    | TmApp t1 t2 => TmApp (Ksubst_t X U t1) (Ksubst_t X U t2)
+    | TmTyLam k t' => TmTyLam (Ksubst_k X U k) (Ksubst_t X U t')
+    | TmTyApp t' T => TmTyApp (Ksubst_t X U t') (Ksubst_ty X U T)
+    | TmCon K ty t' => TmCon (Ksubst X U K) (Ksubst_ty X U ty) (Ksubst_t X U t')
+    | TmType t' => TmType (Ksubst_t X U t')
+    | TmConDef d ty T t' =>
+        TmConDef (Ksubst_d X U d) (Ksubst_ty X U ty) T (Ksubst_t X U t')
+    end.
+
+
   (*****************************)
   (** ENVIRONMENT DEFINITIONS **)
   (*****************************)
@@ -406,12 +541,19 @@ Module Syntax (P : PAT).
     let B := gather_vars_with (fun x : var => \{x}) in
     let C := gather_vars_with (fun x : env => dom x) in
     let D := gather_vars_with (fun x : term => fv x) in
-    let E := gather_vars_with (fun x : type => tfv x) in
-    let F := gather_vars_with (fun x : kind => kfv x) in
-    let G := gather_vars_with (fun x : data => dfv x) in
-    let H := gather_vars_with (fun x : con => Kfv x) in
-    let I := gather_vars_with (fun x : tname => Tfv x) in
-    constr:(A \u B \u C \u D \u E \u F \u G \u H \u I).
+    let E := gather_vars_with (fun x : term => tfv_t x) in
+    let F := gather_vars_with (fun x : term => Tfv_t x) in
+    let G := gather_vars_with (fun x : term => Kfv_t x) in
+    let H := gather_vars_with (fun x : type => tfv x) in
+    let I := gather_vars_with (fun x : type => Tfv_ty x) in
+    let J := gather_vars_with (fun x : type => Kfv_ty x) in
+    let K := gather_vars_with (fun x : kind => Tfv_k x) in
+    let L := gather_vars_with (fun x : kind => Kfv_k x) in
+    let M := gather_vars_with (fun x : data => Tfv_d x) in
+    let N := gather_vars_with (fun x : data => Kfv_d x) in
+    let O := gather_vars_with (fun x : con  => Kfv x) in
+    let P := gather_vars_with (fun x : tname => Tfv x) in
+    constr:(A \u B \u C \u D \u E \u F \u G \u H \u I \u J \u K \u L \u M \u N \u O \u P).
 
   Ltac pick_fresh x :=
     let L := gather_vars in (pick_fresh_gen L x).
@@ -577,7 +719,7 @@ Module Syntax (P : PAT).
 
   Lemma subst_intro :
     forall x t u n,
-      x \notin (fv t) ->
+      x \notin fv t ->
       [n ~> u] t = [x => u]([n ~> TmFVar x]t).
   Proof. introv Hfv. gen n. solve_eq t. Qed.
 
@@ -593,7 +735,7 @@ Module Syntax (P : PAT).
 
   Lemma tsubst_t_fresh :
     forall X t U,
-      X \notin fv t ->
+      X \notin tfv_t t ->
       [{X => U}]t = t.
   Proof.
     introv Hfv.
@@ -602,7 +744,7 @@ Module Syntax (P : PAT).
 
   Lemma tsubst_t_intro :
     forall X U t,
-      X \notin fv t ->
+      X \notin tfv_t t ->
       lct U ->
       [{0 ~> U}]t = [{X => U}] ([{0 ~> TyFVar X}]t).
   Proof.
@@ -683,7 +825,7 @@ Module Syntax (P : PAT).
 
   Lemma topen_t_subst_comm :
     forall X x n t1 t2,
-      X \notin fv t2 ->
+      X \notin tfv_t t2 ->
       lc t2 ->
       [{n ~> TyFVar X}] ([x => t2]t1) = [x => t2]([{n ~> TyFVar X}] t1).
   Proof.
@@ -716,12 +858,6 @@ Module Syntax (P : PAT).
     introv Hneq Hlct. gen n.
     solve_eq t ; rewrite* tsubst_topen_comm.
   Qed.
-
-  Lemma Topen_lcT :
-    forall j T T',
-      lcT T ->
-      Topen j T' T = T.
-  Proof. introv HlcT. inverts* HlcT. Qed.
 
   Lemma Topen_Topen_neq :
     forall i j T T' T0,
@@ -807,8 +943,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlct.
     solve_eq Hlct ;
-      try solve [ apply* Topen_lcT
-                | apply* Topen_d_lcd
+      try solve [ apply* Topen_d_lcd
                 | apply* Topen_k_lck ] ;
       pick_fresh_gen L x.
     - apply* Topen_topen_rec.
@@ -889,8 +1024,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlc. gen k.
     solve_eq Hlc ;
-      try solve [ apply* Topen_lcT
-                | apply* Topen_d_lcd
+      try solve [ apply* Topen_d_lcd
                 | apply* Topen_k_lck
                 | apply* Topen_ty_lct ] ;
       pick_fresh_gen L x.
@@ -926,12 +1060,6 @@ Module Syntax (P : PAT).
     introv Hlc. gen n. solve_eq t ; apply* Topen_tsubst_comm.
   Qed.
 
-
-  Lemma Kopen_lcK :
-    forall j K K',
-      lcK K ->
-      Kopen j K' K = K.
-  Proof. introv HlcK. inverts* HlcK. Qed.
 
   Lemma Kopen_Kopen_neq :
     forall i j K K' K0,
@@ -1019,8 +1147,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlct.
     solve_eq Hlct ;
-      try solve [ apply* Kopen_lcT
-                | apply* Kopen_d_lcd
+      try solve [ apply* Kopen_d_lcd
                 | apply* Kopen_k_lck ] ;
       pick_fresh_gen L x.
     - apply* Kopen_topen_rec.
@@ -1100,8 +1227,7 @@ Module Syntax (P : PAT).
   Proof.
     introv Hlc. gen k.
     solve_eq Hlc ;
-      try solve [ apply* Kopen_lcK
-                | apply* Kopen_d_lcd
+      try solve [ apply* Kopen_d_lcd
                 | apply* Kopen_k_lck
                 | apply* Kopen_ty_lct ] ;
       pick_fresh_gen L x.
@@ -1164,13 +1290,295 @@ Module Syntax (P : PAT).
   Lemma Topen_t_close :
     forall i T t,
       lc t ->
-      exists t', t = Topen_t i T t'.
-  Proof. Admitted.
+      exists t', t = Topen_t i (FTName T) t' /\ T \notin Tfv_t t'.
+  Proof.
+    (* introv Hlc. gen i. induction t ; intros ; inverts Hlc. *)
+    (* - exists (TmFVar v). splits ; simpls~. *)
+    (* - exists (TmLam t t') *)
+  Admitted.
 
   Lemma Kopen_t_close :
     forall i K t,
       lc t ->
-      exists t', t = Kopen_t i K t'.
+      exists t', t = Kopen_t i (FCon K) t' /\ K \notin Kfv_t t'.
   Proof. Admitted.
+
+  Lemma Tsubst_t_open_distr :
+    forall i X T t u,
+      Tsubst_t X T ([i ~> u] t) =
+        [i ~> Tsubst_t X T u] (Tsubst_t X T t).
+  Proof. introv. gen i. solve_eq t. Qed.
+
+  Lemma Tsubst_ty_topen_distr :
+    forall i X T ty U,
+      Tsubst_ty X T ({i ~> U} ty) =
+        {i ~> Tsubst_ty X T U} (Tsubst_ty X T ty).
+  Proof. introv. gen i. solve_eq ty. Qed.
+
+  Lemma Tsubst_t_topen_distr :
+    forall i X T t U,
+      Tsubst_t X T ([{i ~> U}] t) =
+        [{i ~> Tsubst_ty X T U}] (Tsubst_t X T t).
+  Proof. introv. gen i. solve_eq t ; apply Tsubst_ty_topen_distr. Qed.
+
+  Lemma Tsubst_d_Topen_comm :
+    forall i X T U d,
+      X <> T ->
+      Topen_d i (FTName T) (Tsubst_d X (FTName U) d) =
+        Tsubst_d X (FTName U) (Topen_d i (FTName T) d).
+  Proof.
+    introv Hneq. unfolds Topen_d. unfolds Tsubst_d.
+    induction~ d.
+    rew_listx in *. destruct a. rewrite~ IHd. destruct t ; solve_var.
+  Qed.
+
+  Lemma Tsubst_k_Topen_comm :
+    forall i X T U k,
+      X <> T ->
+      Topen_k i (FTName T) (Tsubst_k X (FTName U) k) =
+        Tsubst_k X (FTName U) (Topen_k i (FTName T) k).
+  Proof.
+    introv Hneq. solve_eq k. apply~ Tsubst_d_Topen_comm.
+  Qed.
+
+  Lemma Tsubst_ty_Topen_comm :
+    forall i X T U ty,
+      X <> T ->
+      Topen_ty i (FTName T) (Tsubst_ty X (FTName U) ty) =
+        Tsubst_ty X (FTName U) (Topen_ty i (FTName T) ty).
+  Proof.
+    introv Hneq. solve_eq ty.
+    - apply~ Tsubst_k_Topen_comm.
+    - destruct t ; solve_var.
+    - apply~ Tsubst_d_Topen_comm.
+  Qed.
+
+  Lemma Tsubst_t_Topen_comm :
+    forall i X T U t,
+      X <> T ->
+      Topen_t i (FTName T) (Tsubst_t X (FTName U) t) =
+        Tsubst_t X (FTName U) (Topen_t i (FTName T) t).
+  Proof.
+    introv Hneq. gen i. solve_eq t ;
+      try solve [ apply~ Tsubst_d_Topen_comm
+                | apply~ Tsubst_k_Topen_comm
+                | apply~ Tsubst_ty_Topen_comm ].
+    destruct t0 ; solve_var.
+  Qed.
+
+  Lemma Tsubst_d_Kopen_comm :
+    forall i X K U d,
+      Kopen_d i (FCon K) (Tsubst_d X (FTName U) d) =
+        Tsubst_d X (FTName U) (Kopen_d i (FCon K) d).
+  Proof.
+    intros. unfolds Kopen_d. unfolds Tsubst_d.
+    induction~ d.
+    rew_listx in *. destruct a. rewrite~ IHd.
+  Qed.
+
+  Lemma Tsubst_k_Kopen_comm :
+    forall i X K U k,
+      Kopen_k i (FCon K) (Tsubst_k X (FTName U) k) =
+        Tsubst_k X (FTName U) (Kopen_k i (FCon K) k).
+  Proof. intros. solve_eq k. apply~ Tsubst_d_Kopen_comm. Qed.
+
+  Lemma Tsubst_ty_Kopen_comm :
+    forall i X K U ty,
+      Kopen_ty i (FCon K) (Tsubst_ty X (FTName U) ty) =
+        Tsubst_ty X (FTName U) (Kopen_ty i (FCon K) ty).
+  Proof.
+    intros. solve_eq ty.
+    - apply~ Tsubst_k_Kopen_comm.
+    - apply~ Tsubst_d_Kopen_comm.
+  Qed.
+
+  Lemma Tsubst_t_Kopen_comm :
+    forall i X K U t,
+      Kopen_t i (FCon K) (Tsubst_t X (FTName U) t) =
+        Tsubst_t X (FTName U) (Kopen_t i (FCon K) t).
+  Proof.
+    introv. gen i. solve_eq t ;
+      try solve [ apply~ Tsubst_d_Kopen_comm
+                | apply~ Tsubst_k_Kopen_comm
+                | apply~ Tsubst_ty_Kopen_comm ].
+  Qed.
+
+  Lemma Tsubst_d_intro :
+    forall X U i d,
+      X \notin Tfv_d d ->
+      Topen_d i U d = Tsubst_d X U (Topen_d i (FTName X) d).
+  Proof.
+    introv Hfv. unfolds Topen_d. unfolds Tsubst_d. unfolds Tfv_d.
+    induction~ d.
+    rew_listx in *. destruct a. rewrite~ IHd. destruct t ; solve_var.
+  Qed.
+
+  Lemma Tsubst_k_intro :
+    forall X U i k,
+      X \notin Tfv_k k ->
+      Topen_k i U k = Tsubst_k X U (Topen_k i (FTName X) k).
+  Proof. introv Hfv. solve_eq k. apply~ Tsubst_d_intro. Qed.
+
+  Lemma Tsubst_ty_intro :
+    forall X U i ty,
+      X \notin Tfv_ty ty ->
+      Topen_ty i U ty = Tsubst_ty X U (Topen_ty i (FTName X) ty).
+  Proof.
+    introv Hfv. solve_eq ty.
+    - apply~ Tsubst_k_intro.
+    - destruct t ; solve_var.
+    - apply~ Tsubst_d_intro.
+  Qed.
+
+  Lemma Tsubst_t_intro :
+    forall X U i t,
+      X \notin Tfv_t t ->
+      Topen_t i U t = Tsubst_t X U (Topen_t i (FTName X) t).
+  Proof.
+    introv Hfv. gen i. solve_eq t ;
+      try solve [ apply~ Tsubst_d_intro
+                | apply~ Tsubst_k_intro
+                | apply~ Tsubst_ty_intro ].
+    destruct t0 ; solve_var.
+  Qed.
+
+  Lemma Ksubst_t_open_distr :
+    forall i X K t u,
+      Ksubst_t X K ([i ~> u] t) =
+        [i ~> Ksubst_t X K u] (Ksubst_t X K t).
+  Proof. introv. gen i. solve_eq t. Qed.
+
+  Lemma Ksubst_ty_topen_distr :
+    forall i X K ty U,
+      Ksubst_ty X K ({i ~> U} ty) =
+        {i ~> Ksubst_ty X K U} (Ksubst_ty X K ty).
+  Proof. introv. gen i. solve_eq ty. Qed.
+
+  Lemma Ksubst_t_topen_distr :
+    forall i X K t U,
+      Ksubst_t X K ([{i ~> U}] t) =
+        [{i ~> Ksubst_ty X K U}] (Ksubst_t X K t).
+  Proof. introv. gen i. solve_eq t ; apply Ksubst_ty_topen_distr. Qed.
+
+  Lemma Ksubst_d_Kopen_comm :
+    forall i X K U d,
+      X <> K ->
+      Kopen_d i (FCon K) (Ksubst_d X (FCon U) d) =
+        Ksubst_d X (FCon U) (Kopen_d i (FCon K) d).
+  Proof.
+    introv Hneq. unfolds Kopen_d. unfolds Ksubst_d.
+    induction~ d. rew_listx. destruct a. rewrite~ IHd.
+    induction~ l. rew_listx. inverts IHl. rewrite H0. destruct a ; solve_var.
+  Qed.
+
+  Lemma Ksubst_k_Kopen_comm :
+    forall i X K U k,
+      X <> K ->
+      Kopen_k i (FCon K) (Ksubst_k X (FCon U) k) =
+        Ksubst_k X (FCon U) (Kopen_k i (FCon K) k).
+  Proof.
+    introv Hneq. solve_eq k. apply~ Ksubst_d_Kopen_comm.
+  Qed.
+
+  Lemma Ksubst_ty_Kopen_comm :
+    forall i X K U ty,
+      X <> K ->
+      Kopen_ty i (FCon K) (Ksubst_ty X (FCon U) ty) =
+        Ksubst_ty X (FCon U) (Kopen_ty i (FCon K) ty).
+  Proof.
+    introv Hneq. solve_eq ty.
+    - apply~ Ksubst_k_Kopen_comm.
+    - apply~ Ksubst_d_Kopen_comm.
+  Qed.
+
+  Lemma Ksubst_t_Kopen_comm :
+    forall i X K U t,
+      X <> K ->
+      Kopen_t i (FCon K) (Ksubst_t X (FCon U) t) =
+        Ksubst_t X (FCon U) (Kopen_t i (FCon K) t).
+  Proof.
+    introv Hneq. gen i. solve_eq t ;
+      try solve [ apply~ Ksubst_d_Kopen_comm
+                | apply~ Ksubst_k_Kopen_comm
+                | apply~ Ksubst_ty_Kopen_comm ].
+    destruct c ; solve_var.
+  Qed.
+
+  Lemma Ksubst_d_Topen_comm :
+    forall i X T U d,
+      Topen_d i (FTName T) (Ksubst_d X (FCon U) d) =
+        Ksubst_d X (FCon U) (Topen_d i (FTName T) d).
+  Proof.
+    intros. unfolds Topen_d. unfolds Ksubst_d.
+    induction~ d.
+    rew_listx in *. destruct a. rewrite~ IHd.
+  Qed.
+
+  Lemma Ksubst_k_Topen_comm :
+    forall i X T U k,
+      Topen_k i (FTName T) (Ksubst_k X (FCon U) k) =
+        Ksubst_k X (FCon U) (Topen_k i (FTName T) k).
+  Proof. intros. solve_eq k. apply~ Ksubst_d_Topen_comm. Qed.
+
+  Lemma Ksubst_ty_Topen_comm :
+    forall i X T U ty,
+      Topen_ty i (FTName T) (Ksubst_ty X (FCon U) ty) =
+        Ksubst_ty X (FCon U) (Topen_ty i (FTName T) ty).
+  Proof.
+    intros. solve_eq ty.
+    - apply~ Ksubst_k_Topen_comm.
+    - apply~ Ksubst_d_Topen_comm.
+  Qed.
+
+  Lemma Ksubst_t_Topen_comm :
+    forall i X T U t,
+      Topen_t i (FTName T) (Ksubst_t X (FCon U) t) =
+        Ksubst_t X (FCon U) (Topen_t i (FTName T) t).
+  Proof.
+    introv. gen i. solve_eq t ;
+      try solve [ apply~ Ksubst_d_Topen_comm
+                | apply~ Ksubst_k_Topen_comm
+                | apply~ Ksubst_ty_Topen_comm ].
+  Qed.
+
+  Lemma Ksubst_d_intro :
+    forall X U i d,
+      X \notin Kfv_d d ->
+      Kopen_d i U d = Ksubst_d X U (Kopen_d i (FCon X) d).
+  Proof.
+    introv Hfv. unfolds Kopen_d. unfolds Ksubst_d. unfolds Kfv_d.
+    induction~ d. rew_listx in *. destruct a. rewrite~ IHd.
+    induction~ l. rew_listx in Hfv. rew_listx.
+    forwards~ IHl': IHl. inverts IHl'.
+    rewrite H0. destruct a ; solve_var.
+  Qed.
+
+  Lemma Ksubst_k_intro :
+    forall X U i k,
+      X \notin Kfv_k k ->
+      Kopen_k i U k = Ksubst_k X U (Kopen_k i (FCon X) k).
+  Proof. introv Hfv. solve_eq k. apply~ Ksubst_d_intro. Qed.
+
+  Lemma Ksubst_ty_intro :
+    forall X U i ty,
+      X \notin Kfv_ty ty ->
+      Kopen_ty i U ty = Ksubst_ty X U (Kopen_ty i (FCon X) ty).
+  Proof.
+    introv Hfv. solve_eq ty.
+    - apply~ Ksubst_k_intro.
+    - apply~ Ksubst_d_intro.
+  Qed.
+
+  Lemma Ksubst_t_intro :
+    forall X U i t,
+      X \notin Kfv_t t ->
+      Kopen_t i U t = Ksubst_t X U (Kopen_t i (FCon X) t).
+  Proof.
+    introv Hfv. gen i. solve_eq t ;
+      try solve [ apply~ Ksubst_d_intro
+                | apply~ Ksubst_k_intro
+                | apply~ Ksubst_ty_intro ].
+    destruct c ; solve_var.
+  Qed.
 
 End Syntax.

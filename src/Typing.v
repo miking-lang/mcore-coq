@@ -686,42 +686,42 @@ Module Typing (P : PAT).
         ok_kind Gamma k.
     Proof. introv Htk. induction* Htk. apply* ok_env_binds_tvar_inv. Qed.
 
-    Lemma ok_data_notin :
-      forall Gamma d X,
-        ok_data Gamma d ->
-        X # Gamma ->
-        X \notin dfv d.
-    Proof.
-      introv Hd Hfresh. unfolds dfv. unfolds Tfv. unfolds Kfv.
-      induction Hd ; rew_listx~.
-      do 2 rewrite notin_union. splits*.
-      - rewrite notin_singleton. intro. substs.
-        forwards~ Hin : get_some_inv H0.
-      - induction H1 ; rew_listx~.
-        rewrite notin_union. splits*.
-        rewrite notin_singleton. intro. substs.
-        forwards~ Hin : get_some_inv H3.
-    Qed.
+    (* Lemma ok_data_notin : *)
+    (*   forall Gamma d X, *)
+    (*     ok_data Gamma d -> *)
+    (*     X # Gamma -> *)
+    (*     X \notin dfv d. *)
+    (* Proof. *)
+    (*   introv Hd Hfresh. unfolds dfv. unfolds Tfv. unfolds Kfv. *)
+    (*   induction Hd ; rew_listx~. *)
+    (*   do 2 rewrite notin_union. splits*. *)
+    (*   - rewrite notin_singleton. intro. substs. *)
+    (*     forwards~ Hin : get_some_inv H0. *)
+    (*   - induction H1 ; rew_listx~. *)
+    (*     rewrite notin_union. splits*. *)
+    (*     rewrite notin_singleton. intro. substs. *)
+    (*     forwards~ Hin : get_some_inv H3. *)
+    (* Qed. *)
 
-    Lemma ok_kind_notin :
-      forall Gamma k X,
-        ok_kind Gamma k ->
-        X # Gamma ->
-        X \notin kfv k.
-    Proof.
-      introv Hk Hfresh. unfolds kfv.
-      destruct~ Hk. apply* ok_data_notin.
-    Qed.
+    (* Lemma ok_kind_notin : *)
+    (*   forall Gamma k X, *)
+    (*     ok_kind Gamma k -> *)
+    (*     X # Gamma -> *)
+    (*     X \notin kfv k. *)
+    (* Proof. *)
+    (*   introv Hk Hfresh. unfolds kfv. *)
+    (*   destruct~ Hk. apply* ok_data_notin. *)
+    (* Qed. *)
 
-    Lemma assoc_data_in :
-      forall d T Ks,
-        Assoc (FTName T) Ks d -> T \in dfv d.
-    Proof.
-      introv Hassoc. unfolds dfv. unfolds Tfv.
-      induction Hassoc ; rew_listx ; rewrite in_union.
-      - rewrite~ in_singleton.
-      - rewrite~ in_union.
-    Qed.
+    (* Lemma assoc_data_in : *)
+    (*   forall d T Ks, *)
+    (*     Assoc (FTName T) Ks d -> T \in dfv d. *)
+    (* Proof. *)
+    (*   introv Hassoc. unfolds dfv. unfolds Tfv. *)
+    (*   induction Hassoc ; rew_listx ; rewrite in_union. *)
+    (*   - rewrite~ in_singleton. *)
+    (*   - rewrite~ in_union. *)
+    (* Qed. *)
 
     Lemma ok_type_notin :
       forall Gamma T k X,
@@ -738,15 +738,14 @@ Module Typing (P : PAT).
         fequals. }
       { Case "TyAll". pick_fresh Y.
         forwards~ Htk: H1 Y.
-        forwards Hnin1 : topen_notin Htk.
-        forwards~ Hnin2 : ok_kind_notin X H. }
-      { Case "TyCon".
-        forwards Hk: ok_type_ok_kind Htk.
-        forwards~ Hnin : ok_kind_notin X Hk.
-        assert (X <> T) by (intro ; substs ; apply Hnin ; applys* assoc_data_in).
-        auto. }
-      { Case "TyData". apply* ok_data_notin. }
+        forwards~ Hnin1 : topen_notin Htk. }
     Qed.
+      (* { Case "TyCon". *)
+      (*   forwards Hk: ok_type_ok_kind Htk. *)
+      (*   forwards~ Hnin : ok_kind_notin X Hk. *)
+      (*   assert (X <> T) by (intro ; substs ; apply Hnin ; applys* assoc_data_in). *)
+      (*   auto. } *)
+      (* { Case "TyData". apply* ok_data_notin. } *)
 
     Lemma env_bsubst_fresh :
       forall Gamma X T2,
