@@ -295,6 +295,45 @@ Module Syntax (P : PAT).
         TmConDef (Topen_d j X d) (Topen_ty j X ty) (Topen j X T) (Topen_t j X t')
     end.
 
+  Definition Tclose (X : var) (j : nat) (T : tname) :=
+    match T with
+    | BTName _ => T
+    | FTName Y => If X = Y then BTName j else T
+    end.
+
+  Definition Tclose_d (X : var) (j : nat) (d : data) : data :=
+    LibList.map (fun '(T, Ks) => (Tclose X j T, Ks)) d.
+
+  Definition Tclose_k (X : var) (j : nat) (k : kind) :=
+    match k with
+    | KiType => k
+    | KiData d => KiData (Tclose_d X j d)
+    end.
+
+  Fixpoint Tclose_ty (X : var) (j : nat) (T : type) :=
+    match T with
+    | TyBVar Y => T
+    | TyFVar Y => T
+    | TyArr T1 T2 => TyArr (Tclose_ty X j T1) (Tclose_ty X j T2)
+    | TyAll k T' => TyAll (Tclose_k X j k) (Tclose_ty X j T')
+    | TyCon ty T => TyCon (Tclose_ty X j ty) (Tclose X j T)
+    | TyData d => TyData (Tclose_d X j d)
+    end.
+
+  Fixpoint Tclose_t (X : var) (j : nat) (t : term) :=
+    match t with
+    | TmBVar i => t
+    | TmFVar x => t
+    | TmLam T t' => TmLam (Tclose_ty X j T) (Tclose_t X j t')
+    | TmApp t1 t2 => TmApp (Tclose_t X j t1) (Tclose_t X j t2)
+    | TmTyLam k t' => TmTyLam (Tclose_k X j k) (Tclose_t X j t')
+    | TmTyApp t' T => TmTyApp (Tclose_t X j t') (Tclose_ty X j T)
+    | TmCon K ty t' => TmCon K (Tclose_ty X j ty) (Tclose_t X j t')
+    | TmType t' => TmType (Tclose_t X (S j) t')
+    | TmConDef d ty T t' =>
+        TmConDef (Tclose_d X j d) (Tclose_ty X j ty) (Tclose X j T) (Tclose_t X j t')
+    end.
+
 
   Definition Kopen (j : nat) (X : con) (K : con) :=
     match K with
@@ -333,6 +372,45 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Kopen_t j X t')
     | TmConDef d ty T t' =>
         TmConDef (Kopen_d j X d) (Kopen_ty j X ty) T (Kopen_t (S j) X t')
+    end.
+
+  Definition Kclose (X : var) (j : nat) (T : tname) :=
+    match T with
+    | BTName _ => T
+    | FTName Y => If X = Y then BTName j else T
+    end.
+
+  Definition Kclose_d (X : var) (j : nat) (d : data) : data :=
+    LibList.map (fun '(T, Ks) => (Kclose X j T, Ks)) d.
+
+  Definition Kclose_k (X : var) (j : nat) (k : kind) :=
+    match k with
+    | KiType => k
+    | KiData d => KiData (Kclose_d X j d)
+    end.
+
+  Fixpoint Kclose_ty (X : var) (j : nat) (T : type) :=
+    match T with
+    | TyBVar Y => T
+    | TyFVar Y => T
+    | TyArr T1 T2 => TyArr (Kclose_ty X j T1) (Kclose_ty X j T2)
+    | TyAll k T' => TyAll (Kclose_k X j k) (Kclose_ty X j T')
+    | TyCon ty T => TyCon (Kclose_ty X j ty) (Kclose X j T)
+    | TyData d => TyData (Kclose_d X j d)
+    end.
+
+  Fixpoint Kclose_t (X : var) (j : nat) (t : term) :=
+    match t with
+    | TmBVar i => t
+    | TmFVar x => t
+    | TmLam T t' => TmLam (Kclose_ty X j T) (Kclose_t X j t')
+    | TmApp t1 t2 => TmApp (Kclose_t X j t1) (Kclose_t X j t2)
+    | TmTyLam k t' => TmTyLam (Kclose_k X j k) (Kclose_t X j t')
+    | TmTyApp t' T => TmTyApp (Kclose_t X j t') (Kclose_ty X j T)
+    | TmCon K ty t' => TmCon K (Kclose_ty X j ty) (Kclose_t X j t')
+    | TmType t' => TmType (Kclose_t X (S j) t')
+    | TmConDef d ty T t' =>
+        TmConDef (Kclose_d X j d) (Kclose_ty X j ty) (Kclose X j T) (Kclose_t X j t')
     end.
 
 
@@ -1263,44 +1341,203 @@ Module Syntax (P : PAT).
     introv Hlc. gen n. solve_eq t ; apply* Kopen_tsubst_comm.
   Qed.
 
-  (* Lemma Topen_t_open_comm : *)
-  (*   forall i n T v t, *)
-  (*     lc v -> *)
-  (*     Topen_t i T ([n ~> v] t) = [n ~> v] (Topen_t i T t). *)
-  (* Proof. *)
-  (*   introv Hlc. gen n i. solve_eq t. apply* Topen_t_lc. *)
-  (* Qed. *)
-
-  (* Lemma Topen_ty_topen_comm : *)
-  (*   forall i n T ty1 ty2, *)
-  (*     lct ty1 -> *)
-  (*     Topen_ty i T ({n ~> ty1} ty2) = {n ~> ty1} (Topen_ty i T ty2). *)
-  (* Proof. *)
-  (*   introv. gen n. solve_eq ty2. apply* Topen_ty_lct. *)
-  (* Qed. *)
-
-  (* Lemma Topen_t_topen_comm : *)
-  (*   forall i n T ty t, *)
-  (*     lct ty -> *)
-  (*     Topen_t i T ([{n ~> ty}] t) = [{n ~> ty}] (Topen_t i T t). *)
-  (* Proof. *)
-  (*   introv. gen n i. solve_eq t ; apply* Topen_ty_topen_comm. *)
-  (* Qed. *)
-
-  Lemma Topen_t_close :
-    forall i T t,
-      lc t ->
-      exists t', t = Topen_t i (FTName T) t' /\ T \notin Tfv_t t'.
+  Lemma Topen_t_open_comm :
+    forall i n T v t,
+      lc v ->
+      Topen_t i T ([n ~> v] t) = [n ~> v] (Topen_t i T t).
   Proof.
-    (* introv Hlc. gen i. induction t ; intros ; inverts Hlc. *)
-    (* - exists (TmFVar v). splits ; simpls~. *)
-    (* - exists (TmLam t t') *)
+    introv Hlc. gen n i. solve_eq t. apply* Topen_t_lc.
+  Qed.
+
+  Lemma Tclose_t_open_comm :
+    forall i n T v t,
+      T \notin Tfv_t v ->
+      Tclose_t T i ([n ~> v] t) = [n ~> v] (Tclose_t T i t).
+  Proof.
+    introv. gen i n. solve_eq t. admit. (* apply* Tclose_t_fresh. *)
   Admitted.
 
-  Lemma Kopen_t_close :
+  Lemma Topen_ty_topen_comm :
+    forall i n T ty1 ty2,
+      lct ty1 ->
+      Topen_ty i T ({n ~> ty1} ty2) = {n ~> ty1} (Topen_ty i T ty2).
+  Proof.
+    introv. gen n. solve_eq ty2. apply* Topen_ty_lct.
+  Qed.
+
+  Lemma Topen_t_topen_comm :
+    forall i n T ty t,
+      lct ty ->
+      Topen_t i T ([{n ~> ty}] t) = [{n ~> ty}] (Topen_t i T t).
+  Proof.
+    introv. gen n i. solve_eq t ; apply* Topen_ty_topen_comm.
+  Qed.
+
+  Lemma Tclose_ty_topen_comm :
+    forall i n T ty1 ty2,
+      T \notin Tfv_ty ty1 ->
+      Tclose_ty T i ({n ~> ty1} ty2) = {n ~> ty1} (Tclose_ty T i ty2).
+  Proof.
+    introv. gen n. solve_eq ty2. (* apply* Tclose_ty_fresh. *)
+  Admitted.
+
+  Lemma Tclose_t_topen_comm :
+    forall i n T ty t,
+      T \notin Tfv_ty ty ->
+      Tclose_t T i ([{n ~> ty}] t) = [{n ~> ty}] (Tclose_t T i t).
+  Proof.
+    introv. gen n i. solve_eq t ; apply* Tclose_ty_topen_comm.
+  Qed.
+
+  Lemma Topen_t_Topen_comm :
+    forall i j T T' t,
+      i <> j ->
+      Topen_t i T (Topen_t j T' t) = Topen_t j T' (Topen_t i T t).
+  Admitted.
+
+  Lemma Topen_t_Tclose_comm :
+    forall i j T T' t,
+      i <> j ->
+      T <> T' ->
+      Topen_t i (FTName T) (Tclose_t T' j t) = Tclose_t T' j (Topen_t i (FTName T) t).
+  Admitted.
+
+  Lemma Kopen_t_Topen_comm :
+    forall i j K T t,
+      Kopen_t i K (Topen_t j T t) = Topen_t j T (Kopen_t i K t).
+  Admitted.
+
+  Lemma Kopen_t_Tclose_comm :
+    forall i j K T t,
+      Kopen_t i K (Tclose_t T j t) = Tclose_t T j (Kopen_t i K t).
+  Admitted.
+
+  Lemma open_inj :
+    forall i x t1 t2,
+      x \notin fv t1 \u fv t2 ->
+      [i ~> TmFVar x] t1 = [i ~> TmFVar x] t2 ->
+      t1 = t2.
+  Proof.
+    introv Hfv Heq. gen i t2.
+    solve_eq t1 ; destruct t2 ; inverts Heq ; solve_var.
+    - inverts~ H0. notin_false.
+    - rewrite~ (IHt1 (S i) t2).
+    - rewrite~ (IHt1_1 i t2_1). rewrite~ (IHt1_2 i t2_2).
+    - rewrite~ (IHt1 i t2).
+    - rewrite~ (IHt1 i t2).
+    - rewrite~ (IHt1 i t2).
+    - rewrite~ (IHt1 i t2).
+    - rewrite~ (IHt1 i t4).
+  Qed.
+
+  Lemma topen_inj :
+    forall i x ty1 ty2,
+      x \notin tfv ty1 \u tfv ty2 ->
+      {i ~> TyFVar x} ty1 = {i ~> TyFVar x} ty2 ->
+      ty1 = ty2.
+  Proof.
+  Admitted.
+
+  Lemma topen_t_inj :
+    forall i x t1 t2,
+      x \notin tfv_t t1 \u tfv_t t2 ->
+      [{i ~> TyFVar x}] t1 = [{i ~> TyFVar x}] t2 ->
+      t1 = t2.
+  Proof.
+  Admitted.
+
+  Lemma Topen_t_inj :
+    forall i X t1 t2,
+      X \notin Tfv_t t1 \u Tfv_t t2 ->
+      Topen_t i (FTName X) t1 = Topen_t i (FTName X) t2 ->
+      t1 = t2.
+  Proof.
+  Admitted.
+
+  Lemma Kopen_t_inj :
+    forall i X t1 t2,
+      X \notin Kfv_t t1 \u Kfv_t t2 ->
+      Kopen_t i (FCon X) t1 = Kopen_t i (FCon X) t2 ->
+      t1 = t2.
+  Proof.
+  Admitted.
+
+  Lemma Topen_d_Tclose :
+    forall i T d,
+      lcd d ->
+      Topen_d i (FTName T) (Tclose_d T i d) = d.
+  Proof.
+  Admitted.
+
+  Lemma Topen_k_Tclose :
+    forall i T k,
+      lck k ->
+      Topen_k i (FTName T) (Tclose_k T i k) = k.
+  Proof.
+  Admitted.
+
+  Lemma Topen_ty_Tclose :
+    forall i T ty,
+      lct ty ->
+      Topen_ty i (FTName T) (Tclose_ty T i ty) = ty.
+  Proof.
+  Admitted.
+
+  Lemma Topen_t_Tclose :
+    forall i T t,
+      lc t ->
+      Topen_t i (FTName T) (Tclose_t T i t) = t.
+  Proof.
+    introv Hlc. gen i.
+    induction Hlc ; intros ; simpls ; fequals* ;
+      try solve [ apply~ Topen_d_Tclose
+                | apply~ Topen_k_Tclose
+                | apply~ Topen_ty_Tclose ].
+    - remember (Topen_t i (FTName T) (Tclose_t T i t)).
+      pick_fresh x ; substs. applys~ open_inj 0 x.
+      rewrite* <- Topen_t_open_comm. rewrite* <- Tclose_t_open_comm. simpls~.
+    - remember (Topen_t i (FTName T) (Tclose_t T i t)).
+      pick_fresh x ; substs. applys~ topen_t_inj 0 x.
+      rewrite* <- Topen_t_topen_comm. rewrite* <- Tclose_t_topen_comm. simpls~.
+    - remember (Topen_t (S i) (FTName T) (Tclose_t T (S i) t)).
+      pick_fresh X ; substs. applys~ Topen_t_inj 0 X.
+      rewrite~ Topen_t_Topen_comm. rewrite~ Topen_t_Tclose_comm.
+    - remember (Topen_ty i (FTName T) (Tclose_ty T i ty)).
+      pick_fresh X ; substs. applys~ topen_inj 0 X.
+      rewrite* <- Topen_ty_topen_comm. rewrite~ <- Tclose_ty_topen_comm ; simpls~.
+      apply* Topen_ty_Tclose.
+    - solve_var.
+    - remember (Topen_t i (FTName T) (Tclose_t T i t)).
+      pick_fresh X ; substs. applys~ Kopen_t_inj 0 X.
+      rewrite~ Kopen_t_Topen_comm. rewrite~ Kopen_t_Tclose_comm.
+  Qed.
+
+  Lemma Tclose_d_notin : forall T i d, T \notin Tfv_d (Tclose_d T i d).
+  Admitted.
+
+  Lemma Tclose_k_notin : forall T i k, T \notin Tfv_k (Tclose_k T i k).
+  Admitted.
+
+  Lemma Tclose_ty_notin : forall T i ty, T \notin Tfv_ty (Tclose_ty T i ty).
+  Admitted.
+
+  Lemma Tclose_t_notin : forall T i t, T \notin Tfv_t (Tclose_t T i t).
+  Proof.
+    intros. gen i.
+    induction t ; intros ; solve_var ; rewrite_all notin_union ; splits~ ;
+      try solve [ apply~ Tclose_d_notin
+                | apply~ Tclose_k_notin
+                | apply~ Tclose_ty_notin ].
+    destruct t0 ; solve_var.
+  Qed.
+
+  Lemma Kopen_t_Kclose :
     forall i K t,
       lc t ->
-      exists t', t = Kopen_t i (FCon K) t' /\ K \notin Kfv_t t'.
+      Kopen_t i (FCon K) (Kclose_t K i t) = t.
+  Proof. Admitted.
+
+  Lemma Kclose_t_notin : forall K i t, K \notin Kfv_t (Kclose_t K i t).
   Proof. Admitted.
 
   Lemma Tsubst_t_open_distr :

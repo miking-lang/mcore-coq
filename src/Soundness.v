@@ -85,19 +85,19 @@ Module Soundness (P : PAT).
         + introv Hb. binds_cases Hb. apply* Hnv.
         + forwards Hval' : Topen_is_value Hval.
           forwards* (v' & Hpush): is_value_push Hval'.
-        + forwards (tclose & Heq & Hfresh): Topen_t_close 0 T t'.
-          * forwards* ?: preservation Hstep.
-          * substs. eexists. apply_fresh ETypeCong.
-            apply* Topen_step_change. rewrite~ notin_union. }
+        + rewrite <- (Topen_t_Tclose 0 T t') in Hstep.
+          * eexists. apply_fresh ETypeCong.
+            apply* Topen_step_change. lets~ ?: Tclose_t_notin T 0 t'.
+          * lets* ?: preservation Hstep. }
       { Case "TmConDef". right. pick_fresh K.
         forwards* [Hval | (t' & Hstep)]: H4 K.
         + introv Hb. binds_cases Hb. apply* Hnv.
         + forwards Hval' : Kopen_is_value Hval.
           forwards* (v' & Hpush): is_value_push Hval'.
-        + forwards (tclose & Heq & Hfresh) : Kopen_t_close 0 K t'.
-          * forwards* ?: preservation Hstep.
-          * substs. eexists. apply_fresh EConDefCong.
-            apply* Kopen_step_change. rewrite~ notin_union. }
+        + rewrite <- (Kopen_t_Kclose 0 K t') in Hstep.
+          * eexists. apply_fresh EConDefCong.
+            apply* Kopen_step_change. lets~ ?: Kclose_t_notin K 0 t'.
+          * lets* ?: preservation Hstep. }
     Qed.
 
   End Soundness.
