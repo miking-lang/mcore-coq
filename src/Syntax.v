@@ -2386,4 +2386,35 @@ Module Syntax (P : PAT).
     destruct c ; solve_var.
   Qed.
 
+  Lemma Tsubst_ty_fresh :
+    forall T U ty,
+      T \notin Tfv_ty ty ->
+      Tsubst_ty T U ty = ty.
+  Admitted.
+
+  Lemma notin_Topen_ty :
+    forall i T ty,
+      T \notin Tfv_ty (Topen_ty i (FTName T) ty) ->
+      Topen_ty i (FTName T) ty = ty.
+  Admitted.
+
+  Lemma notin_Topen_k :
+    forall i T k,
+      T \notin Tfv_k (Topen_k i (FTName T) k) ->
+      Topen_k i (FTName T) k = k.
+  Admitted.
+
+  Lemma Tfv_t_open : forall i x t, Tfv_t ([i ~> TmFVar x]t) = Tfv_t t.
+  Admitted.
+
+  Lemma Tfv_ty_topen :
+    forall T i ty1 ty2,
+      T \notin Tfv_ty ty1 ->
+      T \notin Tfv_ty ty2 ->
+      T \notin Tfv_ty ({i ~> ty1}ty2).
+  Admitted.
+
+  Lemma Tfv_t_topen : forall i x t, Tfv_t ([{i ~> TyFVar x}]t) = Tfv_t t.
+  Admitted.
+
 End Syntax.

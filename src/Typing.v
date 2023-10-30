@@ -179,7 +179,7 @@ Module Typing (P : PAT).
     (*     matches_contradictory Gamma.(matches) -> *)
     (*     ok_term Gamma TmNever ty *)
     | TType : forall L Gamma t ty,
-        Gamma |= ty ~:: KiType ->
+        lct ty ->
         (forall T, T \notin L ->
               Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty) ->
         Gamma |= TmType t ~: ty
@@ -188,7 +188,7 @@ Module Typing (P : PAT).
         (forall X, X \notin L ->
               Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty1 ~:: KiType) ->
         binds T BindTName Gamma ->
-        Gamma |= ty2 ~:: KiType ->
+        lct ty2 ->
         (forall K, K \notin L ->
               Gamma & K ~ BindCon d ty1 (FTName T) |= Kopen_t 0 (FCon K) t ~: ty2) ->
         Gamma |= TmConDef d ty1 (FTName T) t ~: ty2
@@ -816,7 +816,7 @@ Module Typing (P : PAT).
           replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
           rewrite <- tsubst_topen_distr ; eauto. apply* ok_type_lct. }
       { Case "TmType". apply_fresh* TType.
-        - applys ok_type_tsubst...
+        - apply~ tsubst_lct. apply* ok_type_lct.
         - replaces BindTName with (bsubst X T2 BindTName) ; auto.
           rewrite <- concat_assoc_map_push.
           rewrite~ Topen_t_tsubst_comm. apply* H1. rew_env_concat ; auto. apply* ok_type_lct. }
@@ -829,19 +829,41 @@ Module Typing (P : PAT).
           apply* bsubst_ok_env. rew_env_concat. constructor...
         - binds_cases H1 ; auto.
           replaces BindTName with (bsubst X T2 BindTName) ; auto.
-        - apply* ok_type_tsubst...
+        - apply~ tsubst_lct. apply* ok_type_lct.
         - rewrite~ Kopen_t_tsubst_comm.
           replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
           rewrite <- concat_assoc_map_push.
           apply* H4. rew_env_concat ; auto. apply* ok_type_lct. }
     Qed.
 
-    (* Lemma ok_type_tname_strengthening : *)
-    (*   forall G1 G2 T ty k, *)
-    (*     G1 & T ~ BindTName & G2 |= ty ~:: k -> *)
-    (*     ok_env (G1 & G2) -> *)
-    (*     G1 & G2 |= T1 ~:: k. *)
-    (* Proof. *)
+    Lemma ok_kind_tname_strengthening :
+      forall G2 G1 T k,
+        T \notin Tfv_k k ->
+        ok_kind (G1 & T ~ BindTName & G2) k ->
+        ok_kind (G1 & G2) k.
+    Admitted.
+
+    Lemma ok_type_tname_strengthening :
+      forall G2 G1 T ty k,
+        T \notin Tfv_ty ty ->
+        G1 & T ~ BindTName & G2 |= ty ~:: k ->
+        ok_env (G1 & G2) ->
+        G1 & G2 |= ty ~:: k.
+    Admitted.
+
+    Lemma ok_term_comm :
+      forall G2 G1 x1 x2 b1 b2 t ty,
+        G1 & x1 ~ b1 & x2 ~ b2 & G2 |= t ~: ty ->
+        ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+        G1 & x2 ~ b2 & x1 ~ b1 & G2 |= t ~: ty.
+    Admitted.
+
+    Lemma ok_term_Tsubst :
+      forall G2 G1 T T' t ty,
+        G1 & T ~ BindTName & G2 |= t ~: ty ->
+        ok_env (G1 & T' ~ BindTName & G2) ->
+        G1 & T' ~ BindTName & G2 |= Tsubst_t T (FTName T') t ~: Tsubst_ty T (FTName T') ty.
+    Admitted.
 
   End Typing.
 End Typing.
