@@ -610,6 +610,14 @@ Module Syntax (P : PAT).
     | _ => b
     end.
 
+  Definition Tbsubst (X : var) (U : tname) (b : binding) :=
+    match b with
+    | BindVar T => BindVar (Tsubst_ty X U T)
+    | BindTVar k => BindTVar (Tsubst_k X U k)
+    | BindCon d ty T => BindCon (Tsubst_d X U d) (Tsubst_ty X U ty) (Tsubst X U T)
+    | _ => b
+    end.
+
   (**********************************)
   (** TACTICS FOR LOCALLY NAMELESS **)
   (**********************************)

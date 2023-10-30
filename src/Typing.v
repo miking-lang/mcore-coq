@@ -836,12 +836,104 @@ Module Typing (P : PAT).
           apply* H4. rew_env_concat ; auto. apply* ok_type_lct. }
     Qed.
 
+    Lemma ok_data_comm :
+      forall G2 G1 x1 x2 b1 b2 d,
+        ok_data (G1 & x1 ~ b1 & x2 ~ b2 & G2) d ->
+        ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+        ok_data (G1 & x2 ~ b2 & x1 ~ b1 & G2) d.
+    Proof.
+      introv Hd Henv. remember (G1 & x1 ~ b1 & x2 ~ b2 & G2) as Gamma eqn:HGamma.
+      induction Hd ; substs ; constructor~.
+      - binds_cases H0 ; auto.
+        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+        applys* ok_concat_inv_l G2.
+      - induction* Ks. inverts H1.
+        constructors~. binds_cases H8 ; eauto.
+        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+        applys* ok_concat_inv_l G2.
+    Qed.
+
+    Lemma ok_kind_comm :
+      forall G2 G1 x1 x2 b1 b2 k,
+        ok_kind (G1 & x1 ~ b1 & x2 ~ b2 & G2) k ->
+        ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+        ok_kind (G1 & x2 ~ b2 & x1 ~ b1 & G2) k.
+    Proof with eauto using ok_data_comm with mcore.
+      introv Hk Henv.
+      remember (G1 & x1 ~ b1 & x2 ~ b2 & G2) as Gamma eqn:HGamma.
+      induction Hk ; substs...
+    Qed.
+
+    Lemma ok_type_comm :
+      forall G2 G1 x1 x2 b1 b2 ty k,
+        G1 & x1 ~ b1 & x2 ~ b2 & G2 |= ty ~:: k ->
+        ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+        G1 & x2 ~ b2 & x1 ~ b1 & G2 |= ty ~:: k.
+    Proof with eauto using ok_data_comm, ok_kind_comm with mcore.
+      introv Htk Henv.
+      remember (G1 & x1 ~ b1 & x2 ~ b2 & G2) as Gamma eqn:HGamma. gen G2.
+      induction Htk ; intros ; substs...
+      - constructor~. binds_cases H0 ; auto.
+        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+        applys* ok_concat_inv_l G2.
+      - apply_fresh KAll as X...
+        apply_ih_bind H1 ; auto. constructors...
+    Qed.
+
+    Lemma ok_term_comm :
+      forall G2 G1 x1 x2 b1 b2 t ty,
+        G1 & x1 ~ b1 & x2 ~ b2 & G2 |= t ~: ty ->
+        ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+        G1 & x2 ~ b2 & x1 ~ b1 & G2 |= t ~: ty.
+    Proof with eauto using ok_data_comm, ok_kind_comm, ok_type_comm with mcore.
+      introv Htype Henv.
+      remember (G1 & x1 ~ b1 & x2 ~ b2 & G2) as Gamma eqn:HGamma. gen G2.
+      induction Htype ; intros ; substs...
+      - constructor~. binds_cases H0 ; auto.
+        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+        applys* ok_concat_inv_l G2.
+      - apply_fresh TLam as x...
+        apply_ih_bind H1 ; auto. constructor...
+      - apply_fresh TTyLam as X...
+        apply_ih_bind H1 ; auto. constructor...
+      - constructors... binds_cases H...
+        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+        applys* ok_concat_inv_l G2.
+      - apply_fresh TType as T...
+        apply_ih_bind H1 ; auto. constructor...
+      - assert (binds T BindTName (G1 & x2 ~ b2 & x1 ~ b1 & G2)).
+        { binds_cases H1...
+          apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+          applys* ok_concat_inv_l G2. }
+        apply_fresh TConDef as X...
+        + apply_ih_bind ok_type_comm. eauto. constructor...
+        + apply_ih_bind H4 ; auto. apply_fresh EnvCon as X'...
+          apply_ih_bind ok_type_comm. eauto. constructor...
+    Qed.
+
+    Lemma ok_data_tname_strengthening :
+      forall G2 G1 T d,
+        T \notin Tfv_d d ->
+        ok_data (G1 & T ~ BindTName & G2) d ->
+        ok_data (G1 & G2) d.
+    Proof.
+      introv Hfv Hd. remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
+      unfolds Tfv_d. induction Hd ; substs ; constructor ; rew_listx~ in Hfv.
+      - binds_cases H0 ; auto. notin_false.
+      - induction* Ks. inverts H1.
+        constructors~. binds_cases H8 ; eauto.
+    Qed.
+
     Lemma ok_kind_tname_strengthening :
       forall G2 G1 T k,
         T \notin Tfv_k k ->
         ok_kind (G1 & T ~ BindTName & G2) k ->
         ok_kind (G1 & G2) k.
-    Admitted.
+    Proof with eauto using ok_data_tname_strengthening with mcore.
+      introv Hfv Hk.
+      remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
+      induction Hk ; substs...
+    Qed.
 
     Lemma ok_type_tname_strengthening :
       forall G2 G1 T ty k,
@@ -849,20 +941,108 @@ Module Typing (P : PAT).
         G1 & T ~ BindTName & G2 |= ty ~:: k ->
         ok_env (G1 & G2) ->
         G1 & G2 |= ty ~:: k.
+    Proof with eauto using ok_data_tname_strengthening, ok_kind_tname_strengthening with mcore.
+      introv Hfv Htk Henv.
+      remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2.
+      induction Htk ; intros ; simpls ; substs...
+      - constructor~. binds_cases H0 ; auto.
+      - rewrite notin_union in Hfv ; destruct Hfv.
+        apply_fresh KAll as X...
+        apply_ih_bind H1 ; auto. apply Tfv_ty_topen ; simpls~. constructors...
+    Qed.
+
+    Lemma env_Tbsubst_fresh :
+      forall Gamma X T,
+        ok_env Gamma ->
+        X # Gamma ->
+        Gamma = map (Tbsubst X T) Gamma.
+    Admitted.
+    (* Proof with eauto using ok_env_push. *)
+    (*   introv Henv Hfresh. *)
+    (*   induction Gamma using env_ind. *)
+    (*   { Case "Empty". rewrite~ map_empty. } *)
+    (*   { Case "Push". autorewrite with rew_env_map. *)
+    (*     rewrite <- IHGamma... *)
+    (*     destruct~ v ; repeat fequals ; unfold bsubst ; rewrite* tsubst_fresh. *)
+    (*     { SCase "BindCon". *)
+    (*       apply ok_env_con_inv in Henv as (? & ? & ? & ? & Htk & ?). *)
+    (*       pick_fresh X'. forwards~ Hnin : ok_type_notin X (Htk X'). *)
+    (*       applys~ topen_notin Hnin. } *)
+    (*     { SCase "BindVar". *)
+    (*       apply ok_env_var_inv in Henv. *)
+    (*       apply* ok_type_notin. } } *)
+    (* Qed. *)
+
+    Lemma ok_kind_Tsubst :
+      forall G2 G1 T T' k,
+        ok_kind (G1 & T ~ BindTName & G2) k ->
+        (* ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) -> *)
+        ok_kind (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
+                (Tsubst_k T (FTName T') k).
     Admitted.
 
-    Lemma ok_term_comm :
-      forall G2 G1 x1 x2 b1 b2 t ty,
-        G1 & x1 ~ b1 & x2 ~ b2 & G2 |= t ~: ty ->
-        ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
-        G1 & x2 ~ b2 & x1 ~ b1 & G2 |= t ~: ty.
+    Lemma ok_type_Tsubst :
+      forall G2 G1 T T' ty k,
+        G1 & T ~ BindTName & G2 |= ty ~:: k ->
+        ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
+        G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2 |=
+                                  Tsubst_ty T (FTName T') ty ~:: Tsubst_k T (FTName T') k.
     Admitted.
 
     Lemma ok_term_Tsubst :
       forall G2 G1 T T' t ty,
         G1 & T ~ BindTName & G2 |= t ~: ty ->
-        ok_env (G1 & T' ~ BindTName & G2) ->
-        G1 & T' ~ BindTName & G2 |= Tsubst_t T (FTName T') t ~: Tsubst_ty T (FTName T') ty.
+        ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
+        G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2 |=
+                                  Tsubst_t T (FTName T') t ~: Tsubst_ty T (FTName T') ty.
+    Proof with eauto with mcore.
+      introv Htype Henv.
+      remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2.
+      induction Htype ; intros ; substs...
+      - constructor~.
+        replaces (BindVar (Tsubst_ty T (FTName T') ty)) with
+          (Tbsubst T (FTName T') (BindVar ty)) ; auto.
+        binds_cases H0 ; auto.
+        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
+        applys* ok_concat_inv_l (map (Tbsubst T (FTName T')) G2).
+        apply ok_env_concat in H. assert (T # G1) by apply* ok_push_inv.
+        rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). apply* ok_env_concat.
+      - apply_fresh TLam as x.
+        + replaces KiType with (Tsubst_k T (FTName T') KiType) ; auto.
+          apply~ ok_type_Tsubst.
+        + replaces (TmFVar x) with (Tsubst_t T (FTName T') (TmFVar x)) ; auto.
+          rewrite <- Tsubst_t_open_distr. folds (Tsubst_ty T (FTName T') ty1).
+          replaces (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2
+                    & x ~ BindVar (Tsubst_ty T (FTName T') ty1))
+            with (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) (G2 & x ~ BindVar ty1)).
+          autorewrite with rew_env_map rew_env_concat ; auto. apply~ H1.
+          * rewrite~ concat_assoc.
+          * autorewrite with rew_env_map rew_env_concat ; auto. constructors~.
+            replaces KiType with (Tsubst_k T (FTName T') KiType) ; auto.
+            apply~ ok_type_Tsubst.
+      - apply_fresh TTyLam as X.
+        + apply~ ok_kind_Tsubst.
+        + replaces (TyFVar X) with (Tsubst_ty T (FTName T') (TyFVar X)) ; auto.
+          rewrite <- Tsubst_t_topen_distr. rewrite <- Tsubst_ty_topen_distr.
+          replaces (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2
+                    & X ~ BindTVar (Tsubst_k T (FTName T') k))
+            with (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) (G2 & X ~ BindTVar k)).
+          autorewrite with rew_env_map rew_env_concat ; auto. apply~ H1.
+          * rewrite~ concat_assoc.
+          * autorewrite with rew_env_map rew_env_concat ; auto. constructors~.
+            apply~ ok_kind_Tsubst.
+      - rewrite Tsubst_ty_topen_distr... constructors*.
+        apply~ ok_type_Tsubst.
+      - admit.
+      - apply_fresh TType.
+        + pick_fresh Z. apply~ ok_term_lct. applys~ H1 Z (G2 & Z ~ BindTName) ;
+            autorewrite with rew_env_map rew_env_concat ; auto ; constructors~.
+        + replaces BindTName with (Tbsubst T (FTName T') BindTName) ; auto.
+          rewrite <- concat_assoc_map_push.
+          rewrite~ Tsubst_t_Topen_comm. apply~ H1.
+          rew_env_concat ; auto.
+          autorewrite with rew_env_map rew_env_concat ; auto ; constructors~.
+      - simpls. admit.
     Admitted.
 
   End Typing.
