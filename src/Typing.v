@@ -574,28 +574,19 @@ Module Typing (P : PAT).
         G1 |= T2 ~:: k' ->
         ok_env (G1 & map (bsubst X T2) G2) ->
         G1 & map (bsubst X T2) G2 |= {X => T2} T1 ~:: k.
-    Proof with eauto with mcore.
+    Proof with eauto using ok_data_bsubst, ok_kind_bsubst, ok_type_lct,
+        ok_data_tvar_strengthening, ok_kind_tvar_strengthening with mcore.
       introv Htk1 Htk2 Henv.
       remember (G1 & X ~ BindTVar k' & G2) as G. gen G2.
-      induction Htk1; intros; substs; simpls*.
+      induction Htk1; intros; substs; simpls...
       { Case "TyFVar". solve_var.
         + binds_get H0. lets* [Hok ?] : ok_concat_inv (ok_env_ok _ Henv).
           apply_empty* ok_type_weakening.
-        + binds_cases H0...
-          constructors*. apply binds_concat_right.
+        + constructors~. binds_cases H0...
           replaces (BindTVar k) with (bsubst X T2 (BindTVar k))... }
-      { Case "TyAll". assert (Hk : ok_kind (G1 & map (bsubst X T2) G2) k).
-        apply* ok_kind_bsubst. apply* ok_kind_tvar_strengthening.
-        apply_fresh* KAll.
-        assert (lct T2) by apply* ok_type_lct.
-        rewrite~ tsubst_topen_comm.
-        replaces (G1 & map (bsubst X T2) G2 & y ~ BindTVar k)
-          with (G1 & map (bsubst X T2) (G2 & y ~ BindTVar k))...
-        + autorewrite with rew_env_map rew_env_concat ; auto.
-        + apply~ H1.
-          * autorewrite with rew_env_concat ; auto.
-          * autorewrite with rew_env_map rew_env_concat... }
-      { Case "TyData". constructor~. apply~ ok_data_tvar_strengthening. apply* ok_data_bsubst. }
+      { Case "TyAll". apply_fresh KAll... rewrite tsubst_topen_comm...
+        replaces (BindTVar k) with (bsubst X T2 (BindTVar k))...
+        apply_ih_map_bind H1 ; auto. constructor... }
     Qed.
 
     Lemma bsubst_ok_env :
@@ -603,7 +594,8 @@ Module Typing (P : PAT).
         G1 |= T2 ~:: k ->
         ok_env (G1 & X ~ BindTVar k & G2) ->
         ok_env (G1 & map (bsubst X T2) G2).
-    Proof.
+    Proof with eauto using ok_data_bsubst, ok_kind_bsubst, ok_type_lct,
+        ok_data_tvar_strengthening, ok_kind_tvar_strengthening with mcore.
       introv Htk Henv.
       induction G2 using env_ind.
       { Case "Empty". autorewrite with rew_env_map rew_env_concat in *.
@@ -614,16 +606,14 @@ Module Typing (P : PAT).
         destruct v.
         { SCase "BindTName". constructor~. }
         { SCase "BindCon". forwards (L & T' & Heq & Hd & Htk' & HT): ok_env_con_inv Henv.
-          substs. apply_fresh* EnvCon as K.
-          - applys ok_data_bsubst. apply* ok_data_tvar_strengthening.
+          substs. apply_fresh EnvCon as K...
           - replaces (BindTVar (KiData d)) with (bsubst X T2 (BindTVar (KiData d))) ; auto.
-            rewrite~ tsubst_topen_comm ; try apply* ok_type_lct.
-            do_rew concat_assoc_map_push (applys~ ok_type_tsubst k ; try (rew_env_concat ; apply* Htk')).
-            constructor~. constructor. apply ok_data_bsubst. apply* ok_data_tvar_strengthening.
+            rewrite tsubst_topen_comm...
+            apply_ih_map_bind ok_type_tsubst ; try rewrite* concat_assoc ; auto.
+            constructor~. constructor...
           - binds_cases HT ; auto.
             replaces BindTName with (bsubst X T2 BindTName) ; auto. }
-        { SCase "BindTVar". forwards Hk: ok_env_tvar_inv Henv.
-          constructor~. applys ok_kind_bsubst. apply* ok_kind_tvar_strengthening. }
+        { SCase "BindTVar". forwards Hk: ok_env_tvar_inv Henv. constructor... }
         { SCase "BindVar". forwards Htk': ok_env_var_inv Henv.
           constructor~. applys* ok_type_tsubst Htk'. }
         (* { SCase "BindMatch". constructor~. } *)
@@ -773,67 +763,50 @@ Module Typing (P : PAT).
         G1 & X ~ BindTVar k & G2 |= t ~: T1 ->
         G1 |= T2 ~:: k ->
         G1 & map (bsubst X T2) G2 |= [{X => T2}]t ~: ({X => T2}T1).
-    Proof with eauto using ok_env_strengthening, bsubst_ok_env with mcore.
+    Proof with eauto using ok_env_strengthening, bsubst_ok_env, ok_type_lct with mcore.
       introv hasType Henv.
       remember (G1 & X ~ BindTVar k & G2) as G. gen G2.
       induction hasType; intros; simpls; substs...
-      { Case "TmFVar".
-        binds_cases H0 ; constructors ;
-          replaces (BindVar ({X => T2} ty)) with (bsubst X T2 (BindVar ty))...
-        apply ok_env_concat in H.
-        assert (X # G1) by apply* ok_push_inv.
-        rewrite* (@env_bsubst_fresh G1 X T2). }
+      { Case "TmFVar". constructor...
+        replaces (BindVar ({X => T2} ty)) with (bsubst X T2 (BindVar ty))...
+        binds_cases H0 ; auto.
+        assert (X # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
+        rewrite* (env_bsubst_fresh G1 X T2). }
       { Case "TmLam". apply_fresh* TLam as x.
-        + apply* ok_type_tsubst. apply* bsubst_ok_env.
-        + rewrite tsubst_t_open_comm.
-          replaces (G1 & map (bsubst X T2) G2 & x ~ BindVar ({X => T2}ty1))
-            with (G1 & map (bsubst X T2) (G2 & x ~ BindVar ty1)).
-          autorewrite with rew_env_map rew_env_concat ; auto.
-          apply~ H1. rewrite~ concat_assoc. }
+        + applys ok_type_tsubst...
+        + replaces (BindVar ({X => T2}ty1)) with (bsubst X T2 (BindVar ty1))...
+          rewrite tsubst_t_open_comm. apply_ih_map_bind H1 ; auto. }
       { Case "TmTyLam". apply_fresh* TTyLam.
         + apply ok_kind_bsubst. apply* ok_kind_tvar_strengthening.
-        + replaces (G1 & map (bsubst X T2) G2 & y ~ BindTVar k0)
-            with (G1 & map (bsubst X T2) (G2 & y ~ BindTVar k0)).
-          autorewrite with rew_env_map rew_env_concat ; auto.
-          rewrite~ tsubst_topen_comm...
-          rewrite topen_t_tsubst_comm...
-          apply~ H1. rewrite~ concat_assoc. }
+        + replaces (BindTVar k0) with (bsubst X T2 (BindTVar k0))...
+          rewrite tsubst_topen_comm... rewrite topen_t_tsubst_comm...
+          apply_ih_map_bind H1 ; auto. }
       { Case "TmTyApp".
         rewrite tsubst_topen_distr... constructors*.
         apply* ok_type_tsubst. }
       { Case "TmCon".
-        binds_cases H.
-        - constructors* ; try apply* ok_type_tsubst.
-          assert (X \notin tfv ty1).
-          { forwards* (? & ? & ? & ? & Htk & ?) : ok_env_binds_con_inv B0.
-            pick_fresh Y.
-            forwards~ Hnin : ok_type_notin X (Htk Y).
-            forwards* (Hdisj & ?) : ok_middle_inv G1 G2 X.
-            forwards~ Hnin' : topen_notin Hnin. }
-          rewrite <- (tsubst_fresh X ty1 T2) ; auto.
-          rewrite <- tsubst_topen_distr ; eauto. apply* ok_type_lct.
-        - constructors ; try apply* ok_type_tsubst.
-          replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
-          rewrite <- tsubst_topen_distr ; eauto. apply* ok_type_lct. }
-      { Case "TmType". apply_fresh* TType.
-        - apply~ tsubst_lct. apply* ok_type_lct.
-        - replaces BindTName with (bsubst X T2 BindTName) ; auto.
-          rewrite <- concat_assoc_map_push.
-          rewrite~ Topen_t_tsubst_comm. apply* H1. rew_env_concat ; auto. apply* ok_type_lct. }
+        apply TCon with (d := d) (ty1 := {X => T2}ty1) ; try apply* ok_type_tsubst.
+        - replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
+          binds_cases H ; auto.
+          assert (X # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
+          rewrite* (env_bsubst_fresh G1 X T2).
+        - rewrite <- tsubst_topen_distr... }
+      { Case "TmType". apply_fresh TType.
+        - apply tsubst_lct...
+        - replaces BindTName with (bsubst X T2 BindTName)...
+          rewrite Topen_t_tsubst_comm... apply_ih_map_bind H1 ; auto. }
       { Case "TmConDef".
-        apply_fresh* TConDef.
+        apply_fresh TConDef.
         - apply* ok_data_bsubst. apply* ok_data_tvar_strengthening.
-        - replaces (BindTVar (KiData d)) with (bsubst X T2 (BindTVar (KiData d))) ; auto.
-          rewrite <- concat_assoc_map_push. rewrite~ tsubst_topen_comm ; try apply* ok_type_lct.
-          apply* ok_type_tsubst. rew_env_concat. apply* H0.
-          apply* bsubst_ok_env. rew_env_concat. constructor...
+        - replaces (BindTVar (KiData d)) with (bsubst X T2 (BindTVar (KiData d)))...
+          rewrite tsubst_topen_comm...
+          apply_ih_map_bind ok_type_tsubst ; eauto ; try rewrite* concat_assoc.
+          apply_ih_map_bind bsubst_ok_env ; eauto ; try rewrite* concat_assoc.
         - binds_cases H1 ; auto.
           replaces BindTName with (bsubst X T2 BindTName) ; auto.
-        - apply~ tsubst_lct. apply* ok_type_lct.
-        - rewrite~ Kopen_t_tsubst_comm.
-          replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
-          rewrite <- concat_assoc_map_push.
-          apply* H4. rew_env_concat ; auto. apply* ok_type_lct. }
+        - apply tsubst_lct...
+        - replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
+          rewrite Kopen_t_tsubst_comm... apply_ih_map_bind H4 ; auto. }
     Qed.
 
     Lemma ok_data_comm :
@@ -873,11 +846,11 @@ Module Typing (P : PAT).
       introv Htk Henv.
       remember (G1 & x1 ~ b1 & x2 ~ b2 & G2) as Gamma eqn:HGamma. gen G2.
       induction Htk ; intros ; substs...
-      - constructor~. binds_cases H0 ; auto.
+      { Case "TyFVar". constructor~. binds_cases H0 ; auto.
         apply* binds_concat_left_ok. apply* binds_concat_left_ok.
-        applys* ok_concat_inv_l G2.
-      - apply_fresh KAll as X...
-        apply_ih_bind H1 ; auto. constructors...
+        applys* ok_concat_inv_l G2. }
+      { Case "TyAll". apply_fresh KAll as X...
+        apply_ih_bind H1 ; auto. constructors... }
     Qed.
 
     Lemma ok_term_comm :
@@ -889,26 +862,27 @@ Module Typing (P : PAT).
       introv Htype Henv.
       remember (G1 & x1 ~ b1 & x2 ~ b2 & G2) as Gamma eqn:HGamma. gen G2.
       induction Htype ; intros ; substs...
-      - constructor~. binds_cases H0 ; auto.
+      { Case "TmFVar". constructor~. binds_cases H0 ; auto.
         apply* binds_concat_left_ok. apply* binds_concat_left_ok.
-        applys* ok_concat_inv_l G2.
-      - apply_fresh TLam as x...
-        apply_ih_bind H1 ; auto. constructor...
-      - apply_fresh TTyLam as X...
-        apply_ih_bind H1 ; auto. constructor...
-      - constructors... binds_cases H...
+        applys* ok_concat_inv_l G2. }
+      { Case "TmLam". apply_fresh TLam as x...
+        apply_ih_bind H1 ; auto. constructor... }
+      { Case "TmTyLam". apply_fresh TTyLam as X...
+        apply_ih_bind H1 ; auto. constructor... }
+      { Case "TmCon". constructors... binds_cases H...
         apply* binds_concat_left_ok. apply* binds_concat_left_ok.
-        applys* ok_concat_inv_l G2.
-      - apply_fresh TType as T...
-        apply_ih_bind H1 ; auto. constructor...
-      - assert (binds T BindTName (G1 & x2 ~ b2 & x1 ~ b1 & G2)).
+        applys* ok_concat_inv_l G2. }
+      { Case "TmType". apply_fresh TType as T...
+        apply_ih_bind H1 ; auto. constructor... }
+      { Case "TmConDef".
+        assert (binds T BindTName (G1 & x2 ~ b2 & x1 ~ b1 & G2)).
         { binds_cases H1...
           apply* binds_concat_left_ok. apply* binds_concat_left_ok.
           applys* ok_concat_inv_l G2. }
         apply_fresh TConDef as X...
         + apply_ih_bind ok_type_comm. eauto. constructor...
         + apply_ih_bind H4 ; auto. apply_fresh EnvCon as X'...
-          apply_ih_bind ok_type_comm. eauto. constructor...
+          apply_ih_bind ok_type_comm. eauto. constructor... }
     Qed.
 
     Lemma ok_data_tname_strengthening :
@@ -945,11 +919,18 @@ Module Typing (P : PAT).
       introv Hfv Htk Henv.
       remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2.
       induction Htk ; intros ; simpls ; substs...
-      - constructor~. binds_cases H0 ; auto.
-      - rewrite notin_union in Hfv ; destruct Hfv.
+      { Case "TyFVar". constructor~. binds_cases H0 ; auto. }
+      { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
         apply_fresh KAll as X...
-        apply_ih_bind H1 ; auto. apply Tfv_ty_topen ; simpls~. constructors...
+        apply_ih_bind H1 ; auto. apply Tfv_ty_topen ; simpls~. constructors... }
     Qed.
+
+    Lemma Tbsubst_ok_env :
+      forall G1 G2 T T',
+        ok_env (G1 & T ~ BindTName & G2) ->
+        binds T' BindTName G1 ->
+        ok_env (G1 & map (Tbsubst T (FTName T')) G2).
+    Admitted.
 
     Lemma env_Tbsubst_fresh :
       forall Gamma X T,
@@ -973,77 +954,152 @@ Module Typing (P : PAT).
     (*       apply* ok_type_notin. } } *)
     (* Qed. *)
 
+    Lemma ok_data_Tsubst :
+      forall G2 G1 T T' d,
+        ok_data (G1 & T ~ BindTName & G2) d ->
+        ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
+        ok_data (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
+                (Tsubst_d T (FTName T') d).
+    Admitted.
+
     Lemma ok_kind_Tsubst :
       forall G2 G1 T T' k,
         ok_kind (G1 & T ~ BindTName & G2) k ->
-        (* ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) -> *)
+        ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
         ok_kind (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
                 (Tsubst_k T (FTName T') k).
+    Admitted.
+
+    Lemma assoc_Tsubst :
+      forall S T T' Gamma Ks d,
+        ok_data Gamma d ->
+        (forall Ks', ~Assoc (FTName T') Ks' d) ->
+        Assoc (FTName S) Ks d ->
+        Assoc (Tsubst T (FTName T') (FTName S)) Ks (Tsubst_d T (FTName T') d).
     Admitted.
 
     Lemma ok_type_Tsubst :
       forall G2 G1 T T' ty k,
         G1 & T ~ BindTName & G2 |= ty ~:: k ->
         ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
-        G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2 |=
-                                  Tsubst_ty T (FTName T') ty ~:: Tsubst_k T (FTName T') k.
-    Admitted.
+        G1 & T' ~ BindTName &
+          map (Tbsubst T (FTName T')) G2 |=
+              Tsubst_ty T (FTName T') ty ~:: Tsubst_k T (FTName T') k.
+    Proof with eauto using Tbsubst_ok_env with mcore.
+      introv Htk. assert (Henv : ok_env G1)
+        by (applys ok_env_concat ; applys ok_env_concat ; applys* ok_type_ok_env).
+      remember (G1 & T ~ BindTName & G2) as G. gen G2.
+      induction Htk; intros; substs; simpls*.
+      { Case "TyFVar". constructor...
+        replaces (BindTVar (Tsubst_k T (FTName T') k))
+          with (Tbsubst T (FTName T') (BindTVar k))... binds_cases H0 ; auto.
+        apply~ binds_concat_left. apply* binds_concat_left_ok.
+        assert (T # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
+        rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). }
+      { Case "TyAll". apply_fresh KAll as X.
+        + apply~ ok_kind_Tsubst.
+        + replaces (BindTVar (Tsubst_k T (FTName T') k))
+            with (Tbsubst T (FTName T') (BindTVar k))...
+          rewrite <- Tsubst_ty_topen_comm. apply_ih_map_bind H1 ; auto.
+          constructor~. apply~ ok_kind_Tsubst. }
+      { Case "TyCon".
+        asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
+        simpls. rewrite Heq. apply KCon with (d := Tsubst_d T (FTName T') d) (Ks := Ks)...
+        replaces (FTName S) with (Tsubst T (FTName T') (FTName T0)). rewrite~ <- Heq.
+        apply~ assoc_Tsubst. }
+      { Case "TyData". constructor... apply~ ok_data_Tsubst. }
+    Qed.
 
     Lemma ok_term_Tsubst :
       forall G2 G1 T T' t ty,
         G1 & T ~ BindTName & G2 |= t ~: ty ->
         ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
-        G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2 |=
-                                  Tsubst_t T (FTName T') t ~: Tsubst_ty T (FTName T') ty.
+        G1 & T' ~ BindTName &
+          map (Tbsubst T (FTName T')) G2 |=
+              Tsubst_t T (FTName T') t ~: Tsubst_ty T (FTName T') ty.
     Proof with eauto with mcore.
-      introv Htype Henv.
+      introv Htype. assert (Henv : ok_env G1)
+        by (applys ok_env_concat ; applys* ok_env_concat).
       remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2.
       induction Htype ; intros ; substs...
-      - constructor~.
-        replaces (BindVar (Tsubst_ty T (FTName T') ty)) with
-          (Tbsubst T (FTName T') (BindVar ty)) ; auto.
-        binds_cases H0 ; auto.
-        apply* binds_concat_left_ok. apply* binds_concat_left_ok.
-        applys* ok_concat_inv_l (map (Tbsubst T (FTName T')) G2).
-        apply ok_env_concat in H. assert (T # G1) by apply* ok_push_inv.
-        rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). apply* ok_env_concat.
-      - apply_fresh TLam as x.
-        + replaces KiType with (Tsubst_k T (FTName T') KiType) ; auto.
+      { Case "TmFVar". constructor...
+        replaces (BindVar (Tsubst_ty T (FTName T') ty))
+          with (Tbsubst T (FTName T') (BindVar ty))... binds_cases H0 ; auto.
+        apply~ binds_concat_left. apply* binds_concat_left_ok.
+        assert (T # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
+        rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). }
+      { Case "TmLam". apply_fresh TLam as x.
+        + replaces KiType with (Tsubst_k T (FTName T') KiType)...
           apply~ ok_type_Tsubst.
-        + replaces (TmFVar x) with (Tsubst_t T (FTName T') (TmFVar x)) ; auto.
-          rewrite <- Tsubst_t_open_distr. folds (Tsubst_ty T (FTName T') ty1).
-          replaces (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2
-                    & x ~ BindVar (Tsubst_ty T (FTName T') ty1))
-            with (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) (G2 & x ~ BindVar ty1)).
-          autorewrite with rew_env_map rew_env_concat ; auto. apply~ H1.
-          * rewrite~ concat_assoc.
-          * autorewrite with rew_env_map rew_env_concat ; auto. constructors~.
-            replaces KiType with (Tsubst_k T (FTName T') KiType) ; auto.
-            apply~ ok_type_Tsubst.
-      - apply_fresh TTyLam as X.
+        + rewrite <- Tsubst_t_open_comm. folds (Tsubst_ty T (FTName T') ty1).
+          replaces (BindVar (Tsubst_ty T (FTName T') ty1))
+            with (Tbsubst T (FTName T') (BindVar ty1))...
+          apply_ih_map_bind H1 ; auto. constructors...
+          replaces KiType with (Tsubst_k T (FTName T') KiType)...
+          apply~ ok_type_Tsubst. }
+      { Case "TmTyLam". apply_fresh TTyLam as X.
         + apply~ ok_kind_Tsubst.
-        + replaces (TyFVar X) with (Tsubst_ty T (FTName T') (TyFVar X)) ; auto.
-          rewrite <- Tsubst_t_topen_distr. rewrite <- Tsubst_ty_topen_distr.
-          replaces (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2
-                    & X ~ BindTVar (Tsubst_k T (FTName T') k))
-            with (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) (G2 & X ~ BindTVar k)).
-          autorewrite with rew_env_map rew_env_concat ; auto. apply~ H1.
-          * rewrite~ concat_assoc.
-          * autorewrite with rew_env_map rew_env_concat ; auto. constructors~.
-            apply~ ok_kind_Tsubst.
-      - rewrite Tsubst_ty_topen_distr... constructors*.
-        apply~ ok_type_Tsubst.
-      - admit.
-      - apply_fresh TType.
-        + pick_fresh Z. apply~ ok_term_lct. applys~ H1 Z (G2 & Z ~ BindTName) ;
-            autorewrite with rew_env_map rew_env_concat ; auto ; constructors~.
-        + replaces BindTName with (Tbsubst T (FTName T') BindTName) ; auto.
-          rewrite <- concat_assoc_map_push.
-          rewrite~ Tsubst_t_Topen_comm. apply~ H1.
-          rew_env_concat ; auto.
-          autorewrite with rew_env_map rew_env_concat ; auto ; constructors~.
-      - simpls. admit.
-    Admitted.
+        + rewrite <- Tsubst_t_topen_comm. rewrite <- Tsubst_ty_topen_comm.
+          replaces (BindTVar (Tsubst_k T (FTName T') k))
+            with (Tbsubst T (FTName T') (BindTVar k))...
+          apply_ih_map_bind H1 ; auto. constructor~. apply~ ok_kind_Tsubst. }
+      { Case "TmTyApp". rewrite Tsubst_ty_topen_distr. constructors*.
+        apply~ ok_type_Tsubst. }
+      { Case "TmCon".
+        asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
+        simpls. rewrite Heq.
+        apply TCon with (d := Tsubst_d T (FTName T') d) (ty1 := Tsubst_ty T (FTName T') ty1).
+        - replaces (BindCon (Tsubst_d T (FTName T') d) (Tsubst_ty T (FTName T') ty1) (FTName S))
+            with (Tbsubst T (FTName T') (BindCon d ty1 (FTName T0))). rewrite~ <- Heq.
+          binds_cases H ; auto.
+          apply~ binds_concat_left. apply* binds_concat_left_ok.
+          assert (T # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
+          rewrite~ (env_Tbsubst_fresh G1 T (FTName T')).
+        - replaces (KiData (Tsubst_d T (FTName T') d)) with (Tsubst_k T (FTName T') (KiData d))...
+          apply* ok_type_Tsubst.
+        - replaces (KiData [(FTName S, FCon K :: [])])
+            with (Tsubst_k T (FTName T') (KiData [(FTName T0, FCon K :: [])])). rewrite~ <- Heq.
+          apply* ok_type_Tsubst.
+        - rewrite <- Tsubst_ty_topen_distr... }
+      { Case "TmType". apply_fresh TType as T0.
+        + apply~ Tsubst_ty_lct.
+        + replaces BindTName with (Tbsubst T (FTName T') BindTName)...
+          rewrite~ Tsubst_t_Topen_comm. apply_ih_map_bind H1... }
+      { Case "TmConDef".
+        asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
+        simpls. rewrite Heq. apply_fresh TConDef as X.
+        - apply~ ok_data_Tsubst.
+        - replaces KiType with (Tsubst_k T (FTName T') KiType)...
+          replaces (BindTVar (KiData (Tsubst_d T (FTName T') d)))
+            with (Tbsubst T (FTName T') (BindTVar (KiData d)))...
+          rewrite <- Tsubst_ty_topen_comm.
+          apply_ih_map_bind ok_type_Tsubst ; eauto ; try rewrite* concat_assoc.
+          constructor*. apply~ ok_kind_Tsubst. constructor~.
+        - solve_var ; inverts~ Heq.
+          + apply binds_concat_left_ok...
+          + binds_cases H1 ; auto.
+            apply~ binds_concat_left. apply binds_concat_left_ok...
+            replaces BindTName with (Tbsubst T (FTName T') BindTName)...
+        - apply~ Tsubst_ty_lct.
+        - replaces (BindCon (Tsubst_d T (FTName T') d) (Tsubst_ty T (FTName T') ty1) (FTName S))
+            with (Tbsubst T (FTName T') (BindCon d ty1 (FTName T0))). rewrite~ <- Heq.
+          rewrite Tsubst_t_Kopen_comm. apply_ih_map_bind H4 ; auto.
+          simpls. rewrite Heq.
+          (* FIXME: the proofs for ok_env just duplicate the above *)
+          apply_fresh EnvCon ; auto.
+          + apply~ ok_data_Tsubst.
+          + replaces KiType with (Tsubst_k T (FTName T') KiType)...
+            replaces (BindTVar (KiData (Tsubst_d T (FTName T') d)))
+              with (Tbsubst T (FTName T') (BindTVar (KiData d)))...
+            rewrite <- Tsubst_ty_topen_comm.
+            apply_ih_map_bind ok_type_Tsubst ; eauto ; try rewrite* concat_assoc.
+            constructor~. apply~ ok_kind_Tsubst. constructor~.
+          + solve_var ; inverts~ Heq.
+            * apply binds_concat_left_ok...
+            * binds_cases H1 ; auto.
+              apply~ binds_concat_left. apply binds_concat_left_ok...
+              replaces BindTName with (Tbsubst T (FTName T') BindTName)... }
+    Qed.
 
   End Typing.
 End Typing.

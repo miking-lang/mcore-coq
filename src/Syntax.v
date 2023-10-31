@@ -706,7 +706,7 @@ Module Syntax (P : PAT).
     forall X Y U T n,
       X <> Y ->
       lct U ->
-      {n ~> TyFVar Y} ({X => U}T) = {X => U} ({n ~> TyFVar Y} T).
+      {n ~> TyFVar Y} ({X => U}T) = {X => U}({n ~> TyFVar Y} T).
   Proof.
     introv Hneq Hlct. gen n.
     solve_eq T ; rewrite* topen_lct.
@@ -2134,6 +2134,22 @@ Module Syntax (P : PAT).
         [{i ~> Tsubst_ty X T U}] (Tsubst_t X T t).
   Proof. introv. gen i. solve_eq t ; apply Tsubst_ty_topen_distr. Qed.
 
+  Lemma Tsubst_t_open_comm :
+    forall i X T t x,
+      Tsubst_t X T ([i ~> TmFVar x] t) = [i ~> TmFVar x] (Tsubst_t X T t).
+  Proof. introv. gen i. solve_eq t. Qed.
+
+  Lemma Tsubst_ty_topen_comm :
+    forall i X T ty x,
+      Tsubst_ty X T ({i ~> TyFVar x} ty) =
+        {i ~> TyFVar x} (Tsubst_ty X T ty).
+  Proof. introv. gen i. solve_eq ty. Qed.
+
+  Lemma Tsubst_t_topen_comm :
+    forall i X T t x,
+      Tsubst_t X T ([{i ~> TyFVar x}] t) = [{i ~> TyFVar x}] (Tsubst_t X T t).
+  Proof. introv. gen i. solve_eq t ; apply Tsubst_ty_topen_comm. Qed.
+
   Lemma Tsubst_d_Topen_comm :
     forall i X T U d,
       X <> T ->
@@ -2399,6 +2415,18 @@ Module Syntax (P : PAT).
       T \notin Tfv_ty ty ->
       Tsubst_ty T U ty = ty.
   Admitted.
+
+  Lemma Tsubst_ty_lct :
+    forall X U T,
+      lct T ->
+      lct (Tsubst_ty X (FTName U) T).
+  Admitted.
+  (*   introv Hlct1 Hlct2. *)
+  (*   induction* Hlct1; solve_var. *)
+  (*   - apply_fresh* LCTAll. *)
+  (*     rewrite* tsubst_topen_comm. *)
+  (* Qed. *)
+
 
   Lemma notin_Topen_ty :
     forall i T ty,
