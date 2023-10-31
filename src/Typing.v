@@ -1043,7 +1043,11 @@ Module Typing (P : PAT).
       forall Gamma ty d,
         Gamma |= ty ~:: KiData d ->
         ok_data Gamma d.
-    Admitted.
+    Proof.
+      introv Htk. inverts~ Htk.
+      forwards* Hk: ok_env_binds_tvar_inv.
+      inverts~ Hk.
+    Qed.
 
     Lemma ok_type_Tsubst :
       forall G2 G1 T T' ty k,
