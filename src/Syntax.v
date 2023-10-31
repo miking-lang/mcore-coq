@@ -2410,6 +2410,18 @@ Module Syntax (P : PAT).
     destruct c ; solve_var.
   Qed.
 
+  Lemma Tsubst_d_fresh :
+    forall T U d,
+      T \notin Tfv_d d ->
+      Tsubst_d T U d = d.
+  Admitted.
+
+  Lemma Tsubst_k_fresh :
+    forall T U k,
+      T \notin Tfv_k k ->
+      Tsubst_k T U k = k.
+  Admitted.
+
   Lemma Tsubst_ty_fresh :
     forall T U ty,
       T \notin Tfv_ty ty ->
@@ -2440,17 +2452,31 @@ Module Syntax (P : PAT).
       Topen_k i (FTName T) k = k.
   Admitted.
 
-  Lemma Tfv_t_open : forall i x t, Tfv_t ([i ~> TmFVar x]t) = Tfv_t t.
+  Lemma open_notin_T :
+    forall i x T t,
+      T \notin Tfv_t ([i ~> TmFVar x]t) = T \notin Tfv_t t.
   Admitted.
 
-  Lemma Tfv_ty_topen :
+  Lemma topen_notin_T :
     forall T i ty1 ty2,
       T \notin Tfv_ty ty1 ->
-      T \notin Tfv_ty ty2 ->
-      T \notin Tfv_ty ({i ~> ty1}ty2).
+      T \notin Tfv_ty ({i ~> ty1}ty2) = T \notin Tfv_ty ty2.
   Admitted.
 
-  Lemma Tfv_t_topen : forall i x t, Tfv_t ([{i ~> TyFVar x}]t) = Tfv_t t.
+  Lemma topen_t_notin_T :
+    forall i x T t,
+      T \notin Tfv_t ([{i ~> TyFVar x}]t) = T \notin Tfv_t t.
   Admitted.
+
+  Lemma Tsubst_inj :
+    forall S S' T T',
+      T' <> S ->
+      T' <> S' ->
+      Tsubst T (FTName T') (FTName S) = Tsubst T (FTName T') (FTName S') ->
+      S = S'.
+  Proof.
+    introv Hneq1 Hneq2 Heq.
+    solve_var ; inverts~ Heq.
+  Qed.
 
 End Syntax.

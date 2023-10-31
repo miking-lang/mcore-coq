@@ -632,87 +632,6 @@ Module Typing (P : PAT).
         apply* ok_env_push. }
     Qed.
 
-    Lemma ok_env_binds_con_inv :
-      forall Gamma K d ty T,
-        ok_env Gamma  ->
-        binds K (BindCon d ty T) Gamma ->
-        exists L T',
-          T = FTName T'
-          /\ ok_data Gamma d
-          /\ (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType)
-          /\ binds T' BindTName Gamma.
-    Proof.
-      introv Henv Hbinds.
-      induction Gamma using env_ind.
-      - false. apply* binds_empty_inv.
-      - binds_cases Hbinds.
-        + destruct~ IHGamma as (L & T' & Heq & Hd & Htk & Hbinds'). apply* ok_env_push.
-          exists (L \u dom Gamma \u \{x}) T'. splits*. apply_empty~ ok_data_weakening.
-          introv Hfresh. apply~ ok_type_weakening. constructor~. constructor.
-          apply_empty~ ok_data_weakening. apply* binds_concat_left_ok.
-        + inverts EQ. forwards* (L & T' & Heq & Hd & Htk & Hbinds') : ok_env_con_inv.
-          exists (L \u dom Gamma \u \{K}) T'. splits~. apply_empty~ ok_data_weakening.
-          introv Hfresh. apply~ ok_type_weakening. constructor~. constructor.
-          apply_empty~ ok_data_weakening. apply* binds_concat_left_ok.
-    Qed.
-
-    Lemma ok_env_binds_tvar_inv :
-      forall Gamma X k,
-      ok_env Gamma ->
-      binds X (BindTVar k) Gamma ->
-      ok_kind Gamma k.
-    Proof.
-      introv Henv Hbinds.
-      induction Gamma using env_ind.
-      - false. apply* binds_empty_inv.
-      - binds_cases Hbinds.
-        + apply_empty~ ok_kind_weakening. apply~ IHGamma. apply* ok_env_push.
-        + substs. forwards* Hk: ok_env_tvar_inv. apply_empty~ ok_kind_weakening.
-    Qed.
-
-    Lemma ok_type_ok_kind :
-      forall Gamma T k,
-        Gamma |= T ~:: k ->
-        ok_kind Gamma k.
-    Proof. introv Htk. induction* Htk. apply* ok_env_binds_tvar_inv. Qed.
-
-    (* Lemma ok_data_notin : *)
-    (*   forall Gamma d X, *)
-    (*     ok_data Gamma d -> *)
-    (*     X # Gamma -> *)
-    (*     X \notin dfv d. *)
-    (* Proof. *)
-    (*   introv Hd Hfresh. unfolds dfv. unfolds Tfv. unfolds Kfv. *)
-    (*   induction Hd ; rew_listx~. *)
-    (*   do 2 rewrite notin_union. splits*. *)
-    (*   - rewrite notin_singleton. intro. substs. *)
-    (*     forwards~ Hin : get_some_inv H0. *)
-    (*   - induction H1 ; rew_listx~. *)
-    (*     rewrite notin_union. splits*. *)
-    (*     rewrite notin_singleton. intro. substs. *)
-    (*     forwards~ Hin : get_some_inv H3. *)
-    (* Qed. *)
-
-    (* Lemma ok_kind_notin : *)
-    (*   forall Gamma k X, *)
-    (*     ok_kind Gamma k -> *)
-    (*     X # Gamma -> *)
-    (*     X \notin kfv k. *)
-    (* Proof. *)
-    (*   introv Hk Hfresh. unfolds kfv. *)
-    (*   destruct~ Hk. apply* ok_data_notin. *)
-    (* Qed. *)
-
-    (* Lemma assoc_data_in : *)
-    (*   forall d T Ks, *)
-    (*     Assoc (FTName T) Ks d -> T \in dfv d. *)
-    (* Proof. *)
-    (*   introv Hassoc. unfolds dfv. unfolds Tfv. *)
-    (*   induction Hassoc ; rew_listx ; rewrite in_union. *)
-    (*   - rewrite~ in_singleton. *)
-    (*   - rewrite~ in_union. *)
-    (* Qed. *)
-
     Lemma ok_type_notin :
       forall Gamma T k X,
         Gamma |= T ~:: k ->
@@ -730,12 +649,6 @@ Module Typing (P : PAT).
         forwards~ Htk: H1 Y.
         forwards~ Hnin1 : topen_notin Htk. }
     Qed.
-      (* { Case "TyCon". *)
-      (*   forwards Hk: ok_type_ok_kind Htk. *)
-      (*   forwards~ Hnin : ok_kind_notin X Hk. *)
-      (*   assert (X <> T) by (intro ; substs ; apply Hnin ; applys* assoc_data_in). *)
-      (*   auto. } *)
-      (* { Case "TyData". apply* ok_data_notin. } *)
 
     Lemma env_bsubst_fresh :
       forall Gamma X T2,
@@ -922,65 +835,182 @@ Module Typing (P : PAT).
       { Case "TyFVar". constructor~. binds_cases H0 ; auto. }
       { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
         apply_fresh KAll as X...
-        apply_ih_bind H1 ; auto. apply Tfv_ty_topen ; simpls~. constructors... }
+        apply_ih_bind H1 ; auto. rewrite topen_notin_T ; simpls~. constructors... }
     Qed.
 
-    Lemma Tbsubst_ok_env :
-      forall G1 G2 T T',
-        ok_env (G1 & T ~ BindTName & G2) ->
-        T' # G1 & G2 ->
-        ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2).
-    Admitted.
+    Lemma ok_env_binds_con_inv :
+      forall Gamma K d ty T,
+        ok_env Gamma  ->
+        binds K (BindCon d ty T) Gamma ->
+        exists L T',
+          T = FTName T'
+          /\ ok_data Gamma d
+          /\ (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType)
+          /\ binds T' BindTName Gamma.
+    Proof.
+      introv Henv Hbinds.
+      induction Gamma using env_ind.
+      - false. apply* binds_empty_inv.
+      - binds_cases Hbinds.
+        + destruct~ IHGamma as (L & T' & Heq & Hd & Htk & Hbinds'). apply* ok_env_push.
+          exists (L \u dom Gamma \u \{x}) T'. splits*. apply_empty~ ok_data_weakening.
+          introv Hfresh. apply~ ok_type_weakening. constructor~. constructor.
+          apply_empty~ ok_data_weakening. apply* binds_concat_left_ok.
+        + inverts EQ. forwards* (L & T' & Heq & Hd & Htk & Hbinds') : ok_env_con_inv.
+          exists (L \u dom Gamma \u \{K}) T'. splits~. apply_empty~ ok_data_weakening.
+          introv Hfresh. apply~ ok_type_weakening. constructor~. constructor.
+          apply_empty~ ok_data_weakening. apply* binds_concat_left_ok.
+    Qed.
+
+    Lemma ok_env_binds_tvar_inv :
+      forall Gamma X k,
+      ok_env Gamma ->
+      binds X (BindTVar k) Gamma ->
+      ok_kind Gamma k.
+    Proof.
+      introv Henv Hbinds.
+      induction Gamma using env_ind.
+      - false. apply* binds_empty_inv.
+      - binds_cases Hbinds.
+        + apply_empty~ ok_kind_weakening. apply~ IHGamma. apply* ok_env_push.
+        + substs. forwards* Hk: ok_env_tvar_inv. apply_empty~ ok_kind_weakening.
+    Qed.
+
+    Lemma ok_type_ok_kind :
+      forall Gamma T k,
+        Gamma |= T ~:: k ->
+        ok_kind Gamma k.
+    Proof. introv Htk. induction* Htk. apply* ok_env_binds_tvar_inv. Qed.
+
+    Lemma ok_data_notin_T :
+      forall Gamma d X,
+        ok_data Gamma d ->
+        X # Gamma ->
+        X \notin Tfv_d d.
+    Proof.
+      introv Hd Hfresh. unfolds Tfv_d.
+      induction Hd ; rew_listx~.
+      rewrite notin_union. splits*.
+      - rewrite notin_singleton. intro. substs.
+        forwards~ Hin : get_some_inv H0.
+    Qed.
+
+    Lemma ok_kind_notin_T :
+      forall Gamma k X,
+        ok_kind Gamma k ->
+        X # Gamma ->
+        X \notin Tfv_k k.
+    Proof.
+      introv Hk Hfresh. unfolds Tfv_k.
+      destruct~ Hk. apply* ok_data_notin_T.
+    Qed.
+
+    Lemma assoc_data_in :
+      forall d T Ks,
+        Assoc (FTName T) Ks d -> T \in Tfv_d d.
+    Proof.
+      introv Hassoc. unfolds Tfv_d.
+      induction Hassoc ; rew_listx ; rewrite~ in_union.
+      - rewrite~ in_singleton.
+    Qed.
+
+    Lemma ok_type_notin_T :
+      forall Gamma T k X,
+        Gamma |= T ~:: k ->
+        X # Gamma ->
+        X \notin Tfv_ty T.
+    Proof with eauto using ok_data_notin_T, ok_kind_notin_T.
+      introv Htk Hfresh.
+      induction Htk; simpls...
+      { Case "TyAll". rewrite notin_union. splits...
+        pick_fresh Y. forwards~ Htk: H1 Y.
+        rewrite topen_notin_T in Htk ; simpls~. }
+      { Case "TyCon". rewrite notin_union. splits~.
+        forwards Hk: ok_type_ok_kind Htk.
+        forwards~ Hnin : ok_kind_notin_T X Hk.
+        assert (X <> T) by (intro ; substs ; apply Hnin ; applys* assoc_data_in).
+        auto. }
+    Qed.
 
     Lemma env_Tbsubst_fresh :
       forall Gamma X T,
         ok_env Gamma ->
         X # Gamma ->
         Gamma = map (Tbsubst X T) Gamma.
-    Admitted.
-    (* Proof with eauto using ok_env_push. *)
-    (*   introv Henv Hfresh. *)
-    (*   induction Gamma using env_ind. *)
-    (*   { Case "Empty". rewrite~ map_empty. } *)
-    (*   { Case "Push". autorewrite with rew_env_map. *)
-    (*     rewrite <- IHGamma... *)
-    (*     destruct~ v ; repeat fequals ; unfold bsubst ; rewrite* tsubst_fresh. *)
-    (*     { SCase "BindCon". *)
-    (*       apply ok_env_con_inv in Henv as (? & ? & ? & ? & Htk & ?). *)
-    (*       pick_fresh X'. forwards~ Hnin : ok_type_notin X (Htk X'). *)
-    (*       applys~ topen_notin Hnin. } *)
-    (*     { SCase "BindVar". *)
-    (*       apply ok_env_var_inv in Henv. *)
-    (*       apply* ok_type_notin. } } *)
-    (* Qed. *)
+    Proof with eauto using ok_env_push.
+      introv Henv Hfresh.
+      induction Gamma using env_ind.
+      { Case "Empty". rewrite~ map_empty. }
+      { Case "Push". autorewrite with rew_env_map.
+        rewrite <- IHGamma...
+        destruct~ v ; repeat fequals ; unfold Tbsubst.
+        { SCase "BindCon".
+          apply ok_env_con_inv in Henv as (? & ? & ? & ? & Htk & ?). fequals.
+          - rewrite~ Tsubst_d_fresh. forwards~ Hnin : ok_data_notin_T X H0.
+          - rewrite~ Tsubst_ty_fresh. pick_fresh X'.
+            forwards~ Hnin : ok_type_notin_T X (Htk X').
+            rewrite topen_notin_T in Hnin ; simpls~.
+          - destruct t0 ; solve_var. inverts H. forwards* Hin : get_some_inv x1.
+            assert (Hnin: x1 # Gamma) by auto. contradiction. }
+        { SCase "BindTVar".
+          apply ok_env_tvar_inv in Henv. fequals.
+          rewrite~ Tsubst_k_fresh. apply* ok_kind_notin_T. }
+        { SCase "BindVar".
+          apply ok_env_var_inv in Henv. fequals.
+          rewrite~ Tsubst_ty_fresh. apply* ok_type_notin_T. } }
+    Qed.
 
     Lemma assoc_Tsubst :
-      forall S T T' Gamma Ks d,
+      forall Gamma T T' S Ks d,
         ok_data Gamma d ->
         T' # Gamma ->
-        Assoc (FTName S) Ks d =
+        Assoc (FTName S) Ks d ->
         Assoc (Tsubst T (FTName T') (FTName S)) Ks (Tsubst_d T (FTName T') d).
     Proof.
-      intros. rew_logic. admit.
-    Admitted.
+      introv Hd Hfresh Hassoc. unfolds Tsubst_d.
+      induction Hd ; substs ; inverts Hassoc ; rew_listx.
+      - apply~ Assoc_here.
+      - apply~ Assoc_next. solve_var.
+        + intro Heq. inverts Heq.
+          forwards Hin : get_some_inv T0 ; eauto.
+        + intro Heq. inverts Heq.
+          forwards~ Hnin' : ok_data_notin_T d Hfresh.
+          forwards~ Hin : assoc_data_in H4.
+    Qed.
+
+    Lemma assoc_Tsubst_inv :
+      forall Gamma T T' S Ks d,
+        ok_data Gamma d ->
+        T' <> S ->
+        T' # Gamma ->
+        Assoc (Tsubst T (FTName T') (FTName S)) Ks (Tsubst_d T (FTName T') d) ->
+        Assoc (FTName S) Ks d.
+    Proof.
+      introv Hd Hneq Hfresh Hassoc. unfolds Tsubst_d.
+      induction Hd ; substs ; inverts Hassoc ; rew_listx in * ; substs.
+      - applys_eq Assoc_here. repeat fequals.
+        rewrite~ (Tsubst_inj S T0 T T'). intro Heq ; substs.
+        forwards Hin : get_some_inv T0 ; eauto.
+      - apply~ Assoc_next. intro Heq ; inverts Heq. apply~ H6.
+    Qed.
 
     Lemma ok_data_Tsubst :
       forall G2 G1 T T' d,
         ok_data (G1 & T ~ BindTName & G2) d ->
-        ok_env  (G1 & T ~ BindTName & G2) ->
         T' # G1 & T ~ BindTName & G2 ->
+        ok_env (G1 & T ~ BindTName) ->
         ok_data (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
                 (Tsubst_d T (FTName T') d).
-    Proof with eauto using Tbsubst_ok_env with mcore.
-      introv Hd Henv. assert (Henv1 : ok_env G1)
-        by (applys ok_env_concat; applys* ok_env_concat).
-      remember (G1 & T ~ BindTName & G2) as G. unfolds Tsubst_d.
-      induction Hd; introv Hfresh; substs; rew_listx*.
+    Proof with eauto with mcore.
+      introv Hd Hfresh Henv. assert (Henv' : ok_env G1) by apply* ok_env_concat.
+      remember (G1 & T ~ BindTName & G2). unfolds Tsubst_d.
+      induction Hd; substs; rew_listx*.
       asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
       rewrite Heq. constructor~.
-      - rewrite <- Heq. admit.
-      - solve_var ; inverts~ Heq.
-        binds_cases H0 ; auto.
+      - rewrite <- Heq. folds (Tsubst_d T (FTName T') d). introv contra.
+        apply (assoc_Tsubst_inv (G1 & T ~ BindTName & G2)) in contra ; jauto.
+        intro ; substs. forwards~ Hin : get_some_inv H0.
+      - solve_var ; inverts~ Heq. binds_cases H0 ; auto.
         apply~ binds_concat_left. apply binds_concat_left_ok...
         replaces BindTName with (Tbsubst T (FTName T') BindTName)...
       - remember (FTName T0). remember (G1 & T ~ BindTName & G2).
@@ -990,16 +1020,17 @@ Module Typing (P : PAT).
                            (ty := Tsubst_ty T (FTName T') ty) ; auto.
           replaces (BindCon (Tsubst_d T (FTName T') d0) (Tsubst_ty T (FTName T') ty) (FTName S))
             with (Tbsubst T (FTName T') (BindCon d0 ty (FTName T0))). rewrite~ <- Heq.
-          binds_cases H4 ; auto.
-          apply~ binds_concat_left. apply* binds_concat_left_ok.
-          assert (T # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
-          rewrite~ (env_Tbsubst_fresh G1 T (FTName T')).
+          binds_cases H3 ; auto.
+          apply~ binds_concat_left. apply binds_concat_left_ok...
+          assert (T # G1). applys ok_push_inv...
+          rewrite~ (env_Tbsubst_fresh G1 T (FTName T'))...
     Qed.
 
     Lemma ok_kind_Tsubst :
       forall G2 G1 T T' k,
         ok_kind (G1 & T ~ BindTName & G2) k ->
-        T' # G1 & G2 ->
+        ok_env  (G1 & T ~ BindTName) ->
+        T' # G1 & T ~ BindTName & G2 ->
         ok_kind (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
                 (Tsubst_k T (FTName T') k).
     Proof.
@@ -1008,16 +1039,23 @@ Module Typing (P : PAT).
       apply~ ok_data_Tsubst.
     Qed.
 
+    Lemma ok_type_ok_data :
+      forall Gamma ty d,
+        Gamma |= ty ~:: KiData d ->
+        ok_data Gamma d.
+    Admitted.
+
     Lemma ok_type_Tsubst :
       forall G2 G1 T T' ty k,
         G1 & T ~ BindTName & G2 |= ty ~:: k ->
-        T' # G1 & G2 ->
+        T' # G1 & T ~ BindTName & G2 ->
+        ok_env  (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2) ->
         G1 & T' ~ BindTName &
           map (Tbsubst T (FTName T')) G2 |=
               Tsubst_ty T (FTName T') ty ~:: Tsubst_k T (FTName T') k.
-    Proof with eauto using Tbsubst_ok_env with mcore.
-      introv Htk. assert (Henv : ok_env G1)
-        by (applys ok_env_concat ; applys ok_env_concat ; applys* ok_type_ok_env).
+    Proof with eauto.
+      introv Htk Hfresh Henv. assert (Henv' : ok_env G1)
+        by (applys ok_env_concat ; applys* ok_env_concat).
       remember (G1 & T ~ BindTName & G2) as G. gen G2.
       induction Htk; intros; substs; simpls...
       { Case "TyFVar". constructor...
@@ -1026,22 +1064,61 @@ Module Typing (P : PAT).
         apply~ binds_concat_left. apply* binds_concat_left_ok.
         assert (T # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
         rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). }
+      { Case "TyArr". constructor~. }
       { Case "TyAll". apply_fresh KAll as X.
-        + apply~ ok_kind_Tsubst.
+        + apply ok_kind_Tsubst... applys* ok_env_concat G2.
         + replaces (BindTVar (Tsubst_k T (FTName T') k))
             with (Tbsubst T (FTName T') (BindTVar k))...
-          rewrite <- Tsubst_ty_topen_comm. apply_ih_map_bind H1 ; auto. }
+          rewrite <- Tsubst_ty_topen_comm. apply_ih_map_bind H1 ; auto.
+          constructor... apply ok_kind_Tsubst... applys* ok_env_concat G2. }
       { Case "TyCon".
         asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
         simpls. rewrite Heq. apply KCon with (d := Tsubst_d T (FTName T') d) (Ks := Ks)...
-        rewrite <- Heq. forwards* ?: assoc_Tsubst. }
-      { Case "TyData". constructor... apply~ ok_data_Tsubst. }
+        rewrite <- Heq. applys~ assoc_Tsubst (G1 & T ~ BindTName & G2).
+        apply* ok_type_ok_data. }
+      { Case "TyData". constructor... apply~ ok_data_Tsubst. applys~ ok_env_concat G2. }
+    Qed.
+
+    Lemma Tbsubst_ok_env :
+      forall G1 G2 T T',
+        ok_env (G1 & T ~ BindTName & G2) ->
+        T' # G1 & T ~ BindTName & G2 ->
+        ok_env (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2).
+    Proof with eauto using ok_data_Tsubst, ok_kind_Tsubst, ok_type_Tsubst with mcore.
+      introv Henv Hfresh. assert (Henv1 : ok_env G1)
+        by (applys ok_env_concat; applys* ok_env_concat).
+      induction G2 using env_ind.
+      { Case "Empty". autorewrite with rew_env_map rew_env_concat in *.
+        constructor~. }
+      { Case "Push". autorewrite with rew_env_map rew_env_concat in *.
+        specializes IHG2 (ok_env_push _ _ _ Henv).
+        lets [? Hdisj] : ok_push_inv (ok_env_ok _ Henv).
+        destruct v.
+        { SCase "BindTName". constructor~. }
+        { SCase "BindCon". forwards (L & T0 & Heq & Hd & Htk' & HT): ok_env_con_inv Henv.
+          substs. asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
+          simpls. rewrite Heq. apply_fresh EnvCon as X ; auto.
+          - apply~ ok_data_Tsubst. applys~ ok_env_concat ; applys ok_env_concat ; apply Henv.
+          - replaces (BindTVar (KiData (Tsubst_d T (FTName T') d)))
+              with (Tbsubst T (FTName T') (BindTVar (KiData d))) ; auto.
+            replaces KiType with (Tsubst_k T (FTName T') KiType) ; auto.
+            rewrite <- Tsubst_ty_topen_comm.
+            apply_ih_map_bind ok_type_Tsubst ; try rewrite* concat_assoc ; auto.
+            constructor...
+          - solve_var ; inverts~ Heq. binds_cases HT ; auto.
+            apply~ binds_concat_left. apply* binds_concat_left_ok.
+            replaces BindTName with (Tbsubst T (FTName T') BindTName) ; eauto. }
+        { SCase "BindTVar". forwards Hk: ok_env_tvar_inv Henv. constructor... }
+        { SCase "BindVar". forwards Htk': ok_env_var_inv Henv. constructor~.
+          replaces KiType with (Tsubst_k T (FTName T') KiType)... }
+        (* { SCase "BindMatch". constructor~. } *)
+      }
     Qed.
 
     Lemma ok_term_Tsubst :
       forall G2 G1 T T' t ty,
         G1 & T ~ BindTName & G2 |= t ~: ty ->
-        T' # G1 & G2 ->
+        T' # G1 & T ~ BindTName & G2 ->
         G1 & T' ~ BindTName &
           map (Tbsubst T (FTName T')) G2 |=
               Tsubst_t T (FTName T') t ~: Tsubst_ty T (FTName T') ty.
@@ -1058,19 +1135,19 @@ Module Typing (P : PAT).
         rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). }
       { Case "TmLam". apply_fresh TLam as x.
         + replaces KiType with (Tsubst_k T (FTName T') KiType)...
-          apply~ ok_type_Tsubst.
+          apply ok_type_Tsubst...
         + rewrite <- Tsubst_t_open_comm. folds (Tsubst_ty T (FTName T') ty1).
           replaces (BindVar (Tsubst_ty T (FTName T') ty1))
             with (Tbsubst T (FTName T') (BindVar ty1))...
           apply_ih_map_bind H1 ; auto. }
       { Case "TmTyLam". apply_fresh TTyLam as X.
-        + apply~ ok_kind_Tsubst.
+        + apply~ ok_kind_Tsubst. applys* ok_env_concat G2.
         + rewrite <- Tsubst_t_topen_comm. rewrite <- Tsubst_ty_topen_comm.
           replaces (BindTVar (Tsubst_k T (FTName T') k))
             with (Tbsubst T (FTName T') (BindTVar k))...
           apply_ih_map_bind H1 ; auto. }
       { Case "TmTyApp". rewrite Tsubst_ty_topen_distr. constructors*.
-        apply~ ok_type_Tsubst. }
+        apply ok_type_Tsubst... }
       { Case "TmCon".
         asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
         simpls. rewrite Heq.
@@ -1094,12 +1171,13 @@ Module Typing (P : PAT).
       { Case "TmConDef".
         asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
         simpls. rewrite Heq. apply_fresh TConDef as X.
-        - apply~ ok_data_Tsubst.
+        - apply~ ok_data_Tsubst. applys* ok_env_concat G2.
         - replaces KiType with (Tsubst_k T (FTName T') KiType)...
           replaces (BindTVar (KiData (Tsubst_d T (FTName T') d)))
             with (Tbsubst T (FTName T') (BindTVar (KiData d)))...
           rewrite <- Tsubst_ty_topen_comm.
           apply_ih_map_bind ok_type_Tsubst ; eauto ; try rewrite* concat_assoc.
+          constructor... apply~ ok_kind_Tsubst. constructor~. applys* ok_env_concat G2.
         - solve_var ; inverts~ Heq.
           binds_cases H1 ; auto.
           apply~ binds_concat_left. apply binds_concat_left_ok...
