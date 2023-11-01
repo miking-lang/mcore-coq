@@ -10,10 +10,10 @@ Module SmallStep (P : PAT).
       is_value (TmLam ty t)
   | VTyLam : forall k t,
       is_value (TmTyLam k t)
-  (* | VProd : forall {v1 v2 : term}, *)
-  (*     is_value v1 -> *)
-  (*     is_value v2 -> *)
-  (*     is_value (TmProd v1 v2) *)
+  | VProd : forall v1 v2,
+      is_value v1 ->
+      is_value v2 ->
+      is_value (TmProd v1 v2)
   | VCon : forall K ty v,
       is_value v ->
       is_value (TmCon K ty v)
@@ -28,6 +28,10 @@ Module SmallStep (P : PAT).
       push_value f (TmLam ty t) (TmLam ty (f t))
   | PTyLam : forall k t f,
       push_value f (TmTyLam k t) (TmTyLam k (f t))
+  | PProd  : forall t1 t1' t2 t2' f,
+      push_value f t1 t1' ->
+      push_value f t2 t2' ->
+      push_value f (TmProd t1 t2) (TmProd t1' t2')
   | PCon   : forall K ty t t' f,
       push_value f t t' ->
       push_value f (TmCon K ty t) (TmCon K ty t')
@@ -58,11 +62,11 @@ Module SmallStep (P : PAT).
         is_context (TmApp v)
     | CTyApp : forall ty, is_context (fun t => TmTyApp t ty)
     | CFix : is_context TmFix
-    (* | CProdL : term -> eval_context *)
-    (* | CProdR : forall (v : term), *)
-    (*     is_value v -> *)
-    (*     eval_context *)
-    (* | CProj : fin2 -> eval_context *)
+    | CProdL : forall t2, is_context (fun t1 => TmProd t1 t2)
+    | CProdR : forall (v : term),
+        is_value v ->
+        is_context (TmProd v)
+    | CProj : forall i, is_context (TmProj i)
     | CCon : forall K ty, is_context (TmCon K ty)
     (* | CMatch : pat -> term -> term -> eval_context *)
     (* | CCompL : term -> eval_context *)
@@ -86,14 +90,14 @@ Module SmallStep (P : PAT).
         TmTyApp (TmTyLam k t) ty --> [{0 ~> ty}]t
     | EFix : forall ty t,
         TmFix (TmLam ty t) --> [0 ~> TmFix (TmLam ty t)]t
-    (* | EProj1 : forall {v1 v2 : term}, *)
-    (*     is_value v1 -> *)
-    (*     is_value v2 -> *)
-    (*     eval_step (TmProj F1 (TmProd v1 v2)) v1 *)
-    (* | EProj2 : forall {v1 v2 : term}, *)
-    (*     is_value v1 -> *)
-    (*     is_value v2 -> *)
-    (*     eval_step (TmProj F2 (TmProd v1 v2)) v2 *)
+    | EProj1 : forall v1 v2,
+        is_value v1 ->
+        is_value v2 ->
+        eval_step (TmProj F1 (TmProd v1 v2)) v1
+    | EProj2 : forall v1 v2,
+        is_value v1 ->
+        is_value v2 ->
+        eval_step (TmProj F2 (TmProd v1 v2)) v2
     | EType : forall v v',
         is_value v ->
         push_value TmType v v' ->
@@ -144,11 +148,19 @@ Module SmallStep (P : PAT).
     #[export] Hint Resolve econg_CAppR : mcore.
     Definition econg_CTyApp ty := ECong (CTyApp ty).
     #[export] Hint Resolve econg_CTyApp : mcore.
+    Definition econg_CProdL t2 := ECong (CProdL t2).
+    #[export] Hint Resolve econg_CProdL : mcore.
+    Definition econg_CProdR v Hv := ECong (CProdR v Hv).
+    #[export] Hint Resolve econg_CProdR : mcore.
     Definition econg_CCon K ty := ECong (CCon K ty).
     #[export] Hint Resolve econg_CCon : mcore.
 
     Lemma is_value_push : forall f v, is_value v -> exists v', push_value f v v'.
-    Proof. introv Hval. induction* Hval. destruct* IHHval. Qed.
+    Proof.
+      introv Hval. induction* Hval.
+      - destruct IHHval1. destruct* IHHval2.
+      - destruct* IHHval.
+    Qed.
 
     Lemma Topen_is_value :
       forall i T v,
@@ -190,13 +202,18 @@ Module SmallStep (P : PAT).
       - rewrite* Tsubst_t_topen_distr.
       - rewrite Tsubst_t_open_distr. simpls*.
       - forwards Hval: is_value_Tsubst H.
+        forwards* Hval': is_value_Tsubst H0.
+      - forwards Hval: is_value_Tsubst H.
+        forwards* Hval': is_value_Tsubst H0.
+      - forwards Hval: is_value_Tsubst H.
         forwards* Hpush: push_Tsubst TmType H0.
       - forwards Hval: is_value_Tsubst H.
         forwards* Hpush: push_Tsubst (TmConDef d ty T0) H0.
       - apply_fresh ETypeCong. rewrite_all~ Tsubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Tsubst_t_Kopen_comm.
       - inverts H ; simpls*.
-        forwards* Hval: is_value_Tsubst H0.
+        + forwards* Hval: is_value_Tsubst H0.
+        + forwards* Hval: is_value_Tsubst H0.
     Qed.
 
     Lemma Topen_step_change :
@@ -250,13 +267,18 @@ Module SmallStep (P : PAT).
       - rewrite* Ksubst_t_topen_distr.
       - rewrite Ksubst_t_open_distr. simpls*.
       - forwards Hval: is_value_Ksubst H.
+        forwards* Hval': is_value_Ksubst H0.
+      - forwards Hval: is_value_Ksubst H.
+        forwards* Hval': is_value_Ksubst H0.
+      - forwards Hval: is_value_Ksubst H.
         forwards* Hpush: push_Ksubst TmType H0.
       - forwards Hval: is_value_Ksubst H.
         forwards* Hpush: push_Ksubst (TmConDef d ty T) H0.
       - apply_fresh ETypeCong. rewrite_all~ Ksubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Ksubst_t_Kopen_comm.
       - inverts H ; simpls*.
-        forwards* Hval: is_value_Ksubst H0.
+        + forwards* Hval: is_value_Ksubst H0.
+        + forwards* Hval: is_value_Ksubst H0.
     Qed.
 
     Lemma Kopen_step_change :

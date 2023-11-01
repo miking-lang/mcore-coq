@@ -37,7 +37,7 @@ Module Syntax (P : PAT).
   | TyFVar : var  -> type
   | TyArr  : type -> type -> type
   | TyAll  : kind -> type -> type
-  (* | TyProd : type -> type -> type *)
+  | TyProd : type -> type -> type
   | TyCon  : type -> tname -> type
   (* | TySem  : type -> type -> list pat -> type *)
   | TyData : data -> type
@@ -57,8 +57,8 @@ Module Syntax (P : PAT).
   | TmTyLam  : kind -> term -> term
   | TmTyApp  : term -> type -> term
   | TmFix    : term -> term
-  (* | TmProd   : term -> term -> term *)
-  (* | TmProj   : fin2 -> term -> term *)
+  | TmProd   : term -> term -> term
+  | TmProj   : fin2 -> term -> term
   | TmCon    : con -> type -> term -> term
   (* | TmMatch  : term -> pat -> term -> term -> term *)
   (* | TmNever  : term *)
@@ -94,6 +94,7 @@ Module Syntax (P : PAT).
     | TyFVar X => \{X}
     | TyArr T1 T2 => tfv T1 \u tfv T2
     | TyAll k T' => tfv T'
+    | TyProd T1 T2 => tfv T1 \u tfv T2
     | TyCon ty T => tfv ty
     | TyData d => \{}
     end.
@@ -107,6 +108,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => tfv_t t'
     | TmTyApp t' T => tfv_t t' \u tfv T
     | TmFix t' => tfv_t t'
+    | TmProd t1 t2 => tfv_t t1 \u tfv_t t2
+    | TmProj i t' => tfv_t t'
     | TmCon K ty t' => tfv ty \u tfv_t t'
     | TmType t' => tfv_t t'
     | TmConDef d ty T t' => tfv ty \u tfv_t t'
@@ -121,6 +124,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => fv t'
     | TmTyApp t' T => fv t'
     | TmFix t' => fv t'
+    | TmProd t1 t2 => fv t1 \u fv t2
+    | TmProj i t' => fv t'
     | TmCon K ty t' => fv t'
     | TmType t' => fv t'
     | TmConDef d ty T t' => fv t'
@@ -147,6 +152,7 @@ Module Syntax (P : PAT).
     | TyFVar X => \{}
     | TyArr T1 T2 => Tfv_ty T1 \u Tfv_ty T2
     | TyAll k T' => Tfv_k k \u Tfv_ty T'
+    | TyProd T1 T2 => Tfv_ty T1 \u Tfv_ty T2
     | TyCon ty T => Tfv_ty ty \u Tfv T
     | TyData d => Tfv_d d
     end.
@@ -160,6 +166,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => Tfv_k k \u Tfv_t t'
     | TmTyApp t' T => Tfv_t t' \u Tfv_ty T
     | TmFix t' => Tfv_t t'
+    | TmProd t1 t2 => Tfv_t t1 \u Tfv_t t2
+    | TmProj i t' => Tfv_t t'
     | TmCon K ty t' => Tfv_ty ty \u Tfv_t t'
     | TmType t' => Tfv_t t'
     | TmConDef d ty T t' => Tfv_d d \u Tfv_ty ty \u Tfv T \u Tfv_t t'
@@ -189,6 +197,7 @@ Module Syntax (P : PAT).
     | TyFVar X => \{}
     | TyArr T1 T2 => Kfv_ty T1 \u Kfv_ty T2
     | TyAll k T' => Kfv_k k \u Kfv_ty T'
+    | TyProd T1 T2 => Kfv_ty T1 \u Kfv_ty T2
     | TyCon ty T => Kfv_ty ty
     | TyData d => Kfv_d d
     end.
@@ -202,6 +211,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => Kfv_k k \u Kfv_t t'
     | TmTyApp t' T => Kfv_t t' \u Kfv_ty T
     | TmFix t' => Kfv_t t'
+    | TmProd t1 t2 => Kfv_t t1 \u Kfv_t t2
+    | TmProj i t' => Kfv_t t'
     | TmCon K ty t' => Kfv K \u Kfv_ty ty \u Kfv_t t'
     | TmType t' => Kfv_t t'
     | TmConDef d ty T t' => Kfv_d d \u Kfv_ty ty \u Kfv_t t'
@@ -217,6 +228,7 @@ Module Syntax (P : PAT).
     | TyFVar _ => T
     | TyArr T1 T2 => TyArr ({X ~> U}T1) ({X ~> U}T2)
     | TyAll k T'  => TyAll k ({S X ~> U}T')
+    | TyProd T1 T2 => TyProd ({X ~> U}T1) ({X ~> U}T2)
     | TyCon ty T => TyCon ({X ~> U}ty) T
     | TyData d => TyData d
     end
@@ -234,6 +246,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam k ([{S X ~> U}] t')
     | TmTyApp t' T => TmTyApp ([{X ~> U}] t') ({X ~> U} T)
     | TmFix t' => TmFix ([{X ~> U}] t')
+    | TmProd t1 t2 => TmProd ([{X ~> U}] t1) ([{X ~> U}] t2)
+    | TmProj i t' => TmProj i ([{X ~> U}] t')
     | TmCon K ty t' => TmCon K ({X ~> U}ty) ([{X ~> U}]t')
     | TmType t' => TmType ([{X ~> U}]t')
     | TmConDef d ty T t' => TmConDef d ({S X ~> U}ty) T ([{X ~> U}]t')
@@ -252,6 +266,8 @@ Module Syntax (P : PAT).
     | TmTyLam ki t' => TmTyLam ki ([k ~> u]t')
     | TmTyApp t' T => TmTyApp ([k ~> u]t') T
     | TmFix t' => TmFix ([k ~> u]t')
+    | TmProd t1 t2 => TmProd ([k ~> u]t1) ([k ~> u]t2)
+    | TmProj i t' => TmProj i ([k ~> u]t')
     | TmCon K ty t' => TmCon K ty ([k ~> u]t')
     | TmType t' => TmType ([k ~> u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([k ~> u]t')
@@ -283,6 +299,7 @@ Module Syntax (P : PAT).
     | TyFVar X => T
     | TyArr T1 T2 => TyArr (Topen_ty j X T1) (Topen_ty j X T2)
     | TyAll k T' => TyAll (Topen_k j X k) (Topen_ty j X T')
+    | TyProd T1 T2 => TyProd (Topen_ty j X T1) (Topen_ty j X T2)
     | TyCon ty T => TyCon (Topen_ty j X ty) (Topen j X T)
     | TyData d => TyData (Topen_d j X d)
     end.
@@ -296,6 +313,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam (Topen_k j X k) (Topen_t j X t')
     | TmTyApp t' T => TmTyApp (Topen_t j X t') (Topen_ty j X T)
     | TmFix t' => TmFix (Topen_t j X t')
+    | TmProd t1 t2 => TmProd (Topen_t j X t1) (Topen_t j X t2)
+    | TmProj i t' => TmProj i (Topen_t j X t')
     | TmCon K ty t' => TmCon K (Topen_ty j X ty) (Topen_t j X t')
     | TmType t' => TmType (Topen_t (S j) X t')
     | TmConDef d ty T t' =>
@@ -323,6 +342,7 @@ Module Syntax (P : PAT).
     | TyFVar Y => T
     | TyArr T1 T2 => TyArr (Tclose_ty X j T1) (Tclose_ty X j T2)
     | TyAll k T' => TyAll (Tclose_k X j k) (Tclose_ty X j T')
+    | TyProd T1 T2 => TyProd (Tclose_ty X j T1) (Tclose_ty X j T2)
     | TyCon ty T => TyCon (Tclose_ty X j ty) (Tclose X j T)
     | TyData d => TyData (Tclose_d X j d)
     end.
@@ -336,6 +356,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam (Tclose_k X j k) (Tclose_t X j t')
     | TmTyApp t' T => TmTyApp (Tclose_t X j t') (Tclose_ty X j T)
     | TmFix t' => TmFix (Tclose_t X j t')
+    | TmProd t1 t2 => TmProd (Tclose_t X j t1) (Tclose_t X j t2)
+    | TmProj i t' => TmProj i (Tclose_t X j t')
     | TmCon K ty t' => TmCon K (Tclose_ty X j ty) (Tclose_t X j t')
     | TmType t' => TmType (Tclose_t X (S j) t')
     | TmConDef d ty T t' =>
@@ -364,6 +386,7 @@ Module Syntax (P : PAT).
     | TyFVar X => T
     | TyArr T1 T2 => TyArr (Kopen_ty j X T1) (Kopen_ty j X T2)
     | TyAll k T' => TyAll (Kopen_k j X k) (Kopen_ty j X T')
+    | TyProd T1 T2 => TyProd (Kopen_ty j X T1) (Kopen_ty j X T2)
     | TyCon ty T => TyCon (Kopen_ty j X ty) T
     | TyData d => TyData (Kopen_d j X d)
     end.
@@ -377,6 +400,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam (Kopen_k j X k) (Kopen_t j X t')
     | TmTyApp t' T => TmTyApp (Kopen_t j X t') (Kopen_ty j X T)
     | TmFix t' => TmFix (Kopen_t j X t')
+    | TmProd t1 t2 => TmProd (Kopen_t j X t1) (Kopen_t j X t2)
+    | TmProj i t' => TmProj i (Kopen_t j X t')
     | TmCon K ty t' => TmCon (Kopen j X K) (Kopen_ty j X ty) (Kopen_t j X t')
     | TmType t' => TmType (Kopen_t j X t')
     | TmConDef d ty T t' =>
@@ -404,6 +429,7 @@ Module Syntax (P : PAT).
     | TyFVar Y => T
     | TyArr T1 T2 => TyArr (Kclose_ty X j T1) (Kclose_ty X j T2)
     | TyAll k T' => TyAll (Kclose_k X j k) (Kclose_ty X j T')
+    | TyProd T1 T2 => TyProd (Kclose_ty X j T1) (Kclose_ty X j T2)
     | TyCon ty T => TyCon (Kclose_ty X j ty) T
     | TyData d => TyData (Kclose_d X j d)
     end.
@@ -417,6 +443,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam (Kclose_k X j k) (Kclose_t X j t')
     | TmTyApp t' T => TmTyApp (Kclose_t X j t') (Kclose_ty X j T)
     | TmFix t' => TmFix (Kclose_t X j t')
+    | TmProd t1 t2 => TmProd (Kclose_t X j t1) (Kclose_t X j t2)
+    | TmProj i t' => TmProj i (Kclose_t X j t')
     | TmCon K ty t' => TmCon (Kclose X j K) (Kclose_ty X j ty) (Kclose_t X j t')
     | TmType t' => TmType (Kclose_t X j t')
     | TmConDef d ty T t' =>
@@ -444,6 +472,7 @@ Module Syntax (P : PAT).
   | LCTFVar : forall X, lct (TyFVar X)
   | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
   | LCTAll  : forall L k T, lck k -> (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
+  | LCTProd  : forall T1 T2, lct T1 -> lct T2 -> lct (TyProd T1 T2)
   | LCTCon  : forall ty T, lct ty -> lct (TyCon ty (FTName T))
   | LCTData : forall d, lcd d -> lct (TyData d)
   .
@@ -457,6 +486,8 @@ Module Syntax (P : PAT).
   | LCTyLam  : forall L k t, lck k -> (forall X, X \notin L -> lc ([{0 ~> TyFVar X}] t)) -> lc (TmTyLam k t)
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
   | LCFix    : forall t, lc t -> lc (TmFix t)
+  | LCProd   : forall t1 t2, lc t1 -> lc t2 -> lc (TmProd t1 t2)
+  | LCProj   : forall t i, lc t -> lc (TmProj i t)
   | LCCon    : forall K T t, lct T -> lc t -> lc (TmCon (FCon K) T t)
   | LCType   : forall L t, (forall X, X \notin L -> lc (Topen_t 0 (FTName X) t)) -> lc (TmType t)
   | LCConDef : forall L d ty T t,
@@ -476,6 +507,7 @@ Module Syntax (P : PAT).
     | TyFVar Y => (If X = Y then U else T)
     | TyArr T1 T2 => TyArr ({X => U}T1) ({X => U} T2)
     | TyAll k T' => TyAll k ({X => U}T')
+    | TyProd T1 T2 => TyProd ({X => U}T1) ({X => U} T2)
     | TyCon ty T => TyCon ({X => U}ty) T
     | TyData d => TyData d
     end
@@ -492,6 +524,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam k ([{X => U}]t')
     | TmTyApp t' T => TmTyApp ([{X => U}]t') ({X => U}T)
     | TmFix t' => TmFix ([{X => U}] t')
+    | TmProd t1 t2 => TmProd ([{X => U}]t1) ([{X => U}]t2)
+    | TmProj i t' => TmProj i ([{X => U}] t')
     | TmCon K ty t' => TmCon K ({X => U}ty) ([{X => U}]t')
     | TmType t' => TmType ([{X => U}]t')
     | TmConDef d ty T t' => TmConDef d ({X => U}ty) T ([{X => U}]t')
@@ -508,6 +542,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam k ([x => u]t')
     | TmTyApp t' T => TmTyApp ([x => u]t') T
     | TmFix t' => TmFix ([x => u]t')
+    | TmProd t1 t2 => TmProd ([x => u]t1) ([x => u]t2)
+    | TmProj i t' => TmProj i ([x => u]t')
     | TmCon K ty t' => TmCon K ty ([x => u]t')
     | TmType t' => TmType ([x => u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([x => u]t')
@@ -538,6 +574,7 @@ Module Syntax (P : PAT).
     | TyFVar X => T
     | TyArr T1 T2 => TyArr (Tsubst_ty X U T1) (Tsubst_ty X U T2)
     | TyAll k T' => TyAll (Tsubst_k X U k) (Tsubst_ty X U T')
+    | TyProd T1 T2 => TyProd (Tsubst_ty X U T1) (Tsubst_ty X U T2)
     | TyCon ty T => TyCon (Tsubst_ty X U ty) (Tsubst X U T)
     | TyData d => TyData (Tsubst_d X U d)
     end.
@@ -551,6 +588,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam (Tsubst_k X U k) (Tsubst_t X U t')
     | TmTyApp t' T => TmTyApp (Tsubst_t X U t') (Tsubst_ty X U T)
     | TmFix t' => TmFix (Tsubst_t X U t')
+    | TmProd t1 t2 => TmProd (Tsubst_t X U t1) (Tsubst_t X U t2)
+    | TmProj i t' => TmProj i (Tsubst_t X U t')
     | TmCon K ty t' => TmCon K (Tsubst_ty X U ty) (Tsubst_t X U t')
     | TmType t' => TmType (Tsubst_t X U t')
     | TmConDef d ty T t' =>
@@ -579,6 +618,7 @@ Module Syntax (P : PAT).
     | TyFVar X => T
     | TyArr T1 T2 => TyArr (Ksubst_ty X U T1) (Ksubst_ty X U T2)
     | TyAll k T' => TyAll (Ksubst_k X U k) (Ksubst_ty X U T')
+    | TyProd T1 T2 => TyProd (Ksubst_ty X U T1) (Ksubst_ty X U T2)
     | TyCon ty T => TyCon (Ksubst_ty X U ty) T
     | TyData d => TyData (Ksubst_d X U d)
     end.
@@ -592,6 +632,8 @@ Module Syntax (P : PAT).
     | TmTyLam k t' => TmTyLam (Ksubst_k X U k) (Ksubst_t X U t')
     | TmTyApp t' T => TmTyApp (Ksubst_t X U t') (Ksubst_ty X U T)
     | TmFix t' => TmFix (Ksubst_t X U t')
+    | TmProd t1 t2 => TmProd (Ksubst_t X U t1) (Ksubst_t X U t2)
+    | TmProj i t' => TmProj i (Ksubst_t X U t')
     | TmCon K ty t' => TmCon (Ksubst X U K) (Ksubst_ty X U ty) (Ksubst_t X U t')
     | TmType t' => TmType (Ksubst_t X U t')
     | TmConDef d ty T t' =>

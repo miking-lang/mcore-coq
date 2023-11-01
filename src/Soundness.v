@@ -40,6 +40,7 @@ Module Soundness (P : PAT).
             apply_empty~ ok_term_comm. constructor~. constructor~. apply* ok_env_push.
           * rewrite~ topen_notin_T. simpls~.
         + rewrite~ topen_t_notin_T. }
+      { Case "TmProd". constructor*. }
       { Case "TmCon". rewrite notin_Topen_ty in *...
         constructors.
         + binds_cases H2...
@@ -106,6 +107,7 @@ Module Soundness (P : PAT).
               apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. constructor...
             * rewrite~ topen_notin_K. simpls~.
           + rewrite~ topen_t_notin_K. }
+      { Case "TmProd". constructor*. }
       { Case "TmCon". assert (Heq: Kopen_ty 0 (FCon K) ty = ty) by apply~ notin_Kopen_ty.
         rewrite Heq in *.
         assert (Htk1 : Gamma |= ty ~:: KiData [ (FTName T0, FCon K1 :: []) ]).
@@ -149,6 +151,8 @@ Module Soundness (P : PAT).
       { Case "TmFix". inverts hasType.
         pick_fresh x. rewrite~ (subst_intro x).
         apply_empty* ok_term_subst. }
+      { Case "TmProd". inverts* hasType. }
+      { Case "TmProj1". inverts* hasType. }
       { Case "TmType". pick_fresh T. applys* ok_term_Topen_push T t. }
       { Case "TmTypeCong". apply_fresh TType as T' ; auto. }
       { Case "TmConDef". pick_fresh K. applys* ok_term_Kopen_push K t. }
@@ -175,6 +179,15 @@ Module Soundness (P : PAT).
         forwards* [Hval | (t1 & Hstep)]: IHhasType.
         inverts Hval; inverts* hasType. }
       { Case "TmFix". right.
+        forwards* [Hval1 | (t1' & Hstep1)]: IHhasType.
+        inverts Hval1; inverts* hasType. }
+      { Case "TmProd".
+        forwards* [Hval1 | (t1' & Hstep1)]: IHhasType1.
+        forwards* [Hval2 | (t2' & Hstep2)]: IHhasType2. }
+      { Case "TmProj1".
+        forwards* [Hval1 | (t1' & Hstep1)]: IHhasType.
+        inverts Hval1; inverts* hasType. }
+      { Case "TmProj2".
         forwards* [Hval1 | (t1' & Hstep1)]: IHhasType.
         inverts Hval1; inverts* hasType. }
       { Case "TmCon".
