@@ -56,7 +56,7 @@ Module Syntax (P : PAT).
   | TmApp    : term -> term -> term
   | TmTyLam  : kind -> term -> term
   | TmTyApp  : term -> type -> term
-  (* | TmFix    : term -> term *)
+  | TmFix    : term -> term
   (* | TmProd   : term -> term -> term *)
   (* | TmProj   : fin2 -> term -> term *)
   | TmCon    : con -> type -> term -> term
@@ -106,6 +106,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => tfv_t t1 \u tfv_t t2
     | TmTyLam k t' => tfv_t t'
     | TmTyApp t' T => tfv_t t' \u tfv T
+    | TmFix t' => tfv_t t'
     | TmCon K ty t' => tfv ty \u tfv_t t'
     | TmType t' => tfv_t t'
     | TmConDef d ty T t' => tfv ty \u tfv_t t'
@@ -119,6 +120,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => fv t1 \u fv t2
     | TmTyLam k t' => fv t'
     | TmTyApp t' T => fv t'
+    | TmFix t' => fv t'
     | TmCon K ty t' => fv t'
     | TmType t' => fv t'
     | TmConDef d ty T t' => fv t'
@@ -157,6 +159,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => Tfv_t t1 \u Tfv_t t2
     | TmTyLam k t' => Tfv_k k \u Tfv_t t'
     | TmTyApp t' T => Tfv_t t' \u Tfv_ty T
+    | TmFix t' => Tfv_t t'
     | TmCon K ty t' => Tfv_ty ty \u Tfv_t t'
     | TmType t' => Tfv_t t'
     | TmConDef d ty T t' => Tfv_d d \u Tfv_ty ty \u Tfv T \u Tfv_t t'
@@ -198,6 +201,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => Kfv_t t1 \u Kfv_t t2
     | TmTyLam k t' => Kfv_k k \u Kfv_t t'
     | TmTyApp t' T => Kfv_t t' \u Kfv_ty T
+    | TmFix t' => Kfv_t t'
     | TmCon K ty t' => Kfv K \u Kfv_ty ty \u Kfv_t t'
     | TmType t' => Kfv_t t'
     | TmConDef d ty T t' => Kfv_d d \u Kfv_ty ty \u Kfv_t t'
@@ -229,6 +233,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([{X ~> U}] t1) ([{X ~> U}] t2)
     | TmTyLam k t' => TmTyLam k ([{S X ~> U}] t')
     | TmTyApp t' T => TmTyApp ([{X ~> U}] t') ({X ~> U} T)
+    | TmFix t' => TmFix ([{X ~> U}] t')
     | TmCon K ty t' => TmCon K ({X ~> U}ty) ([{X ~> U}]t')
     | TmType t' => TmType ([{X ~> U}]t')
     | TmConDef d ty T t' => TmConDef d ({S X ~> U}ty) T ([{X ~> U}]t')
@@ -246,6 +251,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([k ~> u]t1) ([k ~> u]t2)
     | TmTyLam ki t' => TmTyLam ki ([k ~> u]t')
     | TmTyApp t' T => TmTyApp ([k ~> u]t') T
+    | TmFix t' => TmFix ([k ~> u]t')
     | TmCon K ty t' => TmCon K ty ([k ~> u]t')
     | TmType t' => TmType ([k ~> u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([k ~> u]t')
@@ -289,6 +295,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp (Topen_t j X t1) (Topen_t j X t2)
     | TmTyLam k t' => TmTyLam (Topen_k j X k) (Topen_t j X t')
     | TmTyApp t' T => TmTyApp (Topen_t j X t') (Topen_ty j X T)
+    | TmFix t' => TmFix (Topen_t j X t')
     | TmCon K ty t' => TmCon K (Topen_ty j X ty) (Topen_t j X t')
     | TmType t' => TmType (Topen_t (S j) X t')
     | TmConDef d ty T t' =>
@@ -328,6 +335,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp (Tclose_t X j t1) (Tclose_t X j t2)
     | TmTyLam k t' => TmTyLam (Tclose_k X j k) (Tclose_t X j t')
     | TmTyApp t' T => TmTyApp (Tclose_t X j t') (Tclose_ty X j T)
+    | TmFix t' => TmFix (Tclose_t X j t')
     | TmCon K ty t' => TmCon K (Tclose_ty X j ty) (Tclose_t X j t')
     | TmType t' => TmType (Tclose_t X (S j) t')
     | TmConDef d ty T t' =>
@@ -368,6 +376,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp (Kopen_t j X t1) (Kopen_t j X t2)
     | TmTyLam k t' => TmTyLam (Kopen_k j X k) (Kopen_t j X t')
     | TmTyApp t' T => TmTyApp (Kopen_t j X t') (Kopen_ty j X T)
+    | TmFix t' => TmFix (Kopen_t j X t')
     | TmCon K ty t' => TmCon (Kopen j X K) (Kopen_ty j X ty) (Kopen_t j X t')
     | TmType t' => TmType (Kopen_t j X t')
     | TmConDef d ty T t' =>
@@ -407,6 +416,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp (Kclose_t X j t1) (Kclose_t X j t2)
     | TmTyLam k t' => TmTyLam (Kclose_k X j k) (Kclose_t X j t')
     | TmTyApp t' T => TmTyApp (Kclose_t X j t') (Kclose_ty X j T)
+    | TmFix t' => TmFix (Kclose_t X j t')
     | TmCon K ty t' => TmCon (Kclose X j K) (Kclose_ty X j ty) (Kclose_t X j t')
     | TmType t' => TmType (Kclose_t X j t')
     | TmConDef d ty T t' =>
@@ -446,6 +456,7 @@ Module Syntax (P : PAT).
   | LCApp    : forall t1 t2, lc t1 -> lc t2 -> lc (TmApp t1 t2)
   | LCTyLam  : forall L k t, lck k -> (forall X, X \notin L -> lc ([{0 ~> TyFVar X}] t)) -> lc (TmTyLam k t)
   | LCTyApp  : forall t T, lc t -> lct T -> lc (TmTyApp t T)
+  | LCFix    : forall t, lc t -> lc (TmFix t)
   | LCCon    : forall K T t, lct T -> lc t -> lc (TmCon (FCon K) T t)
   | LCType   : forall L t, (forall X, X \notin L -> lc (Topen_t 0 (FTName X) t)) -> lc (TmType t)
   | LCConDef : forall L d ty T t,
@@ -480,6 +491,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([{X => U}]t1) ([{X => U}]t2)
     | TmTyLam k t' => TmTyLam k ([{X => U}]t')
     | TmTyApp t' T => TmTyApp ([{X => U}]t') ({X => U}T)
+    | TmFix t' => TmFix ([{X => U}] t')
     | TmCon K ty t' => TmCon K ({X => U}ty) ([{X => U}]t')
     | TmType t' => TmType ([{X => U}]t')
     | TmConDef d ty T t' => TmConDef d ({X => U}ty) T ([{X => U}]t')
@@ -495,6 +507,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp ([x => u]t1) ([x => u]t2)
     | TmTyLam k t' => TmTyLam k ([x => u]t')
     | TmTyApp t' T => TmTyApp ([x => u]t') T
+    | TmFix t' => TmFix ([x => u]t')
     | TmCon K ty t' => TmCon K ty ([x => u]t')
     | TmType t' => TmType ([x => u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([x => u]t')
@@ -537,6 +550,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp (Tsubst_t X U t1) (Tsubst_t X U t2)
     | TmTyLam k t' => TmTyLam (Tsubst_k X U k) (Tsubst_t X U t')
     | TmTyApp t' T => TmTyApp (Tsubst_t X U t') (Tsubst_ty X U T)
+    | TmFix t' => TmFix (Tsubst_t X U t')
     | TmCon K ty t' => TmCon K (Tsubst_ty X U ty) (Tsubst_t X U t')
     | TmType t' => TmType (Tsubst_t X U t')
     | TmConDef d ty T t' =>
@@ -577,6 +591,7 @@ Module Syntax (P : PAT).
     | TmApp t1 t2 => TmApp (Ksubst_t X U t1) (Ksubst_t X U t2)
     | TmTyLam k t' => TmTyLam (Ksubst_k X U k) (Ksubst_t X U t')
     | TmTyApp t' T => TmTyApp (Ksubst_t X U t') (Ksubst_ty X U T)
+    | TmFix t' => TmFix (Ksubst_t X U t')
     | TmCon K ty t' => TmCon (Ksubst X U K) (Ksubst_ty X U ty) (Ksubst_t X U t')
     | TmType t' => TmType (Ksubst_t X U t')
     | TmConDef d ty T t' =>

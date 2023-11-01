@@ -154,6 +154,9 @@ Module Soundness (P : PAT).
         rewrite* (@tsubst_intro X).
         rewrite* (@tsubst_t_intro X).
         apply_empty~ ok_term_tsubst. }
+      { Case "TmFix". inverts hasType.
+        pick_fresh x. rewrite* (@subst_intro x).
+        apply_empty* ok_term_subst. }
       { Case "TmType". applys* ok_term_Topen_push (L \u Tfv_ty ty). }
       { Case "TmTypeCong". apply_fresh TType as T' ; auto. }
       { Case "TmConDef". pick_fresh K'. applys* ok_term_Kopen_push (L \u Kfv_ty ty2). }
@@ -179,6 +182,9 @@ Module Soundness (P : PAT).
       { Case "TmTyApp". right.
         forwards* [Hval | (t1 & Hstep)]: IHhasType.
         inverts Hval; inverts* hasType. }
+      { Case "TmApp". right.
+        forwards* [Hval1 | (t1' & Hstep1)]: IHhasType.
+        inverts Hval1; inverts* hasType. }
       { Case "TmCon".
         forwards* [Hval | (t' & Hstep)]: IHhasType. }
       { Case "TmType". right. pick_fresh T.

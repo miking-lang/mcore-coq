@@ -147,9 +147,9 @@ Module Typing (P : PAT).
         Gamma |= t ~: TyAll k ty1 ->
         Gamma |= ty2 ~:: k ->
         Gamma |= TmTyApp t ty2 ~: ({0 ~> ty2}ty1)
-    (* | TmFix' : forall {Gamma : env} {ty : type} {t : term}, *)
-    (*     ok_term Gamma t (TyArr ty ty) -> *)
-    (*     ok_term Gamma (TmFix t) ty *)
+    | TFix : forall {Gamma : env} {ty : type} {t : term},
+        ok_term Gamma t (TyArr ty ty) ->
+        ok_term Gamma (TmFix t) ty
     (* | TmProd' : forall {Gamma : env} {ty1 ty2 : type} {t1 t2 : term}, *)
     (*     ok_term Gamma t1 ty1 -> *)
     (*     ok_term Gamma t2 ty2 -> *)
@@ -325,6 +325,7 @@ Module Typing (P : PAT).
         assert(Hlct: lct ty2)...
         pick_fresh X. rewrite *(@tsubst_intro X).
         apply* tsubst_lct. }
+      { Case "TmFix". inverts* IHhasType. }
     Qed.
     #[export]
      Hint Resolve ok_term_lct : mcore.

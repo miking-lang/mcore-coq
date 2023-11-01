@@ -57,7 +57,7 @@ Module SmallStep (P : PAT).
         is_value v ->
         is_context (TmApp v)
     | CTyApp : forall ty, is_context (fun t => TmTyApp t ty)
-    (* | CFix : eval_context *)
+    | CFix : is_context TmFix
     (* | CProdL : term -> eval_context *)
     (* | CProdR : forall (v : term), *)
     (*     is_value v -> *)
@@ -84,8 +84,8 @@ Module SmallStep (P : PAT).
         TmApp (TmLam ty t) v --> [0 ~> v]t
     | ETyApp : forall k t ty,
         TmTyApp (TmTyLam k t) ty --> [{0 ~> ty}]t
-    (* | EFix : forall {ty : type} {t : term}, *)
-    (*     eval_step (TmFix (TmLam ty t)) (tm_subst t (TmFix (TmLam ty t))) *)
+    | EFix : forall {ty : type} {t : term},
+                    eval_step (TmFix (TmLam ty t)) ([0 ~> (TmFix (TmLam ty t))]t)
     (* | EProj1 : forall {v1 v2 : term}, *)
     (*     is_value v1 -> *)
     (*     is_value v2 -> *)
@@ -188,6 +188,7 @@ Module SmallStep (P : PAT).
       - rewrite Tsubst_t_open_distr.
         forwards* Hval: is_value_Tsubst H.
       - rewrite* Tsubst_t_topen_distr.
+      - rewrite Tsubst_t_open_distr. simpls*.
       - forwards Hval: is_value_Tsubst H.
         forwards* Hpush: push_Tsubst TmType H0.
       - forwards Hval: is_value_Tsubst H.
@@ -247,6 +248,8 @@ Module SmallStep (P : PAT).
       - rewrite Ksubst_t_open_distr.
         forwards* Hval: is_value_Ksubst H.
       - rewrite* Ksubst_t_topen_distr.
+      - rewrite* Ksubst_t_open_distr.
+        simpls*.
       - forwards Hval: is_value_Ksubst H.
         forwards* Hpush: push_Ksubst TmType H0.
       - forwards Hval: is_value_Ksubst H.
