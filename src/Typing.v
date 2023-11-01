@@ -812,7 +812,7 @@ Module Typing (P : PAT).
     Qed.
 
     Lemma ok_kind_tname_strengthening :
-      forall G2 G1 T k,
+      forall T G2 G1 k,
         T \notin Tfv_k k ->
         ok_kind (G1 & T ~ BindTName & G2) k ->
         ok_kind (G1 & G2) k.
@@ -823,7 +823,7 @@ Module Typing (P : PAT).
     Qed.
 
     Lemma ok_type_tname_strengthening :
-      forall G2 G1 T ty k,
+      forall T G2 G1 ty k,
         T \notin Tfv_ty ty ->
         G1 & T ~ BindTName & G2 |= ty ~:: k ->
         ok_env (G1 & G2) ->

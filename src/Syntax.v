@@ -2414,59 +2414,118 @@ Module Syntax (P : PAT).
     forall T U d,
       T \notin Tfv_d d ->
       Tsubst_d T U d = d.
-  Admitted.
+  Proof.
+    introv Hfv. unfolds. unfolds Tfv_d.
+    induction~ d. destruct a.
+    rew_listx in *. do 2 fequals~. destruct t ; solve_var.
+  Qed.
 
   Lemma Tsubst_k_fresh :
     forall T U k,
       T \notin Tfv_k k ->
       Tsubst_k T U k = k.
-  Admitted.
+  Proof. introv Hfv. solve_eq k. apply~ Tsubst_d_fresh. Qed.
 
   Lemma Tsubst_ty_fresh :
     forall T U ty,
       T \notin Tfv_ty ty ->
       Tsubst_ty T U ty = ty.
-  Admitted.
+  Proof.
+    introv Hfv. solve_eq ty.
+    - apply~ Tsubst_k_fresh.
+    - destruct t ; solve_var.
+    - apply~ Tsubst_d_fresh.
+  Qed.
+
+  Lemma Tsubst_d_lcd :
+    forall X U d,
+      lcd d ->
+      lcd (Tsubst_d X (FTName U) d).
+  Proof.
+    introv Hlcd. unfolds lcd. unfolds Tsubst_d.
+    induction Hlcd ; rew_listx~.
+    destruct x. destruct H. do 2 splits~. destruct t ; solve_var.
+  Qed.
+
+  Lemma Tsubst_k_lck :
+    forall X U k,
+      lck k ->
+      lck (Tsubst_k X (FTName U) k).
+  Proof with eauto using Tsubst_d_lcd with mcore.
+    introv Hlck. induction Hlck...
+  Qed.
 
   Lemma Tsubst_ty_lct :
     forall X U T,
       lct T ->
       lct (Tsubst_ty X (FTName U) T).
-  Admitted.
-  (*   introv Hlct1 Hlct2. *)
-  (*   induction* Hlct1; solve_var. *)
-  (*   - apply_fresh* LCTAll. *)
-  (*     rewrite* tsubst_topen_comm. *)
-  (* Qed. *)
+  Proof with eauto using Tsubst_d_lcd, Tsubst_k_lck with mcore.
+    introv Hlct.
+    induction Hlct; solve_var...
+    - apply_fresh LCTAll...
+      rewrite~ <- Tsubst_ty_topen_comm.
+  Qed.
 
-
-  Lemma notin_Topen_ty :
-    forall i T ty,
-      T \notin Tfv_ty (Topen_ty i (FTName T) ty) ->
-      Topen_ty i (FTName T) ty = ty.
-  Admitted.
+  Lemma notin_Topen_d :
+    forall i T d,
+      T \notin Tfv_d (Topen_d i (FTName T) d) ->
+      Topen_d i (FTName T) d = d.
+  Proof.
+    introv Hfv. unfolds Topen_d. unfolds Tfv_d.
+    induction~ d. destruct a.
+    rew_listx in *. do 2 fequals~. destruct t ; solve_var.
+  Qed.
 
   Lemma notin_Topen_k :
     forall i T k,
       T \notin Tfv_k (Topen_k i (FTName T) k) ->
       Topen_k i (FTName T) k = k.
-  Admitted.
+  Proof.
+    introv Hfv. induction k ; simpls ; fequals.
+    apply~ notin_Topen_d.
+  Qed.
+
+  Lemma notin_Topen_ty :
+    forall i T ty,
+      T \notin Tfv_ty (Topen_ty i (FTName T) ty) ->
+      Topen_ty i (FTName T) ty = ty.
+  Proof.
+    introv Hfv.
+    induction ty ; simpls ; fequals*.
+    - apply~ notin_Topen_k.
+    - destruct t ; solve_var.
+    - apply~ notin_Topen_d.
+  Qed.
 
   Lemma open_notin_T :
     forall i x T t,
       T \notin Tfv_t ([i ~> TmFVar x]t) = T \notin Tfv_t t.
-  Admitted.
+  Proof.
+    intros. rew_logic. splits ; gen i.
+    { induction t ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ; solve_var. }
+    { induction t ; introv Hfv ; simpls ; solve_var. }
+  Qed.
 
   Lemma topen_notin_T :
     forall T i ty1 ty2,
       T \notin Tfv_ty ty1 ->
       T \notin Tfv_ty ({i ~> ty1}ty2) = T \notin Tfv_ty ty2.
-  Admitted.
+  Proof.
+    intros. rew_logic. splits ; gen i.
+    { induction ty2 ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ; solve_var. }
+    { induction ty2 ; introv Hfv ; solve_var. }
+  Qed.
 
   Lemma topen_t_notin_T :
     forall i x T t,
       T \notin Tfv_t ([{i ~> TyFVar x}]t) = T \notin Tfv_t t.
-  Admitted.
+  Proof.
+    intros. rew_logic. splits ; gen i.
+    { induction t ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ;
+        try rewrite topen_notin_T in Hfv; solve_var. }
+    { induction t ; introv Hfv ; simpls ; rewrite_all notin_union ; solve_var ;
+        try rewrite topen_notin_T ; simpls~. }
+  Qed.
 
   Lemma Tsubst_inj :
     forall S S' T T',

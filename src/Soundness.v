@@ -16,45 +16,44 @@ Module Soundness (P : PAT).
               Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty) ->
         push_value TmType t t' ->
         Gamma |= t' ~: ty.
-    Proof.
+    Proof with eauto with mcore.
       introv Htype Hpush. gen L ty.
       remember TmType as f eqn:Hf.
       induction Hpush ; introv Htype ; substs ;
         pick_fresh T ; forwards~ Htype0: Htype T ; inverts Htype0 ; simpls.
-      - rewrite notin_Topen_ty in * ; auto.
+      { Case "TmLam". rewrite notin_Topen_ty in *...
         assert (Gamma |= ty ~:: KiType)
-          by (apply_empty ok_type_tname_strengthening ; eauto ; auto ; apply* ok_env_push).
+          by (apply_empty~ (ok_type_tname_strengthening T) ; apply* ok_env_push).
         apply_fresh* TLam as x.
-        forwards~ Htype': H4 x. apply_fresh TType as T'. eauto with mcore.
+        forwards~ Htype': H4 x. apply_fresh TType as T'...
         rewrite~ (Tsubst_t_intro T (FTName T')).
-        + rewrite~ <- (Tsubst_ty_fresh T (FTName T')). apply_empty ok_term_Tsubst.
-          rewrite* Topen_t_open_comm. apply_empty~ ok_term_comm.
-          constructor*. constructor*.
-        + rewrite~ Tfv_t_open.
-      - rewrite notin_Topen_k in * ; auto.
+        + rewrite~ <- (Tsubst_ty_fresh T (FTName T')). apply_empty ok_term_Tsubst...
+          rewrite* Topen_t_open_comm. apply_empty ok_term_comm...
+        + rewrite~ open_notin_T. }
+      { Case "TmTyLam". rewrite notin_Topen_k in *...
         assert (ok_kind Gamma k)
-          by (apply_empty ok_kind_tname_strengthening ; eauto ; auto ; apply* ok_env_push).
+          by (apply_empty~ (ok_kind_tname_strengthening T) ; apply* ok_env_push).
         apply_fresh* TTyLam as X.
-        forwards~ Htype': H4 X. apply_fresh TType as T'. eauto with mcore.
+        forwards~ Htype': H4 X. apply_fresh TType as T'...
         rewrite~ (Tsubst_t_intro T (FTName T')).
         + rewrite~ <- (Tsubst_ty_fresh T (FTName T')).
-          * apply_empty ok_term_Tsubst. rewrite* Topen_t_topen_comm.
-            apply_empty~ ok_term_comm.
-            constructor~ ; constructor~ ; apply* ok_env_push.
-            constructor~ ; constructor~ ; apply* ok_env_push.
-          * apply Tfv_ty_topen ; simpls~.
-        + rewrite~ Tfv_t_topen.
-      - rewrites~ notin_Topen_ty in *.
+          * apply_empty ok_term_Tsubst... rewrite* Topen_t_topen_comm.
+            apply_empty~ ok_term_comm. constructor~. constructor~. apply* ok_env_push.
+          * rewrite~ topen_notin_T. simpls~.
+        + rewrite~ topen_t_notin_T. }
+      { Case "TmCon". rewrite notin_Topen_ty in *...
         constructors.
-        + binds_cases H2 ; eauto.
-        + apply_empty ok_type_tname_strengthening ; eauto ; auto ; apply* ok_env_push.
-        + apply_empty ok_type_tname_strengthening ; eauto ; auto ; apply* ok_env_push.
-        + lets~ H : IHHpush __. apply_fresh H as T'. rewrite~ (Tsubst_t_intro T (FTName T')).
-          rewrite~ <- (Tsubst_ty_fresh T (FTName T')).
-          * apply_empty* ok_term_Tsubst.
-          * apply~ Tfv_ty_topen. admit.
-            (* prove using binds K0 (BindCon d ty1 (FTName T0)) (Gamma & T ~ BindTName) *)
-    Admitted.
+        + binds_cases H2...
+        + apply_empty (ok_type_tname_strengthening T) ; auto ; apply* ok_env_push.
+        + apply_empty (ok_type_tname_strengthening T) ; auto ; apply* ok_env_push.
+        + specializes~ IHHpush __. apply_fresh IHHpush as T'.
+          rewrite~ (Tsubst_t_intro T (FTName T')). rewrite~ <- (Tsubst_ty_fresh T (FTName T')).
+          * apply_empty~ ok_term_Tsubst.
+          * rewrite~ topen_notin_T. binds_cases H2.
+            forwards (L'&?&?&?&Htk&?): ok_env_binds_con_inv B. apply* ok_env_push.
+            pick_fresh X. forwards~ Hnin: ok_type_notin_T T (Htk X).
+            rewrite~ topen_notin_T in Hnin. simpls~. }
+    Qed.
 
     Lemma ok_term_Kopen_push :
       forall Gamma K d ty' T t t' ty,
