@@ -51,7 +51,7 @@ Module SmallStep (P : PAT).
   Module SmallStep (M : MATCH).
     Export M.
 
-    Inductive is_context : (term -> term) -> Type :=
+    Inductive is_context : (term -> term) -> Prop :=
     | CAppL : forall t', is_context (fun t => TmApp t t')
     | CAppR : forall v,
         is_value v ->

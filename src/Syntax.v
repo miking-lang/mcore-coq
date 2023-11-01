@@ -2709,4 +2709,15 @@ Module Syntax (P : PAT).
     solve_eq ty ; rewrite~ topen_lct.
   Qed.
 
+  Lemma Ksubst_inj :
+    forall S S' K K',
+      K' <> S ->
+      K' <> S' ->
+      Ksubst K (FCon K') (FCon S) = Ksubst K (FCon K') (FCon S') ->
+      S = S'.
+  Proof.
+    introv Hneq1 Hneq2 Heq.
+    solve_var ; inverts~ Heq.
+  Qed.
+
 End Syntax.
