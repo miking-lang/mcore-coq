@@ -111,7 +111,8 @@ Module Soundness (P : PAT).
         assert (Htk1 : Gamma |= ty ~:: KiData [ (FTName T0, FCon K1 :: []) ]).
         { apply_empty* (ok_type_con_strengthening K). }
         assert (Hneq : K1 <> K).
-        { intro ; subst. forwards~ Hd' : ok_type_ok_data Htk1. inverts Hd'. inverts H11.
+        { intro ; subst. forwards~ Hk : ok_type_ok_kind Htk1.
+          inverts Hk as Hd'. inverts Hd'. inverts H11.
           assert (K \indom Gamma) by applys get_some_inv H14.
           assert (K # Gamma) by apply* ok_push_inv... }
         replaces K0 with (FCon K1). { destruct K0 ; solve_var. }

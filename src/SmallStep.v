@@ -195,8 +195,8 @@ Module SmallStep (P : PAT).
         forwards* Hpush: push_Tsubst (TmConDef d ty T0) H0.
       - apply_fresh ETypeCong. rewrite_all~ Tsubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Tsubst_t_Kopen_comm.
-      - inverts X0 ; simpls*.
-        forwards* Hval: is_value_Tsubst H.
+      - inverts H ; simpls*.
+        forwards* Hval: is_value_Tsubst H0.
     Qed.
 
     Lemma Topen_step_change :
@@ -255,8 +255,8 @@ Module SmallStep (P : PAT).
         forwards* Hpush: push_Ksubst (TmConDef d ty T) H0.
       - apply_fresh ETypeCong. rewrite_all~ Ksubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Ksubst_t_Kopen_comm.
-      - inverts X0 ; simpls*.
-        forwards* Hval: is_value_Ksubst H.
+      - inverts H ; simpls*.
+        forwards* Hval: is_value_Ksubst H0.
     Qed.
 
     Lemma Kopen_step_change :
