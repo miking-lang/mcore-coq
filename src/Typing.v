@@ -1192,5 +1192,45 @@ Module Typing (P : PAT).
           rewrite Tsubst_t_Kopen_comm. apply_ih_map_bind H4 ; auto. }
     Qed.
 
+    Lemma ok_kind_con_strengthening :
+      forall K G2 G1 d ty' T k,
+        K \notin Kfv_k k ->
+        ok_kind (G1 & K ~ BindCon d ty' T & G2) k ->
+        ok_kind (G1 & G2) k.
+    Admitted.
+
+    Lemma ok_type_con_strengthening :
+      forall K G2 G1 d ty' T ty k,
+        K \notin Kfv_ty ty ->
+        G1 & K ~ BindCon d ty' T & G2 |= ty ~:: k ->
+        ok_env (G1 & G2) ->
+        G1 & G2 |= ty ~:: k.
+    Admitted.
+    (* Proof with eauto using ok_data_tname_strengthening, ok_kind_tname_strengthening with mcore. *)
+    (*   introv Hfv Htk Henv. *)
+    (*   remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2. *)
+    (*   induction Htk ; intros ; simpls ; substs... *)
+    (*   { Case "TyFVar". constructor~. binds_cases H0 ; auto. } *)
+    (*   { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv. *)
+    (*     apply_fresh KAll as X... *)
+    (*     apply_ih_bind H1 ; auto. rewrite topen_notin_T ; simpls~. constructors... } *)
+    (* Qed. *)
+
+    Lemma ok_type_notin_K :
+      forall Gamma T k X,
+        Gamma |= T ~:: k ->
+        X # Gamma ->
+        X \notin Kfv_ty T.
+    Admitted.
+
+    Lemma ok_term_Ksubst :
+      forall G2 G1 K K' d ty' T t ty,
+        G1 & K ~ BindCon d ty' T & G2 |= t ~: ty ->
+        K' # G1 & K ~ BindCon d ty' T & G2 ->
+        G1 & K' ~ BindCon d ty' T &
+          map (Kbsubst K (FCon K')) G2 |=
+              Ksubst_t K (FCon K') t ~: Ksubst_ty K (FCon K') ty.
+    Admitted.
+
   End Typing.
 End Typing.

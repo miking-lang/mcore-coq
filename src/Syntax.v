@@ -618,6 +618,14 @@ Module Syntax (P : PAT).
     | _ => b
     end.
 
+  Definition Kbsubst (X : var) (U : con) (b : binding) :=
+    match b with
+    | BindVar T => BindVar (Ksubst_ty X U T)
+    | BindTVar k => BindTVar (Ksubst_k X U k)
+    | BindCon d ty T => BindCon (Ksubst_d X U d) (Ksubst_ty X U ty) T
+    | _ => b
+    end.
+
   (**********************************)
   (** TACTICS FOR LOCALLY NAMELESS **)
   (**********************************)
@@ -2289,6 +2297,22 @@ Module Syntax (P : PAT).
         [{i ~> Ksubst_ty X K U}] (Ksubst_t X K t).
   Proof. introv. gen i. solve_eq t ; apply Ksubst_ty_topen_distr. Qed.
 
+  Lemma Ksubst_t_open_comm :
+    forall i X K t x,
+      Ksubst_t X K ([i ~> TmFVar x] t) = [i ~> TmFVar x] (Ksubst_t X K t).
+  Proof. introv. gen i. solve_eq t. Qed.
+
+  Lemma Ksubst_ty_topen_comm :
+    forall i X K ty x,
+      Ksubst_ty X K ({i ~> TyFVar x} ty) =
+        {i ~> TyFVar x} (Ksubst_ty X K ty).
+  Proof. introv. gen i. solve_eq ty. Qed.
+
+  Lemma Ksubst_t_topen_comm :
+    forall i X K t x,
+      Ksubst_t X K ([{i ~> TyFVar x}] t) = [{i ~> TyFVar x}] (Ksubst_t X K t).
+  Proof. introv. gen i. solve_eq t ; apply Ksubst_ty_topen_comm. Qed.
+
   Lemma Ksubst_d_Kopen_comm :
     forall i X K U d,
       X <> K ->
@@ -2536,6 +2560,138 @@ Module Syntax (P : PAT).
   Proof.
     introv Hneq1 Hneq2 Heq.
     solve_var ; inverts~ Heq.
+  Qed.
+
+  Lemma Ksubst_d_fresh :
+    forall K U d,
+      K \notin Kfv_d d ->
+      Ksubst_d K U d = d.
+  Proof.
+    introv Hfv. unfolds. unfolds Kfv_d.
+    induction~ d. destruct a.
+    rew_listx in *. do 2 fequals~.
+    induction~ l. rew_listx in *. fequals~.
+    destruct a ; solve_var.
+  Qed.
+
+  Lemma Ksubst_k_fresh :
+    forall K U k,
+      K \notin Kfv_k k ->
+      Ksubst_k K U k = k.
+  Proof. introv Hfv. solve_eq k. apply~ Ksubst_d_fresh. Qed.
+
+  Lemma Ksubst_ty_fresh :
+    forall K U ty,
+      K \notin Kfv_ty ty ->
+      Ksubst_ty K U ty = ty.
+  Proof.
+    introv Hfv. solve_eq ty.
+    - apply~ Ksubst_k_fresh.
+    - apply~ Ksubst_d_fresh.
+  Qed.
+
+  Lemma Ksubst_d_lcd :
+    forall X U d,
+      lcd d ->
+      lcd (Ksubst_d X (FCon U) d).
+  Proof.
+    introv Hlcd. unfolds lcd. unfolds Ksubst_d.
+    induction Hlcd ; rew_listx~.
+    destruct x. destruct H. do 2 splits~.
+    induction l0 ; rew_listx~.
+    rew_listx in H0. destruct H0. splits~.
+    destruct a ; solve_var.
+  Qed.
+
+  Lemma Ksubst_k_lck :
+    forall X U k,
+      lck k ->
+      lck (Ksubst_k X (FCon U) k).
+  Proof with eauto using Ksubst_d_lcd with mcore.
+    introv Hlck. induction Hlck...
+  Qed.
+
+  Lemma Ksubst_ty_lct :
+    forall X U K,
+      lct K ->
+      lct (Ksubst_ty X (FCon U) K).
+  Proof with eauto using Ksubst_d_lcd, Ksubst_k_lck with mcore.
+    introv Hlct.
+    induction Hlct; solve_var...
+    - apply_fresh LCTAll...
+      rewrite~ <- Ksubst_ty_topen_comm.
+  Qed.
+
+  Lemma notin_Kopen_d :
+    forall i K d,
+      K \notin Kfv_d (Kopen_d i (FCon K) d) ->
+      Kopen_d i (FCon K) d = d.
+  Proof.
+    introv Hfv. unfolds Kopen_d. unfolds Kfv_d.
+    induction~ d. destruct a.
+    rew_listx in *. do 2 fequals~.
+    induction~ l. rew_listx in *. fequals~.
+    destruct a ; solve_var.
+  Qed.
+
+  Lemma notin_Kopen_k :
+    forall i K k,
+      K \notin Kfv_k (Kopen_k i (FCon K) k) ->
+      Kopen_k i (FCon K) k = k.
+  Proof.
+    introv Hfv. induction k ; simpls ; fequals.
+    apply~ notin_Kopen_d.
+  Qed.
+
+  Lemma notin_Kopen_ty :
+    forall i K ty,
+      K \notin Kfv_ty (Kopen_ty i (FCon K) ty) ->
+      Kopen_ty i (FCon K) ty = ty.
+  Proof.
+    introv Hfv.
+    induction ty ; simpls ; fequals*.
+    - apply~ notin_Kopen_k.
+    - apply~ notin_Kopen_d.
+  Qed.
+
+  Lemma open_notin_K :
+    forall i x K t,
+      K \notin Kfv_t ([i ~> TmFVar x]t) = K \notin Kfv_t t.
+  Proof.
+    intros. rew_logic. splits ; gen i.
+    { induction t ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ; solve_var. }
+    { induction t ; introv Hfv ; simpls ; solve_var. }
+  Qed.
+
+  Lemma topen_notin_K :
+    forall K i ty1 ty2,
+      K \notin Kfv_ty ty1 ->
+      K \notin Kfv_ty ({i ~> ty1}ty2) = K \notin Kfv_ty ty2.
+  Proof.
+    intros. rew_logic. splits ; gen i.
+    { induction ty2 ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ; solve_var. }
+    { induction ty2 ; introv Hfv ; solve_var. }
+  Qed.
+
+  Lemma topen_t_notin_K :
+    forall i x K t,
+      K \notin Kfv_t ([{i ~> TyFVar x}]t) = K \notin Kfv_t t.
+  Proof.
+    intros. rew_logic. splits ; gen i.
+    { induction t ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ;
+        try rewrite topen_notin_K in Hfv; solve_var. }
+    { induction t ; introv Hfv ; simpls ; rewrite_all notin_union ; solve_var ;
+        try rewrite topen_notin_K ; simpls~. }
+  Qed.
+
+  Lemma topen_topen_comm :
+    forall i j u1 u2 ty,
+      i <> j ->
+      lct u1 -> lct u2 ->
+      {i ~> u1} ({j ~> u2} ty) = {j ~> u2} ({i ~> u1} ty).
+  Proof.
+    introv Hneq Hlct1 Hlct2. gen i j.
+    solve_eq ty ; rewrite~ topen_lct.
   Qed.
 
 End Syntax.
