@@ -84,8 +84,8 @@ Module SmallStep (P : PAT).
         TmApp (TmLam ty t) v --> [0 ~> v]t
     | ETyApp : forall k t ty,
         TmTyApp (TmTyLam k t) ty --> [{0 ~> ty}]t
-    | EFix : forall {ty : type} {t : term},
-                    eval_step (TmFix (TmLam ty t)) ([0 ~> (TmFix (TmLam ty t))]t)
+    | EFix : forall ty t,
+        TmFix (TmLam ty t) --> [0 ~> TmFix (TmLam ty t)]t
     (* | EProj1 : forall {v1 v2 : term}, *)
     (*     is_value v1 -> *)
     (*     is_value v2 -> *)
@@ -248,8 +248,7 @@ Module SmallStep (P : PAT).
       - rewrite Ksubst_t_open_distr.
         forwards* Hval: is_value_Ksubst H.
       - rewrite* Ksubst_t_topen_distr.
-      - rewrite* Ksubst_t_open_distr.
-        simpls*.
+      - rewrite Ksubst_t_open_distr. simpls*.
       - forwards Hval: is_value_Ksubst H.
         forwards* Hpush: push_Ksubst TmType H0.
       - forwards Hval: is_value_Ksubst H.

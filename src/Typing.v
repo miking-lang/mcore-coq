@@ -147,7 +147,7 @@ Module Typing (P : PAT).
         Gamma |= t ~: TyAll k ty1 ->
         Gamma |= ty2 ~:: k ->
         Gamma |= TmTyApp t ty2 ~: ({0 ~> ty2}ty1)
-    | TFix : forall {Gamma : env} {ty : type} {t : term},
+    | TFix : forall Gamma ty t,
         ok_term Gamma t (TyArr ty ty) ->
         ok_term Gamma (TmFix t) ty
     (* | TmProd' : forall {Gamma : env} {ty1 ty2 : type} {t1 t2 : term}, *)
