@@ -23,21 +23,14 @@ Module SmallStep (P : PAT).
   #[export]
    Hint Constructors is_value : mcore.
 
-  Inductive push_value : (term -> term) -> term -> term -> Prop :=
-  | PLam   : forall ty t f,
-      push_value f (TmLam ty t) (TmLam ty (f t))
-  | PTyLam : forall k t f,
-      push_value f (TmTyLam k t) (TmTyLam k (f t))
-  | PProd  : forall t1 t1' t2 t2' f,
-      push_value f t1 t1' ->
-      push_value f t2 t2' ->
-      push_value f (TmProd t1 t2) (TmProd t1' t2')
-  | PCon   : forall K ty t t' f,
-      push_value f t t' ->
-      push_value f (TmCon K ty t) (TmCon K ty t')
-  .
-  #[export]
-   Hint Constructors push_value : mcore.
+  Fixpoint push_value (f : term -> term) (t : term) : term :=
+    match t with
+    | TmLam ty t' => TmLam ty (f t')
+    | TmTyLam k t' => TmTyLam k (f t')
+    | TmProd t1 t2 => TmProd (push_value f t1) (push_value f t2)
+    | TmCon K ty t' => TmCon K ty (push_value f t')
+    | _ => arbitrary
+    end.
 
   Module Type MATCH.
     Parameter match1 :
@@ -98,14 +91,12 @@ Module SmallStep (P : PAT).
         is_value v1 ->
         is_value v2 ->
         TmProj F2 (TmProd v1 v2) --> v2
-    | EType : forall v v',
+    | EType : forall v,
         is_value v ->
-        push_value TmType v v' ->
-        TmType v --> v'
-    | EConDef : forall d ty T v v',
+        TmType v --> push_value TmType v
+    | EConDef : forall d ty T v,
         is_value v ->
-        push_value (TmConDef d ty T) v v' ->
-        TmConDef d ty T v --> v'
+        TmConDef d ty T v --> push_value (TmConDef d ty T) v
     | ETypeCong : forall L t1 t2,
         (forall T, T \notin L ->
               Topen_t 0 (FTName T) t1 --> Topen_t 0 (FTName T) t2) ->
@@ -155,13 +146,6 @@ Module SmallStep (P : PAT).
     Definition econg_CCon K ty := ECong (CCon K ty).
     #[export] Hint Resolve econg_CCon : mcore.
 
-    Lemma is_value_push : forall f v, is_value v -> exists v', push_value f v v'.
-    Proof.
-      introv Hval. induction* Hval.
-      - destruct IHHval1. destruct* IHHval2.
-      - destruct* IHHval.
-    Qed.
-
     Lemma Topen_is_value :
       forall i T v,
         is_value (Topen_t i T v) ->
@@ -183,11 +167,15 @@ Module SmallStep (P : PAT).
     Lemma push_Tsubst :
       forall f f' X T t1 t2,
         (forall t, Tsubst_t X T (f t) = f' (Tsubst_t X T t)) ->
-        push_value f t1 t2 ->
-        push_value f' (Tsubst_t X T t1) (Tsubst_t X T t2).
+        is_value t1 ->
+        push_value f t1 = t2 ->
+        push_value f' (Tsubst_t X T t1) = Tsubst_t X T t2.
     Proof.
-      introv Heq Hpush.
-      induction Hpush ; simpls* ; rewrite* Heq.
+      introv Heq Hval Hpush. gen t2.
+      induction Hval ; intros ; destruct t2 ; inverts Hpush ;
+        simpls ; try rewrite~ Heq.
+      - erewrite~ IHHval1. erewrite~ IHHval2.
+      - erewrite~ IHHval.
     Qed.
 
     Lemma step_Tsubst :
@@ -206,9 +194,9 @@ Module SmallStep (P : PAT).
       - forwards Hval: is_value_Tsubst H.
         forwards* Hval': is_value_Tsubst H0.
       - forwards Hval: is_value_Tsubst H.
-        forwards* Hpush: push_Tsubst TmType H0.
+        forwards* Hpush: push_Tsubst TmType H. rewrite* <- Hpush.
       - forwards Hval: is_value_Tsubst H.
-        forwards* Hpush: push_Tsubst (TmConDef d ty T0) H0.
+        forwards* Hpush: push_Tsubst (TmConDef d ty T0) H. rewrite* <- Hpush.
       - apply_fresh ETypeCong. rewrite_all~ Tsubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Tsubst_t_Kopen_comm.
       - inverts H ; simpls*.
@@ -248,11 +236,15 @@ Module SmallStep (P : PAT).
     Lemma push_Ksubst :
       forall f f' X T t1 t2,
         (forall t, Ksubst_t X T (f t) = f' (Ksubst_t X T t)) ->
-        push_value f t1 t2 ->
-        push_value f' (Ksubst_t X T t1) (Ksubst_t X T t2).
+        is_value t1 ->
+        push_value f t1 = t2 ->
+        push_value f' (Ksubst_t X T t1) = Ksubst_t X T t2.
     Proof.
-      introv Heq Hpush.
-      induction Hpush ; simpls* ; rewrite* Heq.
+      introv Heq Hval Hpush. gen t2.
+      induction Hval ; intros ; destruct t2 ; inverts Hpush ;
+        simpls ; try rewrite~ Heq.
+      - erewrite~ IHHval1. erewrite~ IHHval2.
+      - erewrite~ IHHval.
     Qed.
 
     Lemma step_Ksubst :
@@ -271,9 +263,9 @@ Module SmallStep (P : PAT).
       - forwards Hval: is_value_Ksubst H.
         forwards* Hval': is_value_Ksubst H0.
       - forwards Hval: is_value_Ksubst H.
-        forwards* Hpush: push_Ksubst TmType H0.
+        forwards* Hpush: push_Ksubst TmType H. rewrite* <- Hpush.
       - forwards Hval: is_value_Ksubst H.
-        forwards* Hpush: push_Ksubst (TmConDef d ty T) H0.
+        forwards* Hpush: push_Ksubst (TmConDef d ty T) H. rewrite* <- Hpush.
       - apply_fresh ETypeCong. rewrite_all~ Ksubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Ksubst_t_Kopen_comm.
       - inverts H ; simpls*.

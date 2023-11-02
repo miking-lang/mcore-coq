@@ -12,15 +12,14 @@ Module Soundness (P : PAT).
     Import Typing SmallStep.
 
     Lemma ok_term_Topen_push :
-      forall T Gamma t t' ty,
+      forall T Gamma t ty,
         T \notin dom Gamma \u Tfv_t t \u Tfv_ty ty ->
         Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty ->
-        push_value TmType t t' ->
-        Gamma |= t' ~: ty.
+        is_value t ->
+        Gamma |= push_value TmType t ~: ty.
     Proof with eauto with mcore.
-      introv Hfresh Htype Hpush. gen ty.
-      remember TmType as f eqn:Hf.
-      induction Hpush ; introv Hfresh Htype ; substs ; inverts Htype ; simpls.
+      introv Hfresh Htype Hval. gen ty.
+      induction Hval ; introv Hfresh Htype ; substs ; inverts Htype ; simpls.
       { Case "TmLam". rewrite notin_Topen_ty in *...
         assert (Gamma |= ty ~:: KiType)
           by (apply_empty~ (ok_type_tname_strengthening T) ; apply* ok_env_push).
@@ -46,7 +45,7 @@ Module Soundness (P : PAT).
         + binds_cases H2...
         + apply_empty (ok_type_tname_strengthening T) ; auto ; apply* ok_env_push.
         + apply_empty (ok_type_tname_strengthening T) ; auto ; apply* ok_env_push.
-        + specializes~ IHHpush __. apply~ IHHpush.
+        + specializes~ IHHval __. apply~ IHHval.
           assert (T \notin Tfv_ty ({0 ~> ty} ty1))...
           rewrite~ topen_notin_T. binds_cases H2.
           forwards (L'&?&?&?&Htk&?): ok_env_binds_con_inv B. apply* ok_env_push.
@@ -55,15 +54,15 @@ Module Soundness (P : PAT).
     Qed.
 
     Lemma ok_term_Kopen_push :
-      forall K Gamma d ty' T t t' ty,
+      forall K Gamma d ty' T t ty,
         K \notin dom Gamma \u Kfv_t t \u Kfv_ty ty ->
         Gamma & K ~ BindCon d ty' T |= Kopen_t 0 (FCon K) t ~: ty ->
-        push_value (TmConDef d ty' T) t t' ->
-        Gamma |= t' ~: ty.
+        is_value t ->
+        Gamma |= push_value (TmConDef d ty' T) t ~: ty.
     Proof with eauto with mcore.
-      introv Hfresh Htype Hpush. gen ty.
+      introv Hfresh Htype Hval. gen ty.
       remember (TmConDef d ty' T) as f eqn:Hf.
-      induction Hpush ; introv Hfresh Htype ;
+      induction Hval ; introv Hfresh Htype ;
         forwards Henv : ok_term_ok_env Htype ;
         forwards (L0 & T' & Heq & Hd & Htk & HT): ok_env_con_inv Henv ;
         inverts Htype ; substs ; simpls.
@@ -121,7 +120,7 @@ Module Soundness (P : PAT).
         constructors~.
         + binds_cases H2...
         + apply_empty (ok_type_con_strengthening K) ; eauto ; apply* ok_env_push.
-        + specializes~ IHHpush __. apply~ IHHpush.
+        + specializes~ IHHval __. apply~ IHHval.
           assert (K \notin Kfv_ty ({0 ~> ty} ty1))...
           rewrite~ topen_notin_K. binds_cases H2.
           forwards (L'&?&?&?&Htk'&?): ok_env_binds_con_inv B. apply* ok_env_push.
@@ -195,8 +194,7 @@ Module Soundness (P : PAT).
       { Case "TmType". right. pick_fresh T.
         forwards* [Hval | (t' & Hstep)]: H0 T.
         + introv Hb. binds_cases Hb. apply* Hnv.
-        + forwards Hval' : Topen_is_value Hval.
-          forwards* (v' & Hpush): is_value_push Hval'.
+        + forwards* Hval' : Topen_is_value Hval.
         + rewrite <- (Topen_t_Tclose 0 T t') in Hstep.
           * eexists. apply_fresh ETypeCong.
             apply* Topen_step_change. lets~ ?: Tclose_t_notin T 0 t'.
@@ -204,8 +202,7 @@ Module Soundness (P : PAT).
       { Case "TmConDef". right. pick_fresh K.
         forwards* [Hval | (t' & Hstep)]: H3 K.
         + introv Hb. binds_cases Hb. apply* Hnv.
-        + forwards Hval' : Kopen_is_value Hval.
-          forwards* (v' & Hpush): is_value_push Hval'.
+        + forwards* Hval' : Kopen_is_value Hval.
         + rewrite <- (Kopen_t_Kclose 0 K t') in Hstep.
           * eexists. apply_fresh EConDefCong.
             apply* Kopen_step_change. lets~ ?: Kclose_t_notin K 0 t'.
