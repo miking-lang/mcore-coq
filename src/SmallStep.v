@@ -27,8 +27,8 @@ Module SmallStep (P : PAT).
     match t with
     | TmLam ty t' => TmLam ty (f t')
     | TmTyLam k t' => TmTyLam k (f t')
-    | TmProd t1 t2 => TmProd (push_value f t1) (push_value f t2)
-    | TmCon K ty t' => TmCon K ty (push_value f t')
+    | TmProd t1 t2 => TmProd (f t1) (f t2)
+    | TmCon K ty t' => TmCon K ty (f t')
     | _ => arbitrary
     end.
 
@@ -173,9 +173,7 @@ Module SmallStep (P : PAT).
     Proof.
       introv Heq Hval Hpush. gen t2.
       induction Hval ; intros ; destruct t2 ; inverts Hpush ;
-        simpls ; try rewrite~ Heq.
-      - erewrite~ IHHval1. erewrite~ IHHval2.
-      - erewrite~ IHHval.
+        simpls ; rewrite_all~ Heq.
     Qed.
 
     Lemma step_Tsubst :
@@ -242,9 +240,7 @@ Module SmallStep (P : PAT).
     Proof.
       introv Heq Hval Hpush. gen t2.
       induction Hval ; intros ; destruct t2 ; inverts Hpush ;
-        simpls ; try rewrite~ Heq.
-      - erewrite~ IHHval1. erewrite~ IHHval2.
-      - erewrite~ IHHval.
+        simpls ; rewrite_all~ Heq.
     Qed.
 
     Lemma step_Ksubst :

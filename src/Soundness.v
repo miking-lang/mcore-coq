@@ -13,77 +13,70 @@ Module Soundness (P : PAT).
 
     Lemma ok_term_Topen_push :
       forall T Gamma t ty,
+        is_value t ->
         T \notin dom Gamma \u Tfv_t t \u Tfv_ty ty ->
         Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty ->
-        is_value t ->
         Gamma |= push_value TmType t ~: ty.
     Proof with eauto with mcore.
-      introv Hfresh Htype Hval. gen ty.
-      induction Hval ; introv Hfresh Htype ; substs ; inverts Htype ; simpls.
+      introv Hval Hfresh Htype. destruct Hval ; inverts Htype ; simpls.
       { Case "TmLam". rewrite notin_Topen_ty in *...
-        assert (Gamma |= ty ~:: KiType)
+        assert (Gamma |= ty0 ~:: KiType)
           by (apply_empty~ (ok_type_tname_strengthening T) ; apply* ok_env_push).
         apply_fresh* TLam as x.
         forwards~ Htype': H4 x. apply_fresh TType as T'...
-        rewrite~ (Tsubst_t_intro T (FTName T')).
-        + rewrite~ <- (Tsubst_ty_fresh T (FTName T')). apply_empty ok_term_Tsubst...
-          rewrite* Topen_t_open_comm. apply_empty ok_term_comm...
-        + rewrite~ open_notin_T. }
+        applys~ ok_term_Topen_change T.
+        - rewrite notin_union. rewrite~ open_notin_T.
+        - rewrite* Topen_t_open_comm. apply_empty* ok_term_comm. }
       { Case "TmTyLam". rewrite notin_Topen_k in *...
         assert (ok_kind Gamma k) by apply_empty~ (ok_kind_tname_strengthening T).
         apply_fresh* TTyLam as X.
         forwards~ Htype': H4 X. apply_fresh TType as T'...
-        rewrite~ (Tsubst_t_intro T (FTName T')).
-        + rewrite~ <- (Tsubst_ty_fresh T (FTName T')).
-          * apply_empty ok_term_Tsubst... rewrite* Topen_t_topen_comm.
-            apply_empty~ ok_term_comm. constructor~. constructor~. apply* ok_env_push.
-          * rewrite~ topen_notin_T. simpls~.
-        + rewrite~ topen_t_notin_T. }
-      { Case "TmProd". constructor*. }
+        applys~ ok_term_Topen_change T.
+        - rewrite notin_union. rewrite topen_t_notin_T. rewrite topen_notin_T ; simpls~.
+        - rewrite* Topen_t_topen_comm. apply_empty~ ok_term_comm.
+          constructor~. constructor~. apply* ok_env_push. }
+      { Case "TmProd".
+        constructor ; apply_fresh TType as T' ; applys~ ok_term_Topen_change T. }
       { Case "TmCon". rewrite notin_Topen_ty in *...
         constructors.
         + binds_cases H2...
         + apply_empty (ok_type_tname_strengthening T) ; auto ; apply* ok_env_push.
         + apply_empty (ok_type_tname_strengthening T) ; auto ; apply* ok_env_push.
-        + specializes~ IHHval __. apply~ IHHval.
-          assert (T \notin Tfv_ty ({0 ~> ty} ty1))...
+        + apply_fresh TType as T'. applys~ ok_term_Topen_change T.
+          assert (T \notin Tfv_ty ({0 ~> ty0} ty1))...
           rewrite~ topen_notin_T. binds_cases H2.
           forwards (L'&?&?&?&Htk&?): ok_env_binds_con_inv B. apply* ok_env_push.
           pick_fresh X. forwards~ Hnin: ok_type_notin_T T (Htk X).
-          rewrite~ topen_notin_T in Hnin. simpls~. }
+          rewrite topen_notin_T in Hnin ; simpls~. }
     Qed.
 
     Lemma ok_term_Kopen_push :
       forall K Gamma d ty' T t ty,
+        is_value t ->
         K \notin dom Gamma \u Kfv_t t \u Kfv_ty ty ->
         Gamma & K ~ BindCon d ty' T |= Kopen_t 0 (FCon K) t ~: ty ->
-        is_value t ->
         Gamma |= push_value (TmConDef d ty' T) t ~: ty.
     Proof with eauto with mcore.
-      introv Hfresh Htype Hval. gen ty.
-      remember (TmConDef d ty' T) as f eqn:Hf.
-      induction Hval ; introv Hfresh Htype ;
-        forwards Henv : ok_term_ok_env Htype ;
-        forwards (L0 & T' & Heq & Hd & Htk & HT): ok_env_con_inv Henv ;
-        inverts Htype ; substs ; simpls.
-      { Case "TmLam". assert (Heq: Kopen_ty 0 (FCon K) ty = ty) by apply~ notin_Kopen_ty.
+      introv Hval Hfresh Htype. forwards Henv : ok_term_ok_env Htype.
+      forwards (L0 & T' & Heq & Hd & Htk & HT): ok_env_con_inv Henv.
+      destruct Hval ; inverts Htype ; substs ; simpls.
+      { Case "TmLam". assert (Heq: Kopen_ty 0 (FCon K) ty0 = ty0) by apply~ notin_Kopen_ty.
         rewrite Heq in *.
-        assert (Gamma |= ty ~:: KiType)
+        assert (Gamma |= ty0 ~:: KiType)
           by (apply_empty~ (ok_type_con_strengthening K) ; eauto ; apply* ok_env_push).
         assert (Hty' : forall x X,
                    X \notin L0 \u dom Gamma \u \{x} ->
                    x # Gamma ->
-                   Gamma & x ~ BindVar ty & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X} ty' ~:: KiType).
+                   Gamma & x ~ BindVar ty0 & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X} ty' ~:: KiType).
         { introv Hnin Hfr. forwards~ Htk' : Htk X. apply~ ok_type_weakening.
           constructor*. constructor~. apply_empty~ ok_data_weakening. constructor*. }
         apply_fresh* TLam as x.
         forwards~ Htype': H4 x. apply_fresh TConDef as K'...
         - apply_empty ok_data_weakening...
-        - rewrite~ (Ksubst_t_intro K (FCon K')).
-          + rewrite~ <- (Ksubst_ty_fresh K (FCon K')). apply_empty ok_term_Ksubst...
-            rewrite* Kopen_t_open_comm. apply_empty~ ok_term_comm.
-            apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. constructor...
-          + rewrite~ open_notin_K. }
+        - applys~ ok_term_Kopen_change K.
+          + rewrite notin_union. rewrite~ open_notin_K.
+          + rewrite* Kopen_t_open_comm. apply_empty~ ok_term_comm.
+            apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. constructor... }
       { Case "TmTyLam". assert (Heq: Kopen_k 0 (FCon K) k = k) by apply~ notin_Kopen_k.
         rewrite Heq in *.
         assert (ok_kind Gamma k) by apply_empty* (ok_kind_con_strengthening K).
@@ -100,16 +93,14 @@ Module Soundness (P : PAT).
         forwards~ Htype': H4 X. apply_fresh TConDef as K'...
         - apply_empty ok_data_weakening...
         - rewrite~ Heq'.
-        - rewrite Heq'. rewrite~ (Ksubst_t_intro K (FCon K')).
-          + rewrite~ <- (Ksubst_ty_fresh K (FCon K')).
-            * apply_empty ok_term_Ksubst... rewrite* Kopen_t_topen_comm. apply_empty~ ok_term_comm.
-              apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. constructor...
-            * rewrite~ topen_notin_K. simpls~.
-          + rewrite~ topen_t_notin_K. }
-      { Case "TmProd". constructor*. }
-      { Case "TmCon". assert (Heq: Kopen_ty 0 (FCon K) ty = ty) by apply~ notin_Kopen_ty.
+        - rewrite Heq'. applys~ ok_term_Kopen_change K.
+          + rewrite notin_union. rewrite topen_t_notin_K. rewrite topen_notin_K ; simpls~.
+          + rewrite* Kopen_t_topen_comm. apply_empty~ ok_term_comm.
+            apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. constructor... }
+      { Case "TmProd". constructor ; apply_fresh* TConDef as K' ; applys~ ok_term_Kopen_change K. }
+      { Case "TmCon". assert (Heq: Kopen_ty 0 (FCon K) ty0 = ty0) by apply~ notin_Kopen_ty.
         rewrite Heq in *.
-        assert (Htk1 : Gamma |= ty ~:: KiData [ (FTName T0, FCon K1 :: []) ]).
+        assert (Htk1 : Gamma |= ty0 ~:: KiData [ (FTName T0, FCon K1 :: []) ]).
         { apply_empty* (ok_type_con_strengthening K). }
         assert (Hneq : K1 <> K).
         { intro ; subst. forwards~ Hk : ok_type_ok_kind Htk1.
@@ -120,8 +111,8 @@ Module Soundness (P : PAT).
         constructors~.
         + binds_cases H2...
         + apply_empty (ok_type_con_strengthening K) ; eauto ; apply* ok_env_push.
-        + specializes~ IHHval __. apply~ IHHval.
-          assert (K \notin Kfv_ty ({0 ~> ty} ty1))...
+        + apply_fresh TConDef as K'... applys~ ok_term_Kopen_change K.
+          assert (K \notin Kfv_ty ({0 ~> ty0} ty1))...
           rewrite~ topen_notin_K. binds_cases H2.
           forwards (L'&?&?&?&Htk'&?): ok_env_binds_con_inv B. apply* ok_env_push.
           pick_fresh X. forwards~ Hnin': ok_type_notin_K K (Htk' X).

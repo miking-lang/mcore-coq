@@ -1170,6 +1170,20 @@ Module Typing (P : PAT).
           rewrite Tsubst_t_Kopen_comm. apply_ih_map_bind H3 ; auto. }
     Qed.
 
+    Lemma ok_term_Topen_change :
+      forall T T' Gamma t ty,
+        T \notin Tfv_t t \u Tfv_ty ty ->
+        T' # Gamma & T ~ BindTName ->
+        Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty ->
+        Gamma & T' ~ BindTName |= Topen_t 0 (FTName T') t ~: ty.
+    Proof.
+      introv Hnin Hfresh Htype.
+      rewrite~ (Tsubst_t_intro T (FTName T')).
+      rewrite~ <- (Tsubst_ty_fresh T (FTName T')).
+      apply_empty~ ok_term_Tsubst.
+    Qed.
+
+
     Lemma ok_data_con_strengthening :
       forall K G2 G1 d' ty' T d,
         K \notin Kfv_d d ->
@@ -1500,6 +1514,19 @@ Module Typing (P : PAT).
         - replaces (BindCon (Ksubst_d K (FCon K') d0) (Ksubst_ty K (FCon K') ty1) (FTName T0))
             with (Kbsubst K (FCon K') (BindCon d0 ty1 (FTName T0)))...
           rewrite~ Ksubst_t_Kopen_comm. apply_ih_map_bind H3 ; auto. }
+    Qed.
+
+    Lemma ok_term_Kopen_change :
+      forall K K' d ty' T Gamma t ty,
+        K \notin Kfv_t t \u Kfv_ty ty ->
+        K' # Gamma & K ~ BindCon d ty' T ->
+        Gamma & K ~ BindCon d ty' T |= Kopen_t 0 (FCon K) t ~: ty ->
+        Gamma & K' ~ BindCon d ty' T |= Kopen_t 0 (FCon K') t ~: ty.
+    Proof.
+      introv Hnin Hfresh Htype.
+      rewrite~ (Ksubst_t_intro K (FCon K')).
+      rewrite~ <- (Ksubst_ty_fresh K (FCon K')).
+      apply_empty~ ok_term_Ksubst.
     Qed.
 
   End Typing.
