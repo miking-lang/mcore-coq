@@ -9,7 +9,7 @@ Module Typing (P : PAT).
   Export S.
 
   Module Type PATCHECK.
-    Parameter ok_pat : env -> pat -> type -> env -> Prop.
+    Parameter ok_pat : env -> pat -> type -> type -> Prop.
     Parameter matches_contradictory : env -> Prop.
     Parameter pats_compatible : list pat -> type -> Prop.
     Parameter pats_exhaustive : list pat -> type -> Prop.
@@ -76,10 +76,10 @@ Module Typing (P : PAT).
         Gamma |= ty ~:: KiData d ->
         mem (FTName T, Ks) d ->
         Gamma |= TyCon ty (FTName T) ~:: KiType
-    (* | TySem' : forall {Gamma : env} {ty1 ty2 : type} {ps : list pat}, *)
-    (*     ok_type Gamma ty1 KiType -> *)
-    (*     ok_type Gamma ty2 KiType -> *)
-    (*     ok_type Gamma (TySem ty1 ty2 ps) KiType *)
+    | KSem : forall Gamma ty1 ty2 ps,
+        Gamma |= ty1 ~:: KiType ->
+        Gamma |= ty2 ~:: KiType ->
+        Gamma |= TySem ty1 ty2 ps ~:: KiType
     | KData : forall Gamma d,
         ok_env Gamma ->
         ok_data Gamma d ->
@@ -131,7 +131,7 @@ Module Typing (P : PAT).
     | TLam : forall L Gamma ty1 ty2 t,
         Gamma |= ty1 ~:: KiType ->
         (forall x, x \notin L ->
-                   (Gamma & x ~ BindVar ty1) |= [0 ~> TmFVar x]t ~: ty2) ->
+              (Gamma & x ~ BindVar ty1) |= [0 ~> TmFVar x]t ~: ty2) ->
         Gamma |= TmLam ty1 t ~: TyArr ty1 ty2
     | TApp : forall Gamma ty1 ty2 t1 t2,
         Gamma |= t1 ~: TyArr ty1 ty2 ->
@@ -140,7 +140,7 @@ Module Typing (P : PAT).
     | TTyLam : forall L Gamma k ty t,
         ok_kind Gamma k ->
         (forall X, X \notin L ->
-                   (Gamma & X ~ BindTVar k) |= [{0 ~> TyFVar X}]t ~: ({0 ~> TyFVar X}ty)) ->
+              (Gamma & X ~ BindTVar k) |= [{0 ~> TyFVar X}]t ~: ({0 ~> TyFVar X}ty)) ->
         Gamma |= TmTyLam k t ~: (TyAll k ty)
     | TTyApp : forall Gamma k ty1 ty2 t,
         Gamma |= t ~: TyAll k ty1 ->
@@ -189,32 +189,22 @@ Module Typing (P : PAT).
         (forall K, K \notin L ->
               Gamma & K ~ BindCon d ty1 (FTName T) |= Kopen_t 0 (FCon K) t ~: ty2) ->
         Gamma |= TmConDef d ty1 (FTName T) t ~: ty2
-    (* | TmSem' : forall {Gamma : env} {ty1 ty2 : type} *)
-    (*                   {cases : list (pat * term)}, *)
-    (*     ok_type Gamma ty1 KiType -> *)
-    (*     Forall (fun (c : pat * term) => *)
-    (*               exists (vs : var_env), *)
-    (*                 ok_pat Gamma (fst c) ty1 vs /\ *)
-    (*                   ok_term (Gamma <| vars ::= fun vs' => vs ++ vs' |>) *)
-    (*                           (snd c) ty2) *)
-    (*            cases -> *)
-    (*     pats_compatible (LibList.map fst cases) ty1 -> *)
-    (*     ok_term *)
-    (*       Gamma *)
-    (*       (TmSem ty1 cases) *)
-    (*       (TySem ty1 ty2 (LibList.map fst cases)) *)
-    (* | TmComp' : forall {Gamma : env} {ty1 ty2 : type} *)
-    (*                    {t1 t2 : term} {ps1 ps2 : list pat}, *)
-    (*     ok_term Gamma t1 (TySem ty1 ty2 ps1) -> *)
-    (*     ok_term Gamma t2 (TySem ty1 ty2 ps2) -> *)
-    (*     pats_compatible (ps1 ++ ps2) ty1 -> *)
-    (*     ok_term Gamma (TmComp t1 t2) (TySem ty1 ty2 (ps1 ++ ps2)) *)
-    (* | TmSemApp' : forall {Gamma : env} {ty1 ty2 : type} *)
-    (*                      {t1 t2 : term} {ps : list pat}, *)
-    (*     ok_term Gamma t1 (TySem ty1 ty2 ps) -> *)
-    (*     ok_term Gamma t2 ty1 -> *)
-    (*     pats_exhaustive ps ty1 -> *)
-    (*     ok_term Gamma (TmSemApp t1 t2) ty2 *)
+    | TSem : forall L Gamma ty1 ty1' ty2 p t,
+        Gamma |= ty1 ~:: KiType ->
+        ok_pat Gamma p ty1 ty1' ->
+        (forall x, x \notin L ->
+              Gamma & x ~ BindVar ty1' |= [0 ~> TmFVar x]t ~: ty2) ->
+        Gamma |= TmSem ty1 p t ~: TySem ty1 ty2 [ p ]
+    | TComp : forall Gamma ty1 ty2 t1 t2 ps1 ps2,
+        Gamma |= t1 ~: TySem ty1 ty2 ps1 ->
+        Gamma |= t2 ~: TySem ty1 ty2 ps2 ->
+        pats_compatible (ps1 ++ ps2) ty1 ->
+        Gamma |= TmComp t1 t2 ~: TySem ty1 ty2 (ps1 ++ ps2)
+    | TSemApp : forall Gamma ty1 ty2 t1 t2 ps,
+        Gamma |= t1 ~: TySem ty1 ty2 ps ->
+        Gamma |= t2 ~: ty1 ->
+        pats_exhaustive ps ty1 ->
+        Gamma |= TmSemApp t1 t2 ~: ty2
     where " Gamma |= t ~: T " := (ok_term Gamma t T).
     #[export]
      Hint Constructors ok_term : mcore.
@@ -223,6 +213,72 @@ Module Typing (P : PAT).
     (**************************)
     (** PROPERTIES OF TYPING **)
     (**************************)
+
+    Context
+      (ok_pat_ok_type :
+        forall Gamma p T T',
+          ok_pat Gamma p T T' ->
+          Gamma |= T' ~:: KiType)
+      (ok_pat_weakening :
+        forall G3 G1 G2 p T T',
+          ok_pat (G1 & G3) p T T' ->
+          ok_env (G1 & G2 & G3) ->
+          ok_pat (G1 & G2 & G3) p T T')
+      (ok_pat_strengthening :
+        forall G1 G2 x p T1 T1' T2,
+          ok_pat (G1 & x ~ BindVar T2 & G2) p T1 T1' ->
+          ok_pat (G1 & G2) p T1 T1')
+      (ok_pat_bsubst :
+        forall G1 G2 p X U T T',
+          ok_pat (G1 & G2) p T T' ->
+          ok_pat (G1 & map (bsubst X U) G2) p ({X => U}T) ({X => U}T'))
+      (ok_pat_tvar_strengthening :
+        forall G1 G2 x k p T T',
+          ok_pat (G1 & x ~ BindTVar k & G2) p T T' ->
+          ok_pat (G1 & G2) p T T')
+      (pats_compatible_tsubst :
+        forall ps X U ty,
+          pats_compatible ps ty ->
+          pats_compatible ps ({X => U} ty))
+      (pats_exhaustive_tsubst :
+        forall ps X U ty,
+          pats_exhaustive ps ty ->
+          pats_exhaustive ps ({X => U} ty))
+      (ok_pat_comm :
+        forall G1 G2 x1 x2 b1 b2 p T T',
+          ok_pat (G1 & x1 ~ b1 & x2 ~ b2 & G2) p T T' ->
+          ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+          ok_pat (G1 & x2 ~ b2 & x1 ~ b1 & G2) p T T')
+      (ok_pat_Tsubst :
+        forall G2 G1 T T' p ty ty',
+          ok_pat (G1 & T ~ BindTName & G2) p ty ty' ->
+          T' # G1 & T ~ BindTName & G2 ->
+          ok_env (G1 & T ~ BindTName & G2) ->
+          ok_pat (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
+                 p (Tsubst_ty T (FTName T') ty) (Tsubst_ty T (FTName T') ty'))
+      (pats_compatible_Tsubst :
+        forall ps T T' ty,
+          pats_compatible ps ty ->
+          pats_compatible ps (Tsubst_ty T (FTName T') ty))
+      (pats_exhaustive_Tsubst :
+        forall ps T T' ty,
+          pats_exhaustive ps ty ->
+          pats_exhaustive ps (Tsubst_ty T (FTName T') ty))
+      (ok_pat_Ksubst :
+        forall G2 G1 K K' d0 ty0 T p ty ty',
+          ok_pat (G1 & K ~ BindCon d0 ty0 T & G2) p ty ty' ->
+          K' # G1 & K ~ BindCon d0 ty0 T & G2 ->
+          ok_env (G1 & K ~ BindCon d0 ty0 T & G2) ->
+          ok_pat (G1 & K' ~ BindCon d0 ty0 T & map (Kbsubst K (FCon K')) G2)
+                 p (Ksubst_ty K (FCon K') ty) (Ksubst_ty K (FCon K') ty'))
+      (pats_compatible_Ksubst :
+        forall ps K K' ty,
+          pats_compatible ps ty ->
+          pats_compatible ps (Ksubst_ty K (FCon K') ty))
+      (pats_exhaustive_Ksubst :
+        forall ps K K' ty,
+          pats_exhaustive ps ty ->
+          pats_exhaustive ps (Ksubst_ty K (FCon K') ty)).
 
     Lemma ok_env_ok :
       forall Gamma,
@@ -327,6 +383,10 @@ Module Typing (P : PAT).
       { Case "TmProj2". inverts* IHhasType. }
       { Case "TmType". pick_fresh T. applys~ H0 T. }
       { Case "TmConDef". pick_fresh K. applys~ H3 K. }
+      { Case "TmSem". constructors...
+        pick_fresh_gen L y... }
+      { Case "TmComp". inverts* IHhasType1. }
+      { Case "TmSemApp". inverts* IHhasType1. }
     Qed.
     #[export]
      Hint Resolve ok_term_lct : mcore.
@@ -396,6 +456,9 @@ Module Typing (P : PAT).
           apply_fresh EnvCon as X...
           + apply_ih_bind ok_type_weakening...
           + apply* binds_weaken. }
+      { Case "TmSem". apply_fresh* TSem as y... apply* ok_pat_weakening.
+        apply_ih_bind H2 ; auto. constructor...
+        apply~ ok_type_weakening. apply* ok_pat_ok_type. }
     Qed.
 
     Lemma ok_data_strengthening :
@@ -522,6 +585,9 @@ Module Typing (P : PAT).
         - apply_ih_bind ok_type_strengthening ; eauto. constructor...
         - binds_cases H1; auto.
         - rewrite* Kopen_t_subst_comm. apply_ih_bind* H3. }
+      { Case "TmSem". apply_fresh* TSem as y...
+        - apply* ok_pat_strengthening.
+        - rewrite subst_open_comm... apply_ih_bind* H2. }
     Qed.
 
     Lemma ok_data_tvar_strengthening :
@@ -720,6 +786,13 @@ Module Typing (P : PAT).
           replaces BindTName with (bsubst X T2 BindTName) ; auto.
         - replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
           rewrite Kopen_t_tsubst_comm... apply_ih_map_bind H3 ; auto. }
+      { Case "TmSem". apply_fresh* TSem as x.
+        + applys ok_type_tsubst...
+        + applys* ok_pat_bsubst. applys* ok_pat_tvar_strengthening.
+        + replaces (BindVar ({X => T2}ty1')) with (bsubst X T2 (BindVar ty1'))...
+          rewrite tsubst_t_open_comm. apply_ih_map_bind H2 ; auto. }
+      { Case "TmComp". constructors*. apply~ pats_compatible_tsubst. }
+      { Case "TmSemApp". constructors*. apply~ pats_exhaustive_tsubst. }
     Qed.
 
     Lemma ok_data_comm :
@@ -796,6 +869,9 @@ Module Typing (P : PAT).
         + apply_ih_bind ok_type_comm. eauto. constructor...
         + apply_ih_bind H3 ; auto. apply_fresh EnvCon as X'...
           apply_ih_bind ok_type_comm. eauto. constructor... }
+      { Case "TmLam". apply_fresh TSem as x...
+        + apply* ok_pat_comm.
+        + apply_ih_bind H2 ; auto. constructor... apply~ ok_type_comm. apply* ok_pat_ok_type. }
     Qed.
 
     Lemma ok_env_binds_con_inv :
@@ -1168,6 +1244,16 @@ Module Typing (P : PAT).
         - replaces (BindCon (Tsubst_d T (FTName T') d) (Tsubst_ty T (FTName T') ty1) (FTName S))
             with (Tbsubst T (FTName T') (BindCon d ty1 (FTName T0))). rewrite~ <- Heq.
           rewrite Tsubst_t_Kopen_comm. apply_ih_map_bind H3 ; auto. }
+      { Case "TmSem". apply_fresh TSem as x.
+        + replaces KiType with (Tsubst_k T (FTName T') KiType)...
+          apply ok_type_Tsubst...
+        + apply ok_pat_Tsubst...
+        + rewrite <- Tsubst_t_open_comm.
+          replaces (BindVar (Tsubst_ty T (FTName T') ty1'))
+            with (Tbsubst T (FTName T') (BindVar ty1'))...
+          apply_ih_map_bind H2 ; auto. }
+      { Case "TmComp". constructor~. apply~ pats_compatible_Tsubst. }
+      { Case "TmSemApp". constructors*. apply~ pats_exhaustive_Tsubst. }
     Qed.
 
     Lemma ok_term_Topen_change :
@@ -1514,6 +1600,16 @@ Module Typing (P : PAT).
         - replaces (BindCon (Ksubst_d K (FCon K') d0) (Ksubst_ty K (FCon K') ty1) (FTName T0))
             with (Kbsubst K (FCon K') (BindCon d0 ty1 (FTName T0)))...
           rewrite~ Ksubst_t_Kopen_comm. apply_ih_map_bind H3 ; auto. }
+      { Case "TmSem". apply_fresh TSem as x.
+        + replaces KiType with (Ksubst_k K (FCon K') KiType)...
+          apply ok_type_Ksubst...
+        + apply ok_pat_Ksubst...
+        + rewrite <- Ksubst_t_open_comm.
+          replaces (BindVar (Ksubst_ty K (FCon K') ty1'))
+            with (Kbsubst K (FCon K') (BindVar ty1'))...
+          apply_ih_map_bind H2 ; auto. }
+      { Case "TmComp". constructor~. apply~ pats_compatible_Ksubst. }
+      { Case "TmSemApp". constructors*. apply~ pats_exhaustive_Ksubst. }
     Qed.
 
     Lemma ok_term_Kopen_change :

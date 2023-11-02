@@ -17,9 +17,12 @@ Module SmallStep (P : PAT).
   | VCon : forall K ty v,
       is_value v ->
       is_value (TmCon K ty v)
-  (* | VSem : forall {ty : type} {cases : list (pat * term)}, *)
-  (*     is_value (TmSem ty cases) *)
-  .
+  | VSem : forall ty p t,
+      is_value (TmSem ty p t)
+  | VComp : forall v1 v2,
+      is_value v1 ->
+      is_value v2 ->
+      is_value (TmComp v1 v2).
   #[export]
    Hint Constructors is_value : mcore.
 
@@ -29,20 +32,13 @@ Module SmallStep (P : PAT).
     | TmTyLam k t' => TmTyLam k (f t')
     | TmProd t1 t2 => TmProd (f t1) (f t2)
     | TmCon K ty t' => TmCon K ty (f t')
+    | TmSem ty p t' => TmSem ty p (f t')
+    | TmComp t1 t2 => TmComp (f t1) (f t2)
     | _ => arbitrary
     end.
 
   Module Type MATCH.
-    Parameter match1 :
-      forall v,
-        is_value v ->
-        pat ->
-        option (list term).
-    Parameter match_n :
-      forall v,
-        is_value v ->
-        list pat ->
-        option (nat * list term).
+    Parameter match1 : term -> pat -> option term.
   End MATCH.
 
   Module SmallStep (M : MATCH).
@@ -62,15 +58,14 @@ Module SmallStep (P : PAT).
     | CProj : forall i, is_context (TmProj i)
     | CCon : forall K ty, is_context (TmCon K ty)
     (* | CMatch : pat -> term -> term -> eval_context *)
-    (* | CCompL : term -> eval_context *)
-    (* | CCompR : forall (v : term), *)
-    (*     is_value v -> *)
-    (*     eval_context *)
-    (* | CSemAppL : term -> eval_context *)
-    (* | CSemAppR : forall (v : term), *)
-    (*     is_value v -> *)
-    (*     eval_context *)
-    .
+    | CCompL : forall t2, is_context (fun t1 => TmComp t1 t2)
+    | CCompR : forall (v : term),
+        is_value v ->
+        is_context (TmComp v)
+    | CSemAppL : forall t2, is_context (fun t1 => TmSemApp t1 t2)
+    | CSemAppR : forall (v : term),
+        is_value v ->
+        is_context (TmSemApp v).
     #[export]
     Hint Constructors is_context : mcore.
 
@@ -145,6 +140,14 @@ Module SmallStep (P : PAT).
     #[export] Hint Resolve econg_CProdR : mcore.
     Definition econg_CCon K ty := ECong (CCon K ty).
     #[export] Hint Resolve econg_CCon : mcore.
+    Definition econg_CCompL t2 := ECong (CCompL t2).
+    #[export] Hint Resolve econg_CCompL : mcore.
+    Definition econg_CCompR v Hv := ECong (CCompR v Hv).
+    #[export] Hint Resolve econg_CCompR : mcore.
+    Definition econg_CSemAppL t2 := ECong (CSemAppL t2).
+    #[export] Hint Resolve econg_CSemAppL : mcore.
+    Definition econg_CSemAppR v Hv := ECong (CSemAppR v Hv).
+    #[export] Hint Resolve econg_CSemAppR : mcore.
 
     Lemma Topen_is_value :
       forall i T v,
@@ -197,9 +200,7 @@ Module SmallStep (P : PAT).
         forwards* Hpush: push_Tsubst (TmConDef d ty T0) H. rewrite* <- Hpush.
       - apply_fresh ETypeCong. rewrite_all~ Tsubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Tsubst_t_Kopen_comm.
-      - inverts H ; simpls*.
-        + forwards* Hval: is_value_Tsubst H0.
-        + forwards* Hval: is_value_Tsubst H0.
+      - inverts H ; simpls* ; forwards* Hval: is_value_Tsubst H0.
     Qed.
 
     Lemma Topen_step_change :
@@ -264,9 +265,7 @@ Module SmallStep (P : PAT).
         forwards* Hpush: push_Ksubst (TmConDef d ty T) H. rewrite* <- Hpush.
       - apply_fresh ETypeCong. rewrite_all~ Ksubst_t_Topen_comm.
       - apply_fresh EConDefCong. rewrite_all~ Ksubst_t_Kopen_comm.
-      - inverts H ; simpls*.
-        + forwards* Hval: is_value_Ksubst H0.
-        + forwards* Hval: is_value_Ksubst H0.
+      - inverts H ; simpls* ; forwards* Hval: is_value_Ksubst H0.
     Qed.
 
     Lemma Kopen_step_change :

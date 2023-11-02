@@ -3,6 +3,10 @@ From MCore Require Import Tactics.
 
 Module Type PAT.
   Parameter pat : Type.
+
+  (* Parameter Kfv_p : pat -> vars. *)
+  (* Parameter Kopen_p : nat -> pat -> pat. *)
+  (* Parameter Kclose_p : nat -> pat -> pat. *)
 End PAT.
 
 Module Syntax (P : PAT).
@@ -16,21 +20,18 @@ Module Syntax (P : PAT).
 
   Inductive tname : Set :=
   | BTName : bvar -> tname
-  | FTName : var  -> tname
-  .
+  | FTName : var  -> tname.
 
   Inductive con : Set :=
   | BCon : bvar -> con
-  | FCon : var  -> con
-  .
+  | FCon : var  -> con.
 
   Definition data : Type :=
     list (tname * list con).
 
   Inductive kind : Type :=
   | KiType : kind
-  | KiData : data -> kind
-  .
+  | KiData : data -> kind.
 
   Inductive type : Type :=
   | TyBVar : bvar -> type
@@ -39,9 +40,8 @@ Module Syntax (P : PAT).
   | TyAll  : kind -> type -> type
   | TyProd : type -> type -> type
   | TyCon  : type -> tname -> type
-  (* | TySem  : type -> type -> list pat -> type *)
-  | TyData : data -> type
-  .
+  | TySem  : type -> type -> list pat -> type
+  | TyData : data -> type.
 
   #[export]
    Instance Inhab_type : Inhab type.
@@ -64,10 +64,9 @@ Module Syntax (P : PAT).
   (* | TmNever  : term *)
   | TmType   : term -> term
   | TmConDef : data -> type -> tname -> term -> term
-  (* | TmSem    : type -> list (pat * term) -> term *)
-  (* | TmComp   : term -> term -> term *)
-  (* | TmSemApp : term -> term -> term *)
-  .
+  | TmSem    : type -> pat  -> term -> term
+  | TmComp   : term -> term -> term
+  | TmSemApp : term -> term -> term.
 
   #[export]
    Instance Inhab_term : Inhab term.
@@ -96,6 +95,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => tfv T'
     | TyProd T1 T2 => tfv T1 \u tfv T2
     | TyCon ty T => tfv ty
+    | TySem T1 T2 ps => tfv T1 \u tfv T2
     | TyData d => \{}
     end.
 
@@ -113,6 +113,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => tfv ty \u tfv_t t'
     | TmType t' => tfv_t t'
     | TmConDef d ty T t' => tfv ty \u tfv_t t'
+    | TmSem ty p t' => tfv ty \u tfv_t t'
+    | TmComp t1 t2 => tfv_t t1 \u tfv_t t2
+    | TmSemApp t1 t2 => tfv_t t1 \u tfv_t t2
     end.
 
   Fixpoint fv (t : term) :=
@@ -129,6 +132,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => fv t'
     | TmType t' => fv t'
     | TmConDef d ty T t' => fv t'
+    | TmSem ty p t' => fv t'
+    | TmComp t1 t2 => fv t1 \u fv t2
+    | TmSemApp t1 t2 => fv t1 \u fv t2
     end.
 
   Notation Tfv T :=
@@ -154,6 +160,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => Tfv_k k \u Tfv_ty T'
     | TyProd T1 T2 => Tfv_ty T1 \u Tfv_ty T2
     | TyCon ty T => Tfv_ty ty \u Tfv T
+    | TySem T1 T2 ps => Tfv_ty T1 \u Tfv_ty T2
     | TyData d => Tfv_d d
     end.
 
@@ -171,6 +178,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => Tfv_ty ty \u Tfv_t t'
     | TmType t' => Tfv_t t'
     | TmConDef d ty T t' => Tfv_d d \u Tfv_ty ty \u Tfv T \u Tfv_t t'
+    | TmSem ty p t' => Tfv_ty ty \u Tfv_t t'
+    | TmComp t1 t2 => Tfv_t t1 \u Tfv_t t2
+    | TmSemApp t1 t2 => Tfv_t t1 \u Tfv_t t2
     end.
 
   Notation Kfv K :=
@@ -199,6 +209,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => Kfv_k k \u Kfv_ty T'
     | TyProd T1 T2 => Kfv_ty T1 \u Kfv_ty T2
     | TyCon ty T => Kfv_ty ty
+    | TySem T1 T2 ps => Kfv_ty T1 \u Kfv_ty T2
     | TyData d => Kfv_d d
     end.
 
@@ -216,6 +227,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => Kfv K \u Kfv_ty ty \u Kfv_t t'
     | TmType t' => Kfv_t t'
     | TmConDef d ty T t' => Kfv_d d \u Kfv_ty ty \u Kfv_t t'
+    | TmSem ty p t' => Kfv_ty ty \u Kfv_t t'
+    | TmComp t1 t2 => Kfv_t t1 \u Kfv_t t2
+    | TmSemApp t1 t2 => Kfv_t t1 \u Kfv_t t2
     end.
 
   (* Opening *)
@@ -230,6 +244,7 @@ Module Syntax (P : PAT).
     | TyAll k T'  => TyAll k ({S X ~> U}T')
     | TyProd T1 T2 => TyProd ({X ~> U}T1) ({X ~> U}T2)
     | TyCon ty T => TyCon ({X ~> U}ty) T
+    | TySem T1 T2 ps => TySem ({X ~> U}T1) ({X ~> U}T2) ps
     | TyData d => TyData d
     end
   where "{ X ~> U } T" := (topen X U T).
@@ -248,9 +263,12 @@ Module Syntax (P : PAT).
     | TmFix t' => TmFix ([{X ~> U}] t')
     | TmProd t1 t2 => TmProd ([{X ~> U}] t1) ([{X ~> U}] t2)
     | TmProj i t' => TmProj i ([{X ~> U}] t')
-    | TmCon K ty t' => TmCon K ({X ~> U}ty) ([{X ~> U}]t')
-    | TmType t' => TmType ([{X ~> U}]t')
-    | TmConDef d ty T t' => TmConDef d ({S X ~> U}ty) T ([{X ~> U}]t')
+    | TmCon K ty t' => TmCon K ({X ~> U} ty) ([{X ~> U}] t')
+    | TmType t' => TmType ([{X ~> U}] t')
+    | TmConDef d ty T t' => TmConDef d ({S X ~> U} ty) T ([{X ~> U}] t')
+    | TmSem ty p t' => TmSem ({X ~> U} ty) p ([{X ~> U}] t')
+    | TmComp t1 t2 => TmComp ([{X ~> U}] t1) ([{X ~> U}] t2)
+    | TmSemApp t1 t2 => TmSemApp ([{X ~> U}] t1) ([{X ~> U}] t2)
     end
   where "[{ X ~> U }] t" := (topen_t X U t).
   #[export]
@@ -271,6 +289,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon K ty ([k ~> u]t')
     | TmType t' => TmType ([k ~> u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([k ~> u]t')
+    | TmSem ty p t' => TmSem ty p ([S k ~> u]t')
+    | TmComp t1 t2 => TmComp ([k ~> u]t1) ([k ~> u] t2)
+    | TmSemApp t1 t2 => TmSemApp ([k ~> u] t1) ([k ~> u] t2)
     end
   where "[ k ~> u ] t " := (open k u t)
   .
@@ -301,6 +322,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Topen_k j X k) (Topen_ty j X T')
     | TyProd T1 T2 => TyProd (Topen_ty j X T1) (Topen_ty j X T2)
     | TyCon ty T => TyCon (Topen_ty j X ty) (Topen j X T)
+    | TySem T1 T2 ps => TySem (Topen_ty j X T1) (Topen_ty j X T2) ps
     | TyData d => TyData (Topen_d j X d)
     end.
 
@@ -319,6 +341,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Topen_t (S j) X t')
     | TmConDef d ty T t' =>
         TmConDef (Topen_d j X d) (Topen_ty j X ty) (Topen j X T) (Topen_t j X t')
+    | TmSem ty p t' => TmSem (Topen_ty j X ty) p (Topen_t j X t')
+    | TmComp t1 t2 => TmComp (Topen_t j X t1) (Topen_t j X t2)
+    | TmSemApp t1 t2 => TmSemApp (Topen_t j X t1) (Topen_t j X t2)
     end.
 
   Definition Tclose (X : var) (j : nat) (T : tname) :=
@@ -344,6 +369,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Tclose_k X j k) (Tclose_ty X j T')
     | TyProd T1 T2 => TyProd (Tclose_ty X j T1) (Tclose_ty X j T2)
     | TyCon ty T => TyCon (Tclose_ty X j ty) (Tclose X j T)
+    | TySem T1 T2 ps => TySem (Tclose_ty X j T1) (Tclose_ty X j T2) ps
     | TyData d => TyData (Tclose_d X j d)
     end.
 
@@ -362,6 +388,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Tclose_t X (S j) t')
     | TmConDef d ty T t' =>
         TmConDef (Tclose_d X j d) (Tclose_ty X j ty) (Tclose X j T) (Tclose_t X j t')
+    | TmSem ty p t' => TmSem (Tclose_ty X j ty) p (Tclose_t X j t')
+    | TmComp t1 t2 => TmComp (Tclose_t X j t1) (Tclose_t X j t2)
+    | TmSemApp t1 t2 => TmSemApp (Tclose_t X j t1) (Tclose_t X j t2)
     end.
 
 
@@ -388,6 +417,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Kopen_k j X k) (Kopen_ty j X T')
     | TyProd T1 T2 => TyProd (Kopen_ty j X T1) (Kopen_ty j X T2)
     | TyCon ty T => TyCon (Kopen_ty j X ty) T
+    | TySem T1 T2 ps => TySem (Kopen_ty j X T1) (Kopen_ty j X T2) ps
     | TyData d => TyData (Kopen_d j X d)
     end.
 
@@ -406,6 +436,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Kopen_t j X t')
     | TmConDef d ty T t' =>
         TmConDef (Kopen_d j X d) (Kopen_ty j X ty) T (Kopen_t (S j) X t')
+    | TmSem ty p t' => TmSem (Kopen_ty j X ty) p (Kopen_t j X t')
+    | TmComp t1 t2 => TmComp (Kopen_t j X t1) (Kopen_t j X t2)
+    | TmSemApp t1 t2 => TmSemApp (Kopen_t j X t1) (Kopen_t j X t2)
     end.
 
   Definition Kclose (X : var) (j : nat) (K : con) :=
@@ -431,6 +464,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Kclose_k X j k) (Kclose_ty X j T')
     | TyProd T1 T2 => TyProd (Kclose_ty X j T1) (Kclose_ty X j T2)
     | TyCon ty T => TyCon (Kclose_ty X j ty) T
+    | TySem T1 T2 ps => TySem (Kclose_ty X j T1) (Kclose_ty X j T2) ps
     | TyData d => TyData (Kclose_d X j d)
     end.
 
@@ -449,6 +483,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Kclose_t X j t')
     | TmConDef d ty T t' =>
         TmConDef (Kclose_d X j d) (Kclose_ty X j ty) T (Kclose_t X (S j) t')
+    | TmSem ty p t' => TmSem (Kclose_ty X j ty) p (Kclose_t X j t')
+    | TmComp t1 t2 => TmComp (Kclose_t X j t1) (Kclose_t X j t2)
+    | TmSemApp t1 t2 => TmSemApp (Kclose_t X j t1) (Kclose_t X j t2)
     end.
 
 
@@ -472,8 +509,9 @@ Module Syntax (P : PAT).
   | LCTFVar : forall X, lct (TyFVar X)
   | LCTArr  : forall T1 T2, lct T1 -> lct T2 -> lct (TyArr T1 T2)
   | LCTAll  : forall L k T, lck k -> (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
-  | LCTProd  : forall T1 T2, lct T1 -> lct T2 -> lct (TyProd T1 T2)
+  | LCTProd : forall T1 T2, lct T1 -> lct T2 -> lct (TyProd T1 T2)
   | LCTCon  : forall ty T, lct ty -> lct (TyCon ty (FTName T))
+  | LCTSem  : forall T1 T2 ps, lct T1 -> lct T2 -> lct (TySem T1 T2 ps)
   | LCTData : forall d, lcd d -> lct (TyData d)
   .
   #[export]
@@ -495,7 +533,9 @@ Module Syntax (P : PAT).
       (forall X, X \notin L -> lct ({0 ~> TyFVar X}ty)) ->
       (forall X, X \notin L -> lc (Kopen_t 0 (FCon X) t)) ->
       lc (TmConDef d ty (FTName T) t)
-  .
+  | LCSem    : forall L t p ty, lct ty -> (forall x, x \notin L -> lc ([0 ~> TmFVar x]t)) -> lc (TmSem ty p t)
+  | LCComp   : forall t1 t2, lc t1 -> lc t2 -> lc (TmComp t1 t2)
+  | LCSemApp : forall t1 t2, lc t1 -> lc t2 -> lc (TmSemApp t1 t2).
   #[export]
    Hint Constructors lc : mcore.
 
@@ -509,6 +549,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll k ({X => U}T')
     | TyProd T1 T2 => TyProd ({X => U}T1) ({X => U} T2)
     | TyCon ty T => TyCon ({X => U}ty) T
+    | TySem T1 T2 ps => TySem ({X => U}T1) ({X => U}T2) ps
     | TyData d => TyData d
     end
   where "{ X => U } T" := (tsubst X U T).
@@ -529,6 +570,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon K ({X => U}ty) ([{X => U}]t')
     | TmType t' => TmType ([{X => U}]t')
     | TmConDef d ty T t' => TmConDef d ({X => U}ty) T ([{X => U}]t')
+    | TmSem ty p t' => TmSem ({X => U}ty) p ([{X => U}] t')
+    | TmComp t1 t2 => TmComp ([{X => U}]t1) ([{X => U}]t2)
+    | TmSemApp t1 t2 => TmSemApp ([{X => U}]t1) ([{X => U}]t2)
     end
   where "[{ X => U }] t" := (tsubst_t X U t).
 
@@ -547,6 +591,9 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon K ty ([x => u]t')
     | TmType t' => TmType ([x => u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([x => u]t')
+    | TmSem ty p t' => TmSem ty p ([x => u] t')
+    | TmComp t1 t2 => TmComp ([x => u]t1) ([x => u]t2)
+    | TmSemApp t1 t2 => TmSemApp ([x => u]t1) ([x => u]t2)
     end
   where "[ x => u ] t" := (subst x u t).
   #[export]
@@ -577,6 +624,7 @@ Module Syntax (P : PAT).
     | TyProd T1 T2 => TyProd (Tsubst_ty X U T1) (Tsubst_ty X U T2)
     | TyCon ty T => TyCon (Tsubst_ty X U ty) (Tsubst X U T)
     | TyData d => TyData (Tsubst_d X U d)
+    | TySem T1 T2 ps => TySem (Tsubst_ty X U T1) (Tsubst_ty X U T2) ps
     end.
 
   Fixpoint Tsubst_t (X : var) (U : tname) (t : term) :=
@@ -594,6 +642,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Tsubst_t X U t')
     | TmConDef d ty T t' =>
         TmConDef (Tsubst_d X U d) (Tsubst_ty X U ty) (Tsubst X U T) (Tsubst_t X U t')
+    | TmSem ty p t' => TmSem (Tsubst_ty X U ty) p (Tsubst_t X U t')
+    | TmComp t1 t2 => TmComp (Tsubst_t X U t1) (Tsubst_t X U t2)
+    | TmSemApp t1 t2 => TmSemApp (Tsubst_t X U t1) (Tsubst_t X U t2)
     end.
 
 
@@ -620,6 +671,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Ksubst_k X U k) (Ksubst_ty X U T')
     | TyProd T1 T2 => TyProd (Ksubst_ty X U T1) (Ksubst_ty X U T2)
     | TyCon ty T => TyCon (Ksubst_ty X U ty) T
+    | TySem T1 T2 ps => TySem (Ksubst_ty X U T1) (Ksubst_ty X U T2) ps
     | TyData d => TyData (Ksubst_d X U d)
     end.
 
@@ -638,6 +690,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Ksubst_t X U t')
     | TmConDef d ty T t' =>
         TmConDef (Ksubst_d X U d) (Ksubst_ty X U ty) T (Ksubst_t X U t')
+    | TmSem ty p t' => TmSem (Ksubst_ty X U ty) p (Ksubst_t X U t')
+    | TmComp t1 t2 => TmComp (Ksubst_t X U t1) (Ksubst_t X U t2)
+    | TmSemApp t1 t2 => TmSemApp (Ksubst_t X U t1) (Ksubst_t X U t2)
     end.
 
 
@@ -841,6 +896,9 @@ Module Syntax (P : PAT).
     - pick_fresh X.
       rewrite open_Kopen_rec with (J := 0) (V := FCon X);
         auto.
+    - pick_fresh x.
+      rewrite open_neq with (j := 0) (v := TmFVar x);
+        auto.
   Qed.
 
   Lemma subst_open_distr :
@@ -972,6 +1030,7 @@ Module Syntax (P : PAT).
     - apply topen_neq with (J := 0) (V := TyFVar x) ; auto.
       apply* topen_lct.
     - apply* topen_t_Kopen_rec.
+    - apply* topen_open_rec.
   Qed.
 
   Lemma topen_t_subst_comm :
@@ -1185,6 +1244,7 @@ Module Syntax (P : PAT).
     - apply* Topen_topen_rec.
       apply* Topen_ty_lct.
     - apply* Topen_Kopen_t_rec.
+    - apply* Topen_open_rec.
   Qed.
 
   Lemma Topen_t_subst_comm :
@@ -1388,6 +1448,7 @@ Module Syntax (P : PAT).
     - apply* Kopen_topen_rec.
       apply* Kopen_ty_lct.
     - apply* (Kopen_Kopen_t_neq (S k) 0 K (FCon x)).
+    - apply* Kopen_open_rec.
   Qed.
 
   Lemma Kopen_t_subst_comm :
@@ -1852,6 +1913,9 @@ Module Syntax (P : PAT).
     - remember (Topen_t i (FTName T) (Tclose_t T i t)).
       pick_fresh X ; substs. applys~ Kopen_t_inj 0 X.
       rewrite~ Kopen_t_Topen_comm. rewrite~ Kopen_t_Tclose_comm.
+    - remember (Topen_t i (FTName T) (Tclose_t T i t)).
+      pick_fresh x ; substs. applys~ open_inj 0 x.
+      rewrite* <- Topen_t_open_comm. rewrite* <- Tclose_t_open_comm. simpls~.
   Qed.
 
   Lemma Tclose_d_notin : forall T i d, T \notin Tfv_d (Tclose_d T i d).
@@ -2150,6 +2214,9 @@ Module Syntax (P : PAT).
     - remember (Kopen_t (S i) (FCon K) (Kclose_t K (S i) t)).
       pick_fresh X ; substs. applys~ Kopen_t_inj 0 X.
       rewrite~ Kopen_t_Kopen_comm. rewrite~ Kopen_t_Kclose_comm.
+    - remember (Kopen_t i (FCon K) (Kclose_t K i t)).
+      pick_fresh x ; substs. applys~ open_inj 0 x.
+      rewrite* <- Kopen_t_open_comm. rewrite* <- Kclose_t_open_comm. simpls~.
   Qed.
 
   Lemma Kclose_d_notin : forall K i d, K \notin Kfv_d (Kclose_d K i d).
