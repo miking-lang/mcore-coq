@@ -69,9 +69,9 @@ Module Typing (P : PAT).
                    (Gamma & X ~ BindTVar k) |= {0 ~> TyFVar X} ty ~:: KiType) ->
         Gamma |= TyAll k ty ~:: KiType
     | KProd : forall Gamma ty1 ty2,
-        ok_type Gamma ty1 KiType ->
-        ok_type Gamma ty2 KiType ->
-        ok_type Gamma (TyProd ty1 ty2) KiType
+        Gamma |= ty1 ~:: KiType ->
+        Gamma |= ty2 ~:: KiType ->
+        Gamma |= TyProd ty1 ty2 ~:: KiType
     | KCon : forall Gamma ty d T Ks,
         Gamma |= ty ~:: KiData d ->
         mem (FTName T, Ks) d ->
@@ -147,18 +147,18 @@ Module Typing (P : PAT).
         Gamma |= ty2 ~:: k ->
         Gamma |= TmTyApp t ty2 ~: ({0 ~> ty2}ty1)
     | TFix : forall Gamma ty t,
-        ok_term Gamma t (TyArr ty ty) ->
-        ok_term Gamma (TmFix t) ty
+        Gamma |= t ~: TyArr ty ty ->
+        Gamma |= TmFix t ~: ty
     | TProd : forall Gamma ty1 ty2 t1 t2,
-        ok_term Gamma t1 ty1 ->
-        ok_term Gamma t2 ty2 ->
-        ok_term Gamma (TmProd t1 t2) (TyProd ty1 ty2)
+        Gamma |= t1 ~: ty1 ->
+        Gamma |= t2 ~: ty2 ->
+        Gamma |= TmProd t1 t2 ~: TyProd ty1 ty2
     | TProj1 : forall Gamma ty1 ty2 t,
-        ok_term Gamma t (TyProd ty1 ty2) ->
-        ok_term Gamma (TmProj F1 t) ty1
+        Gamma |= t ~: TyProd ty1 ty2 ->
+        Gamma |= TmProj F1 t ~: ty1
     | TProj2 : forall Gamma ty1 ty2 t,
-        ok_term Gamma t (TyProd ty1 ty2) ->
-        ok_term Gamma (TmProj F2 t) ty2
+        Gamma |= t ~: TyProd ty1 ty2 ->
+        Gamma |= TmProj F2 t ~: ty2
     | TCon : forall Gamma K d ty1 ty2 T t,
         binds K (BindCon d ty1 (FTName T)) Gamma ->
         Gamma |= ty2 ~:: KiData d ->
@@ -325,8 +325,8 @@ Module Typing (P : PAT).
         pick_fresh X. rewrite *(@tsubst_intro X).
         apply* tsubst_lct. }
       { Case "TmFix". inverts* IHhasType. }
-      { Case "TmProd". inverts* IHhasType. }
-      { Case "TmProj". inverts* IHhasType. }
+      { Case "TmProj1". inverts* IHhasType. }
+      { Case "TmProj2". inverts* IHhasType. }
     Qed.
     #[export]
      Hint Resolve ok_term_lct : mcore.

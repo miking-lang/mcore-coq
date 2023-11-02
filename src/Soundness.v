@@ -151,8 +151,8 @@ Module Soundness (P : PAT).
       { Case "TmFix". inverts hasType.
         pick_fresh x. rewrite~ (subst_intro x).
         apply_empty* ok_term_subst. }
-      { Case "TmProd". inverts* hasType. }
       { Case "TmProj1". inverts* hasType. }
+      { Case "TmProj2". inverts* hasType. }
       { Case "TmType". pick_fresh T. applys* ok_term_Topen_push T t. }
       { Case "TmTypeCong". apply_fresh TType as T' ; auto. }
       { Case "TmConDef". pick_fresh K. applys* ok_term_Kopen_push K t. }

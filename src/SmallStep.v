@@ -93,11 +93,11 @@ Module SmallStep (P : PAT).
     | EProj1 : forall v1 v2,
         is_value v1 ->
         is_value v2 ->
-        eval_step (TmProj F1 (TmProd v1 v2)) v1
+        TmProj F1 (TmProd v1 v2) --> v1
     | EProj2 : forall v1 v2,
         is_value v1 ->
         is_value v2 ->
-        eval_step (TmProj F2 (TmProd v1 v2)) v2
+        TmProj F2 (TmProd v1 v2) --> v2
     | EType : forall v v',
         is_value v ->
         push_value TmType v v' ->
