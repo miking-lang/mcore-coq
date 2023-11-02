@@ -193,7 +193,7 @@ Module Soundness (P : PAT).
       { Case "TmCon".
         forwards* [Hval | (t' & Hstep)]: IHhasType. }
       { Case "TmType". right. pick_fresh T.
-        forwards* [Hval | (t' & Hstep)]: H1 T.
+        forwards* [Hval | (t' & Hstep)]: H0 T.
         + introv Hb. binds_cases Hb. apply* Hnv.
         + forwards Hval' : Topen_is_value Hval.
           forwards* (v' & Hpush): is_value_push Hval'.
@@ -202,7 +202,7 @@ Module Soundness (P : PAT).
             apply* Topen_step_change. lets~ ?: Tclose_t_notin T 0 t'.
           * lets* ?: preservation Hstep. }
       { Case "TmConDef". right. pick_fresh K.
-        forwards* [Hval | (t' & Hstep)]: H4 K.
+        forwards* [Hval | (t' & Hstep)]: H3 K.
         + introv Hb. binds_cases Hb. apply* Hnv.
         + forwards Hval' : Kopen_is_value Hval.
           forwards* (v' & Hpush): is_value_push Hval'.

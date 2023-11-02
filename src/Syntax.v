@@ -2518,35 +2518,6 @@ Module Syntax (P : PAT).
     - apply~ Tsubst_d_fresh.
   Qed.
 
-  Lemma Tsubst_d_lcd :
-    forall X U d,
-      lcd d ->
-      lcd (Tsubst_d X (FTName U) d).
-  Proof.
-    introv Hlcd. unfolds lcd. unfolds Tsubst_d.
-    induction Hlcd ; rew_listx~.
-    destruct x. destruct H. do 2 splits~. destruct t ; solve_var.
-  Qed.
-
-  Lemma Tsubst_k_lck :
-    forall X U k,
-      lck k ->
-      lck (Tsubst_k X (FTName U) k).
-  Proof with eauto using Tsubst_d_lcd with mcore.
-    introv Hlck. induction Hlck...
-  Qed.
-
-  Lemma Tsubst_ty_lct :
-    forall X U T,
-      lct T ->
-      lct (Tsubst_ty X (FTName U) T).
-  Proof with eauto using Tsubst_d_lcd, Tsubst_k_lck with mcore.
-    introv Hlct.
-    induction Hlct; solve_var...
-    - apply_fresh LCTAll...
-      rewrite~ <- Tsubst_ty_topen_comm.
-  Qed.
-
   Lemma notin_Topen_d :
     forall i T d,
       T \notin Tfv_d (Topen_d i (FTName T) d) ->
@@ -2645,38 +2616,6 @@ Module Syntax (P : PAT).
     introv Hfv. solve_eq ty.
     - apply~ Ksubst_k_fresh.
     - apply~ Ksubst_d_fresh.
-  Qed.
-
-  Lemma Ksubst_d_lcd :
-    forall X U d,
-      lcd d ->
-      lcd (Ksubst_d X (FCon U) d).
-  Proof.
-    introv Hlcd. unfolds lcd. unfolds Ksubst_d.
-    induction Hlcd ; rew_listx~.
-    destruct x. destruct H. do 2 splits~.
-    induction l0 ; rew_listx~.
-    rew_listx in H0. destruct H0. splits~.
-    destruct a ; solve_var.
-  Qed.
-
-  Lemma Ksubst_k_lck :
-    forall X U k,
-      lck k ->
-      lck (Ksubst_k X (FCon U) k).
-  Proof with eauto using Ksubst_d_lcd with mcore.
-    introv Hlck. induction Hlck...
-  Qed.
-
-  Lemma Ksubst_ty_lct :
-    forall X U K,
-      lct K ->
-      lct (Ksubst_ty X (FCon U) K).
-  Proof with eauto using Ksubst_d_lcd, Ksubst_k_lck with mcore.
-    introv Hlct.
-    induction Hlct; solve_var...
-    - apply_fresh LCTAll...
-      rewrite~ <- Ksubst_ty_topen_comm.
   Qed.
 
   Lemma notin_Kopen_d :

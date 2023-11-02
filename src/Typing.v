@@ -178,7 +178,6 @@ Module Typing (P : PAT).
     (*     matches_contradictory Gamma.(matches) -> *)
     (*     ok_term Gamma TmNever ty *)
     | TType : forall L Gamma t ty,
-        lct ty ->
         (forall T, T \notin L ->
               Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty) ->
         Gamma |= TmType t ~: ty
@@ -187,7 +186,6 @@ Module Typing (P : PAT).
         (forall X, X \notin L ->
               Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty1 ~:: KiType) ->
         binds T BindTName Gamma ->
-        lct ty2 ->
         (forall K, K \notin L ->
               Gamma & K ~ BindCon d ty1 (FTName T) |= Kopen_t 0 (FCon K) t ~: ty2) ->
         Gamma |= TmConDef d ty1 (FTName T) t ~: ty2
@@ -327,6 +325,8 @@ Module Typing (P : PAT).
       { Case "TmFix". inverts* IHhasType. }
       { Case "TmProj1". inverts* IHhasType. }
       { Case "TmProj2". inverts* IHhasType. }
+      { Case "TmType". pick_fresh T. applys~ H0 T. }
+      { Case "TmConDef". pick_fresh K. applys~ H3 K. }
     Qed.
     #[export]
      Hint Resolve ok_term_lct : mcore.
@@ -388,11 +388,11 @@ Module Typing (P : PAT).
       { Case "TmCon". constructors...
         apply* binds_weaken. }
       { Case "TmType". apply_fresh TType as T...
-        apply_ih_bind H1 ; auto. constructor... }
+        apply_ih_bind H0 ; auto. constructor... }
       { Case "TmConDef". apply_fresh TConDef as K...
         - apply_ih_bind ok_type_weakening...
         - apply* binds_weaken.
-        - apply_ih_bind H4 ; auto.
+        - apply_ih_bind H3 ; auto.
           apply_fresh EnvCon as X...
           + apply_ih_bind ok_type_weakening...
           + apply* binds_weaken. }
@@ -517,11 +517,11 @@ Module Typing (P : PAT).
       { Case "TmTyApp". constructors... }
       { Case "TmCon". constructors... binds_cases H ; auto. }
       { Case "TmType". apply_fresh* TType as T...
-        rewrite* Topen_t_subst_comm. apply_ih_bind* H1. }
+        rewrite* Topen_t_subst_comm. apply_ih_bind* H0. }
       { Case "TmConDef". apply_fresh* TConDef as K...
         - apply_ih_bind ok_type_strengthening ; eauto. constructor...
         - binds_cases H1; auto.
-        - rewrite* Kopen_t_subst_comm. apply_ih_bind* H4. }
+        - rewrite* Kopen_t_subst_comm. apply_ih_bind* H3. }
     Qed.
 
     Lemma ok_data_tvar_strengthening :
@@ -707,9 +707,8 @@ Module Typing (P : PAT).
           rewrite* (env_bsubst_fresh G1 X T2).
         - rewrite <- tsubst_topen_distr... }
       { Case "TmType". apply_fresh TType.
-        - apply tsubst_lct...
-        - replaces BindTName with (bsubst X T2 BindTName)...
-          rewrite Topen_t_tsubst_comm... apply_ih_map_bind H1 ; auto. }
+        replaces BindTName with (bsubst X T2 BindTName)...
+        rewrite Topen_t_tsubst_comm... apply_ih_map_bind H0 ; auto. }
       { Case "TmConDef".
         apply_fresh TConDef.
         - apply* ok_data_bsubst. apply* ok_data_tvar_strengthening.
@@ -719,9 +718,8 @@ Module Typing (P : PAT).
           apply_ih_map_bind bsubst_ok_env ; eauto ; try rewrite* concat_assoc.
         - binds_cases H1 ; auto.
           replaces BindTName with (bsubst X T2 BindTName) ; auto.
-        - apply tsubst_lct...
         - replaces (BindCon d ({X => T2} ty1) (FTName T)) with (bsubst X T2 (BindCon d ty1 (FTName T)))...
-          rewrite Kopen_t_tsubst_comm... apply_ih_map_bind H4 ; auto. }
+          rewrite Kopen_t_tsubst_comm... apply_ih_map_bind H3 ; auto. }
     Qed.
 
     Lemma ok_data_comm :
@@ -788,7 +786,7 @@ Module Typing (P : PAT).
         apply* binds_concat_left_ok. apply* binds_concat_left_ok.
         applys* ok_concat_inv_l G2. }
       { Case "TmType". apply_fresh TType as T...
-        apply_ih_bind H1 ; auto. constructor... }
+        apply_ih_bind H0 ; auto. constructor... }
       { Case "TmConDef".
         assert (binds T BindTName (G1 & x2 ~ b2 & x1 ~ b1 & G2)).
         { binds_cases H1...
@@ -796,7 +794,7 @@ Module Typing (P : PAT).
           applys* ok_concat_inv_l G2. }
         apply_fresh TConDef as X...
         + apply_ih_bind ok_type_comm. eauto. constructor...
-        + apply_ih_bind H4 ; auto. apply_fresh EnvCon as X'...
+        + apply_ih_bind H3 ; auto. apply_fresh EnvCon as X'...
           apply_ih_bind ok_type_comm. eauto. constructor... }
     Qed.
 
@@ -1151,9 +1149,8 @@ Module Typing (P : PAT).
           apply* ok_type_Tsubst.
         - rewrite <- Tsubst_ty_topen_distr... }
       { Case "TmType". apply_fresh TType as T0.
-        + apply~ Tsubst_ty_lct.
-        + replaces BindTName with (Tbsubst T (FTName T') BindTName)...
-          rewrite~ Tsubst_t_Topen_comm. apply_ih_map_bind H1 ; auto. }
+        replaces BindTName with (Tbsubst T (FTName T') BindTName)...
+        rewrite~ Tsubst_t_Topen_comm. apply_ih_map_bind H0 ; auto. }
       { Case "TmConDef".
         asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
         simpls. rewrite Heq. apply_fresh TConDef as X.
@@ -1168,10 +1165,9 @@ Module Typing (P : PAT).
           binds_cases H1 ; auto.
           apply~ binds_concat_left. apply binds_concat_left_ok...
           replaces BindTName with (Tbsubst T (FTName T') BindTName)...
-        - apply~ Tsubst_ty_lct.
         - replaces (BindCon (Tsubst_d T (FTName T') d) (Tsubst_ty T (FTName T') ty1) (FTName S))
             with (Tbsubst T (FTName T') (BindCon d ty1 (FTName T0))). rewrite~ <- Heq.
-          rewrite Tsubst_t_Kopen_comm. apply_ih_map_bind H4 ; auto. }
+          rewrite Tsubst_t_Kopen_comm. apply_ih_map_bind H3 ; auto. }
     Qed.
 
     Lemma ok_data_con_strengthening :
@@ -1488,9 +1484,8 @@ Module Typing (P : PAT).
           apply* ok_type_Ksubst.
         - rewrite <- Ksubst_ty_topen_distr... }
       { Case "TmType". apply_fresh TType as T0.
-        + apply~ Ksubst_ty_lct.
-        + replaces BindTName with (Kbsubst K (FCon K') BindTName)...
-          rewrite~ Ksubst_t_Topen_comm. apply_ih_map_bind H1 ; auto. }
+        replaces BindTName with (Kbsubst K (FCon K') BindTName)...
+        rewrite~ Ksubst_t_Topen_comm. apply_ih_map_bind H0 ; auto. }
       { Case "TmConDef". apply_fresh TConDef as X.
         - apply~ ok_data_Ksubst...
         - replaces KiType with (Ksubst_k K (FCon K') KiType)...
@@ -1502,10 +1497,9 @@ Module Typing (P : PAT).
         - binds_cases H1 ; auto.
           apply~ binds_concat_left. apply binds_concat_left_ok...
           replaces BindTName with (Kbsubst K (FCon K') BindTName)...
-        - apply~ Ksubst_ty_lct.
         - replaces (BindCon (Ksubst_d K (FCon K') d0) (Ksubst_ty K (FCon K') ty1) (FTName T0))
             with (Kbsubst K (FCon K') (BindCon d0 ty1 (FTName T0)))...
-          rewrite~ Ksubst_t_Kopen_comm. apply_ih_map_bind H4 ; auto. }
+          rewrite~ Ksubst_t_Kopen_comm. apply_ih_map_bind H3 ; auto. }
     Qed.
 
   End Typing.
