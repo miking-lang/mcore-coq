@@ -235,7 +235,13 @@ Module SmallStepProps (P : PAT).
           is_value v ->
           get_cases v = (ps', bs) ->
           ps' = ps.
-      Admitted.
+      Proof.
+        introv Htype Hval Heq. gen ps ps' bs.
+        induction Hval ; intros ; inverts Htype ; simpls.
+        - inverts~ Heq.
+        - destruct (get_cases v1). destruct (get_cases v2).
+          inverts Heq. fequals*.
+      Qed.
 
       Lemma ok_term_get_cases_inv :
         forall Gamma ty1 ty2 ps ps' bs v i,
@@ -247,7 +253,16 @@ Module SmallStepProps (P : PAT).
             ok_pat Gamma (nth i ps') ty1 ty1' /\
               (forall x, x \notin L ->
                     Gamma & x ~ BindVar ty1' |= [0 ~> TmFVar x] nth i bs ~: ty2).
-      Admitted.
+      Proof.
+        introv Htype Hval Heq. gen ps ps' bs i.
+        induction Hval ; intros ; inverts Htype ; simpls.
+        - inverts Heq. rew_list in H. assert (i = 0) by nat_math. substs*.
+        - destruct (get_cases v1) eqn:Heq1. destruct (get_cases v2).
+          inverts Heq. rew_list in H. rewrite_all nth_app. rewrite~ <- (get_cases_length l l0 v1).
+          rewrite_all lt_peano. case_if.
+          + forwards* Hleft : IHHval1.
+          + forwards* Hright : IHHval2. nat_math.
+      Qed.
 
       Lemma ok_term_Topen_push :
         forall T Gamma t ty,
