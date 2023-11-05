@@ -44,6 +44,10 @@ Module Typing (P : PAT).
     #[export]
      Hint Constructors ok_data : mcore.
 
+    Definition data_sub (d2 : data) (d1 : data) :=
+      forall T Ks, mem (T, Ks) d2 ->
+              exists Ks', mem (T, Ks') d1 /\ forall K, mem K Ks -> mem K Ks'.
+
     Inductive ok_kind : env -> kind -> Prop :=
     | TypeOk : forall Gamma,
         ok_kind Gamma KiType
@@ -85,11 +89,11 @@ Module Typing (P : PAT).
         ok_env Gamma ->
         ok_data Gamma d ->
         Gamma |= TyData d ~:: KiData d
-    (* | TyDataSub' : forall {Gamma : env} {ty : type} {d1 d2 : data}, *)
-    (*     ok_type Gamma ty (KiData d1) -> *)
-    (*     d2 \c d1 -> *)
-    (*     (forall {T : tname}, d2[T] \c d1[T]) -> *)
-    (*     ok_type Gamma ty (KiData d2) *)
+    | KDataSub : forall Gamma ty d1 d2,
+        Gamma |= ty ~:: KiData d1 ->
+        data_sub d2 d1 ->
+        ok_data Gamma d2 ->
+        Gamma |= ty ~:: KiData d2
     where " Gamma |= T ~:: k " := (ok_type Gamma T k)
 
     with ok_env : env -> Prop :=

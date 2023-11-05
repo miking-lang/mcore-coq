@@ -187,6 +187,7 @@ Module TypingProps (P : PAT).
           apply* Forall_pred_incl. intros p (ty1' & Hwf).
           eexists. apply* ok_pat_weakening. }
         { Case "TyData". constructors*. apply* ok_data_weakening. }
+        { Case "TyDataSub". applys~ KDataSub d1. apply* ok_data_weakening. }
       Qed.
 
       Lemma ok_env_ok_type :
@@ -364,6 +365,7 @@ Module TypingProps (P : PAT).
           apply* Forall_pred_incl. intros p (ty1'&Hwf).
           eexists. apply* ok_pat_strengthening. }
         { Case "TyData". constructor~. apply* ok_data_strengthening. }
+        { Case "TyDataSub". applys~ KDataSub d1. apply* ok_data_strengthening. }
       Qed.
 
       Lemma ok_env_con_inv :
@@ -805,48 +807,6 @@ Module TypingProps (P : PAT).
           ok_kind Gamma k.
       Proof. introv Htk. induction* Htk. apply* ok_env_binds_tvar_inv. Qed.
 
-      Lemma ok_data_tname_strengthening :
-        forall G2 G1 T d,
-          T \notin Tfv_d d ->
-          ok_data (G1 & T ~ BindTName & G2) d ->
-          ok_data (G1 & G2) d.
-      Proof.
-        introv Hfv Hd. remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
-        unfolds Tfv_d. induction Hd ; substs ; constructor ; rew_listx in Hfv ; simpls~.
-        - binds_cases H0 ; auto. notin_false.
-        - induction* Ks. inverts H1.
-          constructors~. binds_cases H8 ; eauto.
-      Qed.
-
-      Lemma ok_kind_tname_strengthening :
-        forall T G2 G1 k,
-          T \notin Tfv_k k ->
-          ok_kind (G1 & T ~ BindTName & G2) k ->
-          ok_kind (G1 & G2) k.
-      Proof with eauto using ok_data_tname_strengthening with mcore.
-        introv Hfv Hk.
-        remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
-        induction Hk ; substs...
-      Qed.
-
-      Lemma ok_type_tname_strengthening :
-        forall T G2 G1 ty k,
-          T \notin Tfv_ty ty ->
-          G1 & T ~ BindTName & G2 |= ty ~:: k ->
-          ok_env (G1 & G2) ->
-          G1 & G2 |= ty ~:: k.
-      Proof with eauto using ok_data_tname_strengthening, ok_kind_tname_strengthening with mcore.
-        introv Hfv Htk Henv.
-        remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2.
-        induction Htk ; intros ; simpls ; substs...
-        { Case "TyFVar". constructor~. binds_cases H0 ; auto. }
-        { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
-          apply_fresh KAll as X...
-          apply_ih_bind H1 ; auto. rewrite topen_notin_T ; simpls~. constructors... }
-        { Case "TySem". constructor~. apply* Forall_pred_incl.
-          intros p (ty1'&Hwf). eexists. apply* ok_pat_tname_strengthening ; auto. }
-      Qed.
-
       Lemma ok_data_notin_T :
         forall Gamma d X,
           ok_data Gamma d ->
@@ -898,6 +858,70 @@ Module TypingProps (P : PAT).
           auto. }
       Qed.
 
+
+      Lemma ok_data_tname_strengthening :
+        forall G2 G1 T d,
+          T \notin Tfv_d d ->
+          ok_data (G1 & T ~ BindTName & G2) d ->
+          ok_data (G1 & G2) d.
+      Proof.
+        introv Hfv Hd. remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
+        unfolds Tfv_d. induction Hd ; substs ; constructor ; rew_listx in Hfv ; simpls~.
+        - binds_cases H0 ; auto. notin_false.
+        - induction* Ks. inverts H1.
+          constructors~. binds_cases H8 ; eauto.
+      Qed.
+
+      Lemma ok_kind_tname_strengthening :
+        forall T G2 G1 k,
+          T \notin Tfv_k k ->
+          ok_kind (G1 & T ~ BindTName & G2) k ->
+          ok_kind (G1 & G2) k.
+      Proof with eauto using ok_data_tname_strengthening with mcore.
+        introv Hfv Hk.
+        remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
+        induction Hk ; substs...
+      Qed.
+
+      Lemma data_sub_notin_T :
+        forall T d1 d2,
+          T \notin Tfv_d d1 ->
+          data_sub d2 d1 ->
+          T \notin Tfv_d d2.
+      Proof with eauto.
+        introv Hnin Hsub. unfolds data_sub. unfolds Tfv_d.
+        induction d2 ; rew_listx ; simpls~.
+        rewrite notin_union ; split~. destruct a. destruct~ t.
+        assert (T <> v)... intro ; substs.
+        forwards~ (?&Hmem&?) : Hsub. forwards~ (?&?&Heq) : mem_inv_middle Hmem.
+        substs. rew_listx* in Hnin. simpls.
+        notin_false.
+      Qed.
+
+      Lemma ok_type_tname_strengthening :
+        forall T G2 G1 ty k,
+          T \notin Tfv_ty ty ->
+          G1 & T ~ BindTName & G2 |= ty ~:: k ->
+          ok_env (G1 & G2) ->
+          G1 & G2 |= ty ~:: k.
+      Proof with eauto using ok_data_tname_strengthening, ok_kind_tname_strengthening with mcore.
+        introv Hfv Htk Henv.
+        remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma. gen G2.
+        induction Htk ; intros ; simpls ; substs...
+        { Case "TyFVar". constructor~. binds_cases H0 ; auto. }
+        { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
+          apply_fresh KAll as X...
+          apply_ih_bind H1 ; auto. rewrite topen_notin_T ; simpls~. constructors... }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros p (ty1'&Hwf). eexists. apply* ok_pat_tname_strengthening ; auto. }
+        { Case "TyDataSub". applys~ KDataSub d1.
+          apply* ok_data_tname_strengthening.
+          forwards~ Hd1 : IHHtk. forwards Hk : ok_type_ok_kind Hd1.
+          inverts Hk. forwards~ Hnin : ok_data_notin_T T H3.
+          forwards* (Hfr1&Hfr2) : ok_middle_inv G1 G2.
+          apply* data_sub_notin_T. }
+      Qed.
+
       Lemma env_Tbsubst_fresh :
         forall Gamma X T,
           ok_env Gamma ->
@@ -945,9 +969,8 @@ Module TypingProps (P : PAT).
       Proof.
         introv Hd Hfresh Hneq Hassoc. unfolds Tsubst_d.
         induction Hd ; inverts Hassoc ; rew_listx~.
-        left. fequals. inverts H0.
-        rewrite~ (Tsubst_inj S T0 T T'). intro Heq ; substs.
-        forwards Hin : get_some_inv T0 ; eauto.
+        left. fequals. rewrite~ (Tsubst_inj S T0 T T').
+        intro Heq ; substs. forwards Hin : get_some_inv T0 ; eauto.
       Qed.
 
       Lemma ok_data_Tsubst :
@@ -996,6 +1019,18 @@ Module TypingProps (P : PAT).
         apply~ ok_data_Tsubst.
       Qed.
 
+      Lemma data_sub_Tsubst :
+        forall T U d1 d2,
+          data_sub d2 d1 ->
+          data_sub (Tsubst_d T U d2) (Tsubst_d T U d1).
+      Proof.
+        introv Hsub Hmem. unfolds data_sub. unfolds Tsubst_d.
+        induction d2 ; rew_listx* in Hmem. destruct a.
+        destruct~ Hmem as [Heq | Hmem'].
+        inverts Heq. forwards~ (Ks&Hmem&?) : Hsub.
+        exists Ks. split~. apply* mem_map'.
+      Qed.
+
       Lemma ok_type_Tsubst :
         forall G2 G1 T T' ty k,
           G1 & T ~ BindTName & G2 |= ty ~:: k ->
@@ -1028,6 +1063,9 @@ Module TypingProps (P : PAT).
         { Case "TySem". constructor~. apply* Forall_pred_incl.
           intros p (ty1'&Hwf). eexists. apply ok_pat_Tsubst ; eauto. apply* ok_type_ok_env. }
         { Case "TyData". constructor~. apply~ ok_data_Tsubst... }
+        { Case "TyDataSub". applys~ KDataSub (Tsubst_d T (FTName T') d1).
+          - apply~ data_sub_Tsubst.
+          - apply~ ok_data_Tsubst. apply* ok_type_ok_env. }
       Qed.
 
       Lemma Tbsubst_ok_env :
@@ -1160,73 +1198,6 @@ Module TypingProps (P : PAT).
       Qed.
 
 
-      Lemma ok_data_con_strengthening :
-        forall K G2 G1 d' ty' T d,
-          K \notin Kfv_d d ->
-          ok_data (G1 & K ~ BindCon d' ty' T & G2) d ->
-          ok_data (G1 & G2) d.
-      Proof.
-        introv Hfv Hd. remember (G1 & K ~ BindCon d' ty' T & G2) as Gamma eqn:HGamma.
-        unfolds Kfv_d. induction Hd ; substs ; constructor ; rew_listx in Hfv ; simpls~.
-        - binds_cases H0 ; auto.
-        - induction* Ks. inverts H1. rew_listx in Hfv ; simpls~.
-          constructors~. binds_cases H8 ; eauto. notin_false.
-      Qed.
-
-      Lemma ok_kind_con_strengthening :
-        forall K G2 G1 d ty' T k,
-          K \notin Kfv_k k ->
-          ok_kind (G1 & K ~ BindCon d ty' T & G2) k ->
-          ok_kind (G1 & G2) k.
-      Proof with eauto using ok_data_con_strengthening with mcore.
-        introv Hfv Hk.
-        remember (G1 & K ~ BindCon d ty' T & G2) as Gamma eqn:HGamma.
-        induction Hk ; substs...
-      Qed.
-
-      Lemma ok_type_con_strengthening :
-        forall K G2 G1 d ty' T ty k,
-          K \notin Kfv_ty ty ->
-          G1 & K ~ BindCon d ty' T & G2 |= ty ~:: k ->
-          ok_env (G1 & G2) ->
-          G1 & G2 |= ty ~:: k.
-      Proof with eauto using ok_data_con_strengthening, ok_kind_con_strengthening with mcore.
-        introv Hfv Htk Henv.
-        remember (G1 & K ~ BindCon d ty' T & G2) as Gamma eqn:HGamma. gen G2.
-        induction Htk ; intros ; simpls ; substs...
-        { Case "TyFVar". constructor~. binds_cases H0 ; auto. }
-        { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
-          apply_fresh KAll as X...
-          apply_ih_bind H1 ; auto. rewrite topen_notin_K ; simpls~. constructors... }
-        { Case "TySem". constructor~. apply* Forall_pred_incl.
-          intros p (ty1'&Hwf). eexists. apply* ok_pat_con_strengthening ; auto. }
-      Qed.
-
-      Lemma ok_term_ok_type :
-        forall Gamma t ty,
-          Gamma |= t ~: ty ->
-          Gamma |= ty ~:: KiType.
-      Proof with eauto with mcore.
-        introv Htype.
-        induction* Htype.
-        - apply* ok_env_binds_var_inv.
-        - constructor~. pick_fresh x. forwards~ Htk : H1 x.
-          apply_empty* ok_type_strengthening.
-        - inverts~ IHHtype1.
-        - inverts IHHtype. pick_fresh X. rewrite~ (tsubst_intro X).
-          apply_empty* ok_type_tsubst.
-        - inverts~ IHHtype.
-        - inverts~ IHHtype.
-        - inverts~ IHHtype.
-        - pick_fresh T. apply_empty* (ok_type_tname_strengthening T).
-        - pick_fresh K. apply_empty* (ok_type_con_strengthening K).
-        - constructor ; rew_listx*.
-          pick_fresh x. forwards~ Htk : H2 x.
-          apply_empty* ok_type_strengthening.
-        - inverts IHHtype1. inverts IHHtype2. constructor ; rew_listx~.
-        - inverts~ IHHtype1.
-      Qed.
-
       Lemma ok_data_notin_K :
         forall Gamma d X,
           ok_data Gamma d ->
@@ -1265,6 +1236,101 @@ Module TypingProps (P : PAT).
         { Case "TySem". rewrite_all notin_union. repeat split~.
           induction ps ; rew_listx ; simpls~. rew_listx in H. destruct H as ((ty1'&Hfw)&?).
           rewrite notin_union... }
+      Qed.
+
+      Lemma ok_data_con_strengthening :
+        forall K G2 G1 d' ty' T d,
+          K \notin Kfv_d d ->
+          ok_data (G1 & K ~ BindCon d' ty' T & G2) d ->
+          ok_data (G1 & G2) d.
+      Proof.
+        introv Hfv Hd. remember (G1 & K ~ BindCon d' ty' T & G2) as Gamma eqn:HGamma.
+        unfolds Kfv_d. induction Hd ; substs ; constructor ; rew_listx in Hfv ; simpls~.
+        - binds_cases H0 ; auto.
+        - induction* Ks. inverts H1. rew_listx in Hfv ; simpls~.
+          constructors~. binds_cases H8 ; eauto. notin_false.
+      Qed.
+
+      Lemma ok_kind_con_strengthening :
+        forall K G2 G1 d ty' T k,
+          K \notin Kfv_k k ->
+          ok_kind (G1 & K ~ BindCon d ty' T & G2) k ->
+          ok_kind (G1 & G2) k.
+      Proof with eauto using ok_data_con_strengthening with mcore.
+        introv Hfv Hk.
+        remember (G1 & K ~ BindCon d ty' T & G2) as Gamma eqn:HGamma.
+        induction Hk ; substs...
+      Qed.
+
+      Lemma data_sub_notin_K :
+        forall K d1 d2,
+          K \notin Kfv_d d1 ->
+          data_sub d2 d1 ->
+          K \notin Kfv_d d2.
+      Proof with eauto.
+        introv Hnin Hsub. unfolds data_sub. unfolds Kfv_d.
+        induction d2 ; rew_listx ; simpls~.
+        rewrite notin_union ; split~. destruct a.
+        forwards* (Ks'&Hmem&HsubK) : Hsub.
+        forwards~ (?&?&Heq) : mem_inv_middle Hmem. substs.
+        rew_listx* in Hnin ; simpls.
+        assert (HninK : K \notin fold varsM (fun K => Kfv K) Ks')...
+        clears IHd2 Hsub Hnin Hmem.
+        induction l ; rew_listx ; simpls~.
+        rewrite notin_union ; split~. destruct~ a.
+        assert (K <> v)... intro ; substs.
+        forwards~ Hmem : HsubK.
+        forwards~ (?&?&Heq) : mem_inv_middle Hmem. substs.
+        rew_listx* in HninK. simpls. notin_false.
+      Qed.
+
+      Lemma ok_type_con_strengthening :
+        forall K G2 G1 d ty' T ty k,
+          K \notin Kfv_ty ty ->
+          G1 & K ~ BindCon d ty' T & G2 |= ty ~:: k ->
+          ok_env (G1 & G2) ->
+          G1 & G2 |= ty ~:: k.
+      Proof with eauto using ok_data_con_strengthening, ok_kind_con_strengthening with mcore.
+        introv Hfv Htk Henv.
+        remember (G1 & K ~ BindCon d ty' T & G2) as Gamma eqn:HGamma. gen G2.
+        induction Htk ; intros ; simpls ; substs...
+        { Case "TyFVar". constructor~. binds_cases H0 ; auto. }
+        { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
+          apply_fresh KAll as X...
+          apply_ih_bind H1 ; auto. rewrite topen_notin_K ; simpls~. constructors... }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros p (ty1'&Hwf). eexists. apply* ok_pat_con_strengthening ; auto. }
+        { Case "TyDataSub". applys~ KDataSub d1.
+          apply* ok_data_con_strengthening.
+          forwards~ Hd1 : IHHtk. forwards Hk : ok_type_ok_kind Hd1.
+          inverts Hk. forwards~ Hnin : ok_data_notin_K K H3.
+          forwards* (Hfr1&Hfr2) : ok_middle_inv G1 G2.
+          apply* data_sub_notin_K. }
+      Qed.
+
+      Lemma ok_term_ok_type :
+        forall Gamma t ty,
+          Gamma |= t ~: ty ->
+          Gamma |= ty ~:: KiType.
+      Proof with eauto with mcore.
+        introv Htype.
+        induction* Htype.
+        - apply* ok_env_binds_var_inv.
+        - constructor~. pick_fresh x. forwards~ Htk : H1 x.
+          apply_empty* ok_type_strengthening.
+        - inverts~ IHHtype1.
+        - inverts IHHtype. pick_fresh X. rewrite~ (tsubst_intro X).
+          apply_empty* ok_type_tsubst.
+        - inverts~ IHHtype.
+        - inverts~ IHHtype.
+        - inverts~ IHHtype.
+        - pick_fresh T. apply_empty* (ok_type_tname_strengthening T).
+        - pick_fresh K. apply_empty* (ok_type_con_strengthening K).
+        - constructor ; rew_listx*.
+          pick_fresh x. forwards~ Htk : H2 x.
+          apply_empty* ok_type_strengthening.
+        - inverts IHHtype1. inverts IHHtype2. constructor ; rew_listx~.
+        - inverts~ IHHtype1.
       Qed.
 
       Lemma env_Kbsubst_fresh :
@@ -1381,6 +1447,23 @@ Module TypingProps (P : PAT).
         apply~ ok_data_Ksubst.
       Qed.
 
+      Lemma data_sub_Ksubst :
+        forall K U d1 d2,
+          data_sub d2 d1 ->
+          data_sub (Ksubst_d K U d2) (Ksubst_d K U d1).
+      Proof.
+        introv Hsub Hmem. unfolds data_sub. unfolds Ksubst_d.
+        induction d2 ; rew_listx* in Hmem. destruct a.
+        destruct~ Hmem as [Heq | Hmem'].
+        inverts Heq. forwards~ (Ks&Hmem&HsubK) : Hsub.
+        exists (LibList.map (Ksubst K U) Ks). split.
+        - apply* mem_map'.
+        - introv HmemK. clears IHd2 Hsub Hmem.
+          induction l ; rew_listx* in HmemK.
+          destruct~ HmemK as [Heq | HmemK'].
+          inverts Heq. apply~ mem_map.
+      Qed.
+
       Lemma ok_type_Ksubst :
         forall G2 G1 K K' d ty' T ty k,
           G1 & K ~ BindCon d ty' T & G2 |= ty ~:: k ->
@@ -1413,6 +1496,9 @@ Module TypingProps (P : PAT).
           apply* Forall_pred_incl. intros p (ty1'&Hwf). eexists.
           apply ok_pat_Ksubst ; eauto. apply* ok_type_ok_env. }
         { Case "TyData". constructor~. apply~ ok_data_Ksubst. }
+        { Case "TyDataSub". applys~ KDataSub (Ksubst_d K (FCon K') d1).
+          - apply~ data_sub_Ksubst.
+          - apply~ ok_data_Ksubst. apply* ok_type_ok_env. }
       Qed.
 
       Lemma Kbsubst_ok_env :
