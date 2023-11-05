@@ -1,13 +1,69 @@
-From TLC Require Import LibList LibLN.
+From TLC Require Import LibList LibMonoid LibLN.
+
+(************************)
+(** SYNTAX DEFINITIONS **)
+(************************)
+
+
+(* We define constructor names and operations on them up front to
+   avoid a mutual dependency between the syntax module and the
+   abstract type of patterns *)
+
+Definition bvar  : Set := nat.
+
+Inductive con : Set :=
+| BCon : bvar -> con
+| FCon : var  -> con.
+
+Notation Kfv K :=
+  match K with
+  | BCon X => \{}
+  | FCon X => \{X}
+  end.
+
+Definition Kopen (j : nat) (X : con) (K : con) :=
+  match K with
+  | BCon i => (If i = j then X else K)
+  | FCon _ => K
+  end.
+
+Definition Kclose (X : var) (j : nat) (K : con) :=
+  match K with
+  | BCon _ => K
+  | FCon Y => If X = Y then BCon j else K
+end.
+
+Notation lcK K := (exists K', K = FCon K').
+
+Definition Ksubst (X : var) (U : con) (K : con) :=
+  match K with
+  | BCon _ => K
+  | FCon Y => (If X = Y then U else K)
+  end.
+
+Definition varsM : monoid_op vars :=
+  {| monoid_oper := fun A B => A \u B ; monoid_neutral := \{} |}.
+
+Lemma Monoid_varsM : Monoid varsM.
+Proof.
+  split.
+  - apply~ union_assoc.
+  - apply~ union_empty_l.
+  - apply~ union_empty_r.
+Qed.
+#[export]
+Hint Resolve Monoid_varsM : mcore.
 
 Module Type PAT.
   Parameter pat : Type.
 
   Parameter pat_inhab : Inhab pat.
 
-  (* Parameter Kfv_p : pat -> vars. *)
-  (* Parameter Kopen_p : nat -> pat -> pat. *)
-  (* Parameter Kclose_p : nat -> pat -> pat. *)
+  Parameter Kfv_p : pat -> vars.
+  Parameter Kopen_p : nat -> con -> pat -> pat.
+  Parameter Kclose_p : var -> nat -> pat -> pat.
+  Parameter lcp : pat -> Prop.
+  Parameter Ksubst_p : var -> con -> pat -> pat.
 End PAT.
 
 Module Syntax (P : PAT).
@@ -17,19 +73,9 @@ Module Syntax (P : PAT).
    Instance Inhab_pat : Inhab pat.
   Proof. apply pat_inhab. Qed.
 
-  (************************)
-  (** SYNTAX DEFINITIONS **)
-  (************************)
-
-  Definition bvar  : Set := nat.
-
   Inductive tname : Set :=
   | BTName : bvar -> tname
   | FTName : var  -> tname.
-
-  Inductive con : Set :=
-  | BCon : bvar -> con
-  | FCon : var  -> con.
 
   Definition data : Type :=
     list (tname * list con).
@@ -149,7 +195,7 @@ Module Syntax (P : PAT).
     end.
 
   Definition Tfv_d (d : data) : vars :=
-    fold_right (fun '(T, Ks) fvs => Tfv T \u fvs) \{} d.
+    fold varsM (fun '(T, Ks) => Tfv T) d.
 
   Definition Tfv_k (k : kind) : vars :=
     match k with
@@ -188,17 +234,8 @@ Module Syntax (P : PAT).
     | TmSemApp t1 t2 => Tfv_t t1 \u Tfv_t t2
     end.
 
-  Notation Kfv K :=
-    match K with
-    | BCon X => \{}
-    | FCon X => \{X}
-    end.
-
   Definition Kfv_d (d : data) : vars :=
-    fold_right (fun '(T, Ks) fvs =>
-                  fold_right (fun K fvs => Kfv K \u fvs) \{} Ks
-                             \u fvs)
-               \{} d.
+    fold varsM (fun '(T, Ks) => fold varsM (fun K => Kfv K) Ks) d.
 
   Definition Kfv_k (k : kind) : vars :=
     match k with
@@ -214,7 +251,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => Kfv_k k \u Kfv_ty T'
     | TyProd T1 T2 => Kfv_ty T1 \u Kfv_ty T2
     | TyCon ty T => Kfv_ty ty
-    | TySem T1 T2 ps => Kfv_ty T1 \u Kfv_ty T2
+    | TySem T1 T2 ps => Kfv_ty T1 \u Kfv_ty T2 \u fold varsM Kfv_p ps
     | TyData d => Kfv_d d
     end.
 
@@ -232,7 +269,7 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => Kfv K \u Kfv_ty ty \u Kfv_t t'
     | TmType t' => Kfv_t t'
     | TmConDef d ty T t' => Kfv_d d \u Kfv_ty ty \u Kfv_t t'
-    | TmSem ty p t' => Kfv_ty ty \u Kfv_t t'
+    | TmSem ty p t' => Kfv_ty ty \u Kfv_p p \u Kfv_t t'
     | TmComp t1 t2 => Kfv_t t1 \u Kfv_t t2
     | TmSemApp t1 t2 => Kfv_t t1 \u Kfv_t t2
     end.
@@ -399,12 +436,6 @@ Module Syntax (P : PAT).
     end.
 
 
-  Definition Kopen (j : nat) (X : con) (K : con) :=
-    match K with
-    | BCon i => (If i = j then X else K)
-    | FCon _ => K
-    end.
-
   Definition Kopen_d (j : nat) (X : con) (d : data) : data :=
     LibList.map (fun '(T, Ks) => (T , LibList.map (Kopen j X) Ks)) d.
 
@@ -422,7 +453,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Kopen_k j X k) (Kopen_ty j X T')
     | TyProd T1 T2 => TyProd (Kopen_ty j X T1) (Kopen_ty j X T2)
     | TyCon ty T => TyCon (Kopen_ty j X ty) T
-    | TySem T1 T2 ps => TySem (Kopen_ty j X T1) (Kopen_ty j X T2) ps
+    | TySem T1 T2 ps => TySem (Kopen_ty j X T1) (Kopen_ty j X T2) (LibList.map (Kopen_p j X) ps)
     | TyData d => TyData (Kopen_d j X d)
     end.
 
@@ -441,15 +472,9 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Kopen_t j X t')
     | TmConDef d ty T t' =>
         TmConDef (Kopen_d j X d) (Kopen_ty j X ty) T (Kopen_t (S j) X t')
-    | TmSem ty p t' => TmSem (Kopen_ty j X ty) p (Kopen_t j X t')
+    | TmSem ty p t' => TmSem (Kopen_ty j X ty) (Kopen_p j X p) (Kopen_t j X t')
     | TmComp t1 t2 => TmComp (Kopen_t j X t1) (Kopen_t j X t2)
     | TmSemApp t1 t2 => TmSemApp (Kopen_t j X t1) (Kopen_t j X t2)
-    end.
-
-  Definition Kclose (X : var) (j : nat) (K : con) :=
-    match K with
-    | BCon _ => K
-    | FCon Y => If X = Y then BCon j else K
     end.
 
   Definition Kclose_d (X : var) (j : nat) (d : data) : data :=
@@ -469,7 +494,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Kclose_k X j k) (Kclose_ty X j T')
     | TyProd T1 T2 => TyProd (Kclose_ty X j T1) (Kclose_ty X j T2)
     | TyCon ty T => TyCon (Kclose_ty X j ty) T
-    | TySem T1 T2 ps => TySem (Kclose_ty X j T1) (Kclose_ty X j T2) ps
+    | TySem T1 T2 ps => TySem (Kclose_ty X j T1) (Kclose_ty X j T2) (LibList.map (Kclose_p X j) ps)
     | TyData d => TyData (Kclose_d X j d)
     end.
 
@@ -488,7 +513,7 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Kclose_t X j t')
     | TmConDef d ty T t' =>
         TmConDef (Kclose_d X j d) (Kclose_ty X j ty) T (Kclose_t X (S j) t')
-    | TmSem ty p t' => TmSem (Kclose_ty X j ty) p (Kclose_t X j t')
+    | TmSem ty p t' => TmSem (Kclose_ty X j ty) (Kclose_p X j p) (Kclose_t X j t')
     | TmComp t1 t2 => TmComp (Kclose_t X j t1) (Kclose_t X j t2)
     | TmSemApp t1 t2 => TmSemApp (Kclose_t X j t1) (Kclose_t X j t2)
     end.
@@ -498,7 +523,6 @@ Module Syntax (P : PAT).
   (* A locally closed term contains no unbound BVars. *)
 
   Notation lcT T := (exists T', T = FTName T').
-  Notation lcK K := (exists K', K = FCon K').
 
   Definition lcd (d : data) : Prop :=
     Forall (fun '(T, Ks) => lcT T /\ Forall (fun K => lcK K) Ks) d.
@@ -516,7 +540,7 @@ Module Syntax (P : PAT).
   | LCTAll  : forall L k T, lck k -> (forall X, X \notin L -> lct ({0 ~> TyFVar X}T)) -> lct (TyAll k T)
   | LCTProd : forall T1 T2, lct T1 -> lct T2 -> lct (TyProd T1 T2)
   | LCTCon  : forall ty T, lct ty -> lct (TyCon ty (FTName T))
-  | LCTSem  : forall T1 T2 ps, lct T1 -> lct T2 -> lct (TySem T1 T2 ps)
+  | LCTSem  : forall T1 T2 ps, lct T1 -> lct T2 -> Forall lcp ps -> lct (TySem T1 T2 ps)
   | LCTData : forall d, lcd d -> lct (TyData d)
   .
   #[export]
@@ -538,7 +562,7 @@ Module Syntax (P : PAT).
       (forall X, X \notin L -> lct ({0 ~> TyFVar X}ty)) ->
       (forall X, X \notin L -> lc (Kopen_t 0 (FCon X) t)) ->
       lc (TmConDef d ty (FTName T) t)
-  | LCSem    : forall L t p ty, lct ty -> (forall x, x \notin L -> lc ([0 ~> TmFVar x]t)) -> lc (TmSem ty p t)
+  | LCSem    : forall L t p ty, lct ty -> lcp p -> (forall x, x \notin L -> lc ([0 ~> TmFVar x]t)) -> lc (TmSem ty p t)
   | LCComp   : forall t1 t2, lc t1 -> lc t2 -> lc (TmComp t1 t2)
   | LCSemApp : forall t1 t2, lc t1 -> lc t2 -> lc (TmSemApp t1 t2).
   #[export]
@@ -653,12 +677,6 @@ Module Syntax (P : PAT).
     end.
 
 
-  Definition Ksubst (X : var) (U : con) (K : con) :=
-    match K with
-    | BCon _ => K
-    | FCon Y => (If X = Y then U else K)
-    end.
-
   Definition Ksubst_d (X : var) (U : con) (d : data) : data :=
     LibList.map (fun '(T, Ks) => (T, LibList.map (Ksubst X U) Ks)) d.
 
@@ -676,7 +694,7 @@ Module Syntax (P : PAT).
     | TyAll k T' => TyAll (Ksubst_k X U k) (Ksubst_ty X U T')
     | TyProd T1 T2 => TyProd (Ksubst_ty X U T1) (Ksubst_ty X U T2)
     | TyCon ty T => TyCon (Ksubst_ty X U ty) T
-    | TySem T1 T2 ps => TySem (Ksubst_ty X U T1) (Ksubst_ty X U T2) ps
+    | TySem T1 T2 ps => TySem (Ksubst_ty X U T1) (Ksubst_ty X U T2) (LibList.map (Ksubst_p X U) ps)
     | TyData d => TyData (Ksubst_d X U d)
     end.
 
@@ -695,7 +713,7 @@ Module Syntax (P : PAT).
     | TmType t' => TmType (Ksubst_t X U t')
     | TmConDef d ty T t' =>
         TmConDef (Ksubst_d X U d) (Ksubst_ty X U ty) T (Ksubst_t X U t')
-    | TmSem ty p t' => TmSem (Ksubst_ty X U ty) p (Ksubst_t X U t')
+    | TmSem ty p t' => TmSem (Ksubst_ty X U ty) (Ksubst_p X U p) (Ksubst_t X U t')
     | TmComp t1 t2 => TmComp (Ksubst_t X U t1) (Ksubst_t X U t2)
     | TmSemApp t1 t2 => TmSemApp (Ksubst_t X U t1) (Ksubst_t X U t2)
     end.
@@ -764,7 +782,8 @@ Module Syntax (P : PAT).
     let N := gather_vars_with (fun x : data => Kfv_d x) in
     let O := gather_vars_with (fun x : con  => Kfv x) in
     let P := gather_vars_with (fun x : tname => Tfv x) in
-    constr:(A \u B \u C \u D \u E \u F \u G \u H \u I \u J \u K \u L \u M \u N \u O \u P).
+    let Q := gather_vars_with (fun x : pat  => Kfv_p x) in
+    constr:(A \u B \u C \u D \u E \u F \u G \u H \u I \u J \u K \u L \u M \u N \u O \u P \u Q).
 
   Ltac pick_fresh x :=
     let L := gather_vars in (pick_fresh_gen L x).

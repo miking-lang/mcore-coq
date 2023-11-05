@@ -26,7 +26,7 @@ Module SmallStepProps (P : PAT).
       Parameter matchN_Ksubst :
         forall t ps t' i X T,
           matchN t ps = Some (t', i) ->
-          matchN (Ksubst_t X T t) ps = Some (Ksubst_t X T t', i).
+          matchN (Ksubst_t X T t) (LibList.map (Ksubst_p X T) ps) = Some (Ksubst_t X T t', i).
 
       Parameter matchN_ok_pat :
         forall Gamma ps v v' ty ty' i,
@@ -37,14 +37,14 @@ Module SmallStepProps (P : PAT).
       Parameter exhaustive_has_match :
         forall Gamma ty ps v,
           Gamma |= v ~: ty ->
-          pats_exhaustive ps ty ->
+          pats_exhaustive Gamma ps ty ->
           is_value v ->
           exists i v',
             matchN v ps = Some (v', i).
     End MATCHPROPS.
 
-    Module SmallStepProps2 (PCP : PATCHECKPROPS) (MP : MATCHPROPS).
-      Module TP2 := TypingProps2 PCP.
+    Module SmallStepProps2 (PP : PATPROPS) (PCP : PATCHECKPROPS) (MP : MATCHPROPS).
+      Module TP2 := TypingProps2 PP PCP.
       Export MP TP2.
 
       Lemma get_cases_length :
@@ -147,7 +147,7 @@ Module SmallStepProps (P : PAT).
       Lemma get_cases_Ksubst :
         forall ps bs X K t,
           get_cases t = (ps, bs) ->
-          get_cases (Ksubst_t X K t) = (ps, LibList.map (Ksubst_t X K) bs).
+          get_cases (Ksubst_t X K t) = (LibList.map (Ksubst_p X K) ps, LibList.map (Ksubst_t X K) bs).
       Proof.
         introv Heq. gen ps bs.
         induction t ; intros ; simpls ; inverts~ Heq.
@@ -308,7 +308,8 @@ Module SmallStepProps (P : PAT).
             + rewrite* Topen_t_open_comm. apply_empty~ ok_term_comm.
               constructor~. constructor~. apply* ok_env_push.
               applys ok_pat_ok_type.
-              apply_empty* (ok_pat_tname_strengthening T) ; auto. }
+              apply_empty* (ok_pat_tname_strengthening T) ; auto.
+              apply* ok_env_push. }
         { Case "TmComp". constructor~. apply IHHval1 ; simpls~. apply IHHval2 ; simpls~. }
       Qed.
 
@@ -375,11 +376,13 @@ Module SmallStepProps (P : PAT).
             forwards (L'&?&?&?&Htk'&?): ok_env_binds_con_inv B. apply* ok_env_push.
             pick_fresh X. forwards~ Hnin': ok_type_notin_K K (Htk' X).
             rewrite~ topen_notin_K in Hnin'. simpls~. }
-        { Case "TmSem". rewrite notin_Kopen_ty in *...
+        { Case "TmSem". rew_listx in Hfresh ; simpls. rewrite notin_Kopen_ty in *...
+          rewrite notin_Kopen_p in *...
           assert (Gamma |= ty ~:: KiType)
             by (apply_empty~ (ok_type_con_strengthening K) ; eauto ; apply* ok_env_push).
-          assert (Gamma |= ty1' ~:: KiType)
-            by (applys ok_pat_ok_type ; apply_empty* (ok_pat_con_strengthening K) ; auto).
+          assert (Gamma |= ty1' ~:: KiType).
+          { applys ok_pat_ok_type. apply_empty* (ok_pat_con_strengthening K) ; auto.
+            apply* ok_env_push. }
           assert (Hty' : forall x X,
                      X \notin L0 \u dom Gamma \u \{x} ->
                      x # Gamma ->
@@ -394,7 +397,8 @@ Module SmallStepProps (P : PAT).
               * rewrite notin_union. rewrite~ open_notin_K.
               * rewrite* Kopen_t_open_comm. apply_empty~ ok_term_comm.
                 constructors... apply_empty~ ok_data_weakening. constructor~. apply* ok_env_concat. }
-        { Case "TmComp". constructor~. apply IHHval1 ; simpls~. apply IHHval2 ; simpls~. }
+        { Case "TmComp". rew_listx in Hfresh...
+          constructor~. apply IHHval1 ; simpls~. apply IHHval2 ; simpls~. }
       Qed.
 
     End SmallStepProps2.

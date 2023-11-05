@@ -11,8 +11,8 @@ Module Soundness (P : PAT).
     Module SP1 := SmallStepProps1 PC M.
     Import SP1.
 
-    Module Soundness2 (PCP : PATCHECKPROPS) (MP : MATCHPROPS).
-      Module SP2 := SmallStepProps2 PCP MP.
+    Module Soundness2 (PP : PATPROPS) (PCP : PATCHECKPROPS) (MP : MATCHPROPS).
+      Module SP2 := SmallStepProps2 PP PCP MP.
       Import SP2.
 
       Theorem preservation :
@@ -47,8 +47,7 @@ Module Soundness (P : PAT).
           assert (i < length ps0) by apply* matchN_length.
           forwards* (L&ty1'&Hpat&Htype) : ok_term_get_cases_inv i.
           remember (nth i bs) ; pick_fresh x ; substs. rewrite~ (subst_intro x).
-          apply_empty~ ok_term_subst.
-          apply* matchN_ok_pat. }
+          apply_empty~ ok_term_subst. apply* matchN_ok_pat. }
       Qed.
 
       Definition no_vars (Gamma : env) : Prop :=
@@ -107,7 +106,7 @@ Module Soundness (P : PAT).
           forwards* [Hval1 | (t1' & Hstep1)]: IHhasType1.
           forwards* [Hval2 | (t2' & Hstep2)]: IHhasType2.
           forwards* (i&v'&Hmatch): exhaustive_has_match hasType2.
-          destruct (get_cases t1) as (ps0&bs) eqn:Hget.
+          destruct (get_cases t1) eqn:Hget.
           forwards* Heq : ok_term_get_cases_eq ; substs*. }
       Qed.
 

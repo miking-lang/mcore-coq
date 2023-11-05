@@ -15,9 +15,15 @@ Module TypingProps (P : PAT).
     Export T1.
 
     Module Type PATCHECKPROPS.
+      Parameter ok_pat_lcp :
+        forall Gamma p T T',
+          ok_pat Gamma p T T' ->
+          lcp p.
+
       Parameter ok_pat_ok_type :
         forall Gamma p T T',
           ok_pat Gamma p T T' ->
+          ok_env Gamma ->
           Gamma |= T' ~:: KiType.
 
       Parameter ok_pat_weakening :
@@ -26,30 +32,33 @@ Module TypingProps (P : PAT).
           ok_env (G1 & G2 & G3) ->
           ok_pat (G1 & G2 & G3) p T T'.
 
+      Parameter pats_exhaustive_weakening :
+        forall G3 G1 G2 ps T,
+          pats_exhaustive (G1 & G3) ps T ->
+          ok_env (G1 & G2 & G3) ->
+          pats_exhaustive (G1 & G2 & G3) ps T.
+
       Parameter ok_pat_strengthening :
         forall G1 G2 x p T1 T1' T2,
           ok_pat (G1 & x ~ BindVar T2 & G2) p T1 T1' ->
           ok_pat (G1 & G2) p T1 T1'.
 
-      Parameter ok_pat_bsubst :
-        forall G1 G2 p X U T T',
-          ok_pat (G1 & G2) p T T' ->
+      Parameter pats_exhaustive_strengthening :
+        forall G1 G2 x ps T1 T2,
+          pats_exhaustive (G1 & x ~ BindVar T2 & G2) ps T1 ->
+          pats_exhaustive (G1 & G2) ps T1.
+
+      Parameter ok_pat_tsubst :
+        forall G1 G2 p X U T T' k,
+          ok_pat (G1 & X ~ BindTVar k & G2) p T T' ->
+          G1 |= U ~:: k ->
           ok_pat (G1 & map (bsubst X U) G2) p ({X => U}T) ({X => U}T').
 
-      Parameter ok_pat_tvar_strengthening :
-        forall G1 G2 x k p T T',
-          ok_pat (G1 & x ~ BindTVar k & G2) p T T' ->
-          ok_pat (G1 & G2) p T T'.
-
-      Parameter pats_compatible_tsubst :
-        forall ps X U ty,
-          pats_compatible ps ty ->
-          pats_compatible ps ({X => U} ty).
-
       Parameter pats_exhaustive_tsubst :
-        forall ps X U ty,
-          pats_exhaustive ps ty ->
-          pats_exhaustive ps ({X => U} ty).
+        forall G1 G2 ps X U ty k,
+          pats_exhaustive (G1 & X ~ BindTVar k & G2) ps ty ->
+          G1 |= U ~:: k ->
+          pats_exhaustive (G1 & map (bsubst X U) G2) ps ({X => U} ty).
 
       Parameter ok_pat_comm :
         forall G1 G2 x1 x2 b1 b2 p T T',
@@ -57,10 +66,17 @@ Module TypingProps (P : PAT).
           ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
           ok_pat (G1 & x2 ~ b2 & x1 ~ b1 & G2) p T T'.
 
+      Parameter pats_exhaustive_comm :
+        forall G1 G2 x1 x2 b1 b2 ps T,
+          pats_exhaustive (G1 & x1 ~ b1 & x2 ~ b2 & G2) ps T ->
+          ok_env (G1 & x2 ~ b2 & x1 ~ b1 & G2) ->
+          pats_exhaustive (G1 & x2 ~ b2 & x1 ~ b1 & G2) ps T.
+
       Parameter ok_pat_tname_strengthening :
         forall T G2 G1 ty ty' p,
           T \notin Tfv_ty ty ->
           ok_pat (G1 & T ~ BindTName & G2) p ty ty' ->
+          ok_env (G1 & G2) ->
           ok_pat (G1 & G2) p ty ty'.
 
       Parameter ok_pat_Tsubst :
@@ -71,21 +87,26 @@ Module TypingProps (P : PAT).
           ok_pat (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
                  p (Tsubst_ty T (FTName T') ty) (Tsubst_ty T (FTName T') ty').
 
-      Parameter pats_compatible_Tsubst :
-        forall ps T T' ty,
-          pats_compatible ps ty ->
-          pats_compatible ps (Tsubst_ty T (FTName T') ty).
-
       Parameter pats_exhaustive_Tsubst :
-        forall ps T T' ty,
-          pats_exhaustive ps ty ->
-          pats_exhaustive ps (Tsubst_ty T (FTName T') ty).
+        forall G1 G2 ps T T' ty,
+          pats_exhaustive (G1 & T ~ BindTName & G2) ps ty ->
+          T' # G1 & T ~ BindTName & G2 ->
+          ok_env (G1 & T ~ BindTName & G2) ->
+          pats_exhaustive (G1 & T' ~ BindTName & map (Tbsubst T (FTName T')) G2)
+                          ps (Tsubst_ty T (FTName T') ty).
 
       Parameter ok_pat_con_strengthening :
         forall K G2 G1 d0 ty0 T ty ty' p,
           K \notin Kfv_ty ty ->
           ok_pat (G1 & K ~ BindCon d0 ty0 T & G2) p ty ty' ->
+          ok_env (G1 & G2) ->
           ok_pat (G1 & G2) p ty ty'.
+
+      Parameter ok_pat_notin_K :
+        forall Gamma p ty ty' X,
+          ok_pat Gamma p ty ty' ->
+          X # Gamma ->
+          X \notin Kfv_p p.
 
       Parameter ok_pat_Ksubst :
         forall G2 G1 K K' d0 ty0 T p ty ty',
@@ -93,22 +114,27 @@ Module TypingProps (P : PAT).
           K' # G1 & K ~ BindCon d0 ty0 T & G2 ->
           ok_env (G1 & K ~ BindCon d0 ty0 T & G2) ->
           ok_pat (G1 & K' ~ BindCon d0 ty0 T & map (Kbsubst K (FCon K')) G2)
-                 p (Ksubst_ty K (FCon K') ty) (Ksubst_ty K (FCon K') ty').
+                 (Ksubst_p K (FCon K') p) (Ksubst_ty K (FCon K') ty) (Ksubst_ty K (FCon K') ty').
 
       Parameter pats_compatible_Ksubst :
-        forall ps K K' ty,
-          pats_compatible ps ty ->
-          pats_compatible ps (Ksubst_ty K (FCon K') ty).
+        forall ps K K',
+          K' \notin fold varsM Kfv_p ps ->
+          pats_compatible ps ->
+          pats_compatible (LibList.map (Ksubst_p K (FCon K')) ps).
 
       Parameter pats_exhaustive_Ksubst :
-        forall ps K K' ty,
-          pats_exhaustive ps ty ->
-          pats_exhaustive ps (Ksubst_ty K (FCon K') ty).
+        forall G1 G2 ps K K' d ty' T ty,
+          pats_exhaustive (G1 & K ~ BindCon d ty' T & G2) ps ty ->
+          K' # G1 & K ~ BindCon d ty' T & G2 ->
+          ok_env (G1 & K ~ BindCon d ty' T & G2) ->
+          pats_exhaustive (G1 & K' ~ BindCon d ty' T & map (Kbsubst K (FCon K')) G2)
+                          (LibList.map (Ksubst_p K (FCon K')) ps) (Ksubst_ty K (FCon K') ty).
 
     End PATCHECKPROPS.
 
-    Module TypingProps2 (PCP : PATCHECKPROPS).
-      Export PCP.
+    Module TypingProps2 (PP : PATPROPS) (PCP : PATCHECKPROPS).
+      Module SP1 := SyntaxProps1 PP.
+      Export PCP SP1.
 
       Lemma ok_env_ok :
         forall Gamma,
@@ -157,6 +183,9 @@ Module TypingProps (P : PAT).
         { Case "TyAll". apply_fresh* KAll. apply* ok_kind_weakening.
           apply_ih_bind* H1.
           constructor*. apply* ok_kind_weakening. }
+        { Case "TySem". constructors~.
+          apply* Forall_pred_incl. intros p (ty1' & Hwf).
+          eexists. apply* ok_pat_weakening. }
         { Case "TyData". constructors*. apply* ok_data_weakening. }
       Qed.
 
@@ -190,7 +219,11 @@ Module TypingProps (P : PAT).
         forall Gamma T k,
           Gamma |= T ~:: k ->
           lct T.
-      Proof. introv Htk ; induction* Htk. Qed.
+      Proof.
+        introv Htk ; induction* Htk.
+        - constructor~. apply* Forall_pred_incl.
+          intros p (ty1' & Hwf). apply* ok_pat_lcp.
+      Qed.
       #[export]
        Hint Resolve ok_type_lct : mcore.
 
@@ -214,8 +247,8 @@ Module TypingProps (P : PAT).
         { Case "TmType". pick_fresh T. applys~ H0 T. }
         { Case "TmConDef". pick_fresh K. applys~ H3 K. }
         { Case "TmSem". constructors...
-          pick_fresh_gen L y... }
-        { Case "TmComp". inverts* IHhasType1. }
+          pick_fresh_gen L y... forwards* Hpat : ok_pat_lcp. }
+        { Case "TmComp". inverts IHhasType1. inverts IHhasType2. constructor~. rew_listx~. }
         { Case "TmSemApp". inverts* IHhasType1. }
       Qed.
       #[export]
@@ -225,7 +258,7 @@ Module TypingProps (P : PAT).
         forall Gamma t T,
           Gamma |= t ~: T ->
           lc t.
-      Proof. introv Htype; induction* Htype. Qed.
+      Proof. introv Htype; induction* Htype. forwards* Hpat : ok_pat_lcp. Qed.
       #[export]
        Hint Resolve ok_term_lc : mcore.
 
@@ -280,15 +313,16 @@ Module TypingProps (P : PAT).
         { Case "TmType". apply_fresh TType as T...
           apply_ih_bind H0 ; auto. constructor... }
         { Case "TmConDef". apply_fresh TConDef as K...
-          - apply_ih_bind ok_type_weakening...
+          - apply_ih_bind ok_type_weakening ; auto. constructor...
           - apply* binds_weaken.
           - apply_ih_bind H3 ; auto.
             apply_fresh EnvCon as X...
-            + apply_ih_bind ok_type_weakening...
+            + apply_ih_bind ok_type_weakening ; auto. constructor...
             + apply* binds_weaken. }
         { Case "TmSem". apply_fresh* TSem as y... apply* ok_pat_weakening.
           apply_ih_bind H2 ; auto. constructor...
           apply~ ok_type_weakening. apply* ok_pat_ok_type. }
+        { Case "TmSemApp". constructors~. apply~ pats_exhaustive_weakening. }
       Qed.
 
       Lemma ok_data_strengthening :
@@ -314,7 +348,7 @@ Module TypingProps (P : PAT).
       Qed.
 
       Lemma ok_type_strengthening :
-        forall G1 G2 x T1 T2 k,
+        forall G2 G1 x T1 T2 k,
           G1 & x ~ BindVar T2 & G2 |= T1 ~:: k ->
           ok_env (G1 & G2) ->
           G1 & G2 |= T1 ~:: k.
@@ -325,8 +359,11 @@ Module TypingProps (P : PAT).
           binds_cases H0 ; auto. }
         { Case "TyAll". apply_fresh* KAll as X.
           apply* ok_kind_strengthening.
-          apply_ih_bind* H1. constructor*. apply* ok_kind_strengthening. }
-        { Case "TyData". constructor*. apply* ok_data_strengthening. }
+          apply_ih_bind H1 ; eauto. constructor*. apply* ok_kind_strengthening. }
+        { Case "TySem". constructor~.
+          apply* Forall_pred_incl. intros p (ty1'&Hwf).
+          eexists. apply* ok_pat_strengthening. }
+        { Case "TyData". constructor~. apply* ok_data_strengthening. }
       Qed.
 
       Lemma ok_env_con_inv :
@@ -418,6 +455,8 @@ Module TypingProps (P : PAT).
         { Case "TmSem". apply_fresh* TSem as y...
           - apply* ok_pat_strengthening.
           - rewrite subst_open_comm... apply_ih_bind* H2. }
+        { Case "TmSemApp". constructors~.
+          apply* pats_exhaustive_strengthening. }
       Qed.
 
       Lemma ok_data_tvar_strengthening :
@@ -467,7 +506,7 @@ Module TypingProps (P : PAT).
       Qed.
 
       Lemma ok_type_tsubst :
-        forall G1 G2 X T1 T2 k k',
+        forall G2 G1 X T1 T2 k k',
           G1 & X ~ BindTVar k' & G2 |= T1 ~:: k ->
           G1 |= T2 ~:: k' ->
           ok_env (G1 & map (bsubst X T2) G2) ->
@@ -485,6 +524,8 @@ Module TypingProps (P : PAT).
         { Case "TyAll". apply_fresh KAll... rewrite tsubst_topen_comm...
           replaces (BindTVar k) with (bsubst X T2 (BindTVar k))...
           apply_ih_map_bind H1 ; auto. constructor... }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros p (ty1'&Hwf). eexists. apply* ok_pat_tsubst. }
       Qed.
 
       Lemma bsubst_ok_env :
@@ -618,11 +659,10 @@ Module TypingProps (P : PAT).
             rewrite Kopen_t_tsubst_comm... apply_ih_map_bind H3 ; auto. }
         { Case "TmSem". apply_fresh* TSem as x.
           + applys ok_type_tsubst...
-          + applys* ok_pat_bsubst. applys* ok_pat_tvar_strengthening.
+          + applys* ok_pat_tsubst.
           + replaces (BindVar ({X => T2}ty1')) with (bsubst X T2 (BindVar ty1'))...
             rewrite tsubst_t_open_comm. apply_ih_map_bind H2 ; auto. }
-        { Case "TmComp". constructors*. apply~ pats_compatible_tsubst. }
-        { Case "TmSemApp". constructors*. apply~ pats_exhaustive_tsubst. }
+        { Case "TmSemApp". constructors*. apply* pats_exhaustive_tsubst. }
       Qed.
 
       Lemma ok_data_comm :
@@ -667,6 +707,8 @@ Module TypingProps (P : PAT).
           applys* ok_concat_inv_l G2. }
         { Case "TyAll". apply_fresh KAll as X...
           apply_ih_bind H1 ; auto. constructors... }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros x (ty1'&Hwf). eexists. apply* ok_pat_comm. }
       Qed.
 
       Lemma ok_term_comm :
@@ -699,9 +741,10 @@ Module TypingProps (P : PAT).
           + apply_ih_bind ok_type_comm. eauto. constructor...
           + apply_ih_bind H3 ; auto. apply_fresh EnvCon as X'...
             apply_ih_bind ok_type_comm. eauto. constructor... }
-        { Case "TmLam". apply_fresh TSem as x...
+        { Case "TmSem". apply_fresh TSem as x...
           + apply* ok_pat_comm.
           + apply_ih_bind H2 ; auto. constructor... apply~ ok_type_comm. apply* ok_pat_ok_type. }
+        { Case "TmSemApp". constructors~. apply~ pats_exhaustive_comm. }
       Qed.
 
       Lemma ok_env_binds_con_inv :
@@ -742,6 +785,20 @@ Module TypingProps (P : PAT).
           + substs. forwards* Hk: ok_env_tvar_inv. apply_empty~ ok_kind_weakening.
       Qed.
 
+      Lemma ok_env_binds_var_inv :
+        forall Gamma x ty,
+          ok_env Gamma ->
+          binds x (BindVar ty) Gamma ->
+          Gamma |= ty ~:: KiType.
+      Proof.
+        introv Henv Hbinds.
+        induction Gamma using env_ind.
+          - false. apply* binds_empty_inv.
+          - binds_cases Hbinds.
+            + apply_empty~ ok_type_weakening. forwards~ ?: ok_env_push Henv.
+            + inverts EQ. apply_empty~ ok_type_weakening. apply* ok_env_var_inv.
+      Qed.
+
       Lemma ok_type_ok_kind :
         forall Gamma T k,
           Gamma |= T ~:: k ->
@@ -755,7 +812,7 @@ Module TypingProps (P : PAT).
           ok_data (G1 & G2) d.
       Proof.
         introv Hfv Hd. remember (G1 & T ~ BindTName & G2) as Gamma eqn:HGamma.
-        unfolds Tfv_d. induction Hd ; substs ; constructor ; rew_listx~ in Hfv.
+        unfolds Tfv_d. induction Hd ; substs ; constructor ; rew_listx in Hfv ; simpls~.
         - binds_cases H0 ; auto. notin_false.
         - induction* Ks. inverts H1.
           constructors~. binds_cases H8 ; eauto.
@@ -786,6 +843,8 @@ Module TypingProps (P : PAT).
         { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
           apply_fresh KAll as X...
           apply_ih_bind H1 ; auto. rewrite topen_notin_T ; simpls~. constructors... }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros p (ty1'&Hwf). eexists. apply* ok_pat_tname_strengthening ; auto. }
       Qed.
 
       Lemma ok_data_notin_T :
@@ -795,7 +854,7 @@ Module TypingProps (P : PAT).
           X \notin Tfv_d d.
       Proof.
         introv Hd Hfresh. unfolds Tfv_d.
-        induction Hd ; rew_listx~.
+        induction Hd ; rew_listx ; simpls~.
         rewrite notin_union. splits*.
         - rewrite notin_singleton. intro. substs.
           forwards~ Hin : get_some_inv H0.
@@ -816,7 +875,7 @@ Module TypingProps (P : PAT).
           mem (FTName T, Ks) d -> T \in Tfv_d d.
       Proof.
         introv Hassoc. unfolds Tfv_d.
-        induction Hassoc ; rew_listx~.
+        induction Hassoc ; rew_listx ; simpls~.
         - rewrite~ in_union. rewrite~ in_singleton.
         - destruct y. rewrite~ in_union.
       Qed.
@@ -966,6 +1025,8 @@ Module TypingProps (P : PAT).
           asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
           simpls. rewrite Heq. apply KCon with (d := Tsubst_d T (FTName T') d) (Ks := Ks)...
           rewrite <- Heq. applys~ assoc_Tsubst. }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros p (ty1'&Hwf). eexists. apply ok_pat_Tsubst ; eauto. apply* ok_type_ok_env. }
         { Case "TyData". constructor~. apply~ ok_data_Tsubst... }
       Qed.
 
@@ -1082,8 +1143,7 @@ Module TypingProps (P : PAT).
             replaces (BindVar (Tsubst_ty T (FTName T') ty1'))
               with (Tbsubst T (FTName T') (BindVar ty1'))...
             apply_ih_map_bind H2 ; auto. }
-        { Case "TmComp". constructor~. apply~ pats_compatible_Tsubst. }
-        { Case "TmSemApp". constructors*. apply~ pats_exhaustive_Tsubst. }
+        { Case "TmSemApp". constructors*. apply* pats_exhaustive_Tsubst. }
       Qed.
 
       Lemma ok_term_Topen_change :
@@ -1107,9 +1167,9 @@ Module TypingProps (P : PAT).
           ok_data (G1 & G2) d.
       Proof.
         introv Hfv Hd. remember (G1 & K ~ BindCon d' ty' T & G2) as Gamma eqn:HGamma.
-        unfolds Kfv_d. induction Hd ; substs ; constructor ; rew_listx~ in Hfv.
+        unfolds Kfv_d. induction Hd ; substs ; constructor ; rew_listx in Hfv ; simpls~.
         - binds_cases H0 ; auto.
-        - induction* Ks. inverts H1. rew_listx~ in Hfv.
+        - induction* Ks. inverts H1. rew_listx in Hfv ; simpls~.
           constructors~. binds_cases H8 ; eauto. notin_false.
       Qed.
 
@@ -1138,6 +1198,33 @@ Module TypingProps (P : PAT).
         { Case "TyAll". rewrite notin_union in Hfv ; destruct Hfv.
           apply_fresh KAll as X...
           apply_ih_bind H1 ; auto. rewrite topen_notin_K ; simpls~. constructors... }
+        { Case "TySem". constructor~. apply* Forall_pred_incl.
+          intros p (ty1'&Hwf). eexists. apply* ok_pat_con_strengthening ; auto. }
+      Qed.
+
+      Lemma ok_term_ok_type :
+        forall Gamma t ty,
+          Gamma |= t ~: ty ->
+          Gamma |= ty ~:: KiType.
+      Proof with eauto with mcore.
+        introv Htype.
+        induction* Htype.
+        - apply* ok_env_binds_var_inv.
+        - constructor~. pick_fresh x. forwards~ Htk : H1 x.
+          apply_empty* ok_type_strengthening.
+        - inverts~ IHHtype1.
+        - inverts IHHtype. pick_fresh X. rewrite~ (tsubst_intro X).
+          apply_empty* ok_type_tsubst.
+        - inverts~ IHHtype.
+        - inverts~ IHHtype.
+        - inverts~ IHHtype.
+        - pick_fresh T. apply_empty* (ok_type_tname_strengthening T).
+        - pick_fresh K. apply_empty* (ok_type_con_strengthening K).
+        - constructor ; rew_listx*.
+          pick_fresh x. forwards~ Htk : H2 x.
+          apply_empty* ok_type_strengthening.
+        - inverts IHHtype1. inverts IHHtype2. constructor ; rew_listx~.
+        - inverts~ IHHtype1.
       Qed.
 
       Lemma ok_data_notin_K :
@@ -1147,9 +1234,9 @@ Module TypingProps (P : PAT).
           X \notin Kfv_d d.
       Proof.
         introv Hd Hfresh. unfolds Kfv_d.
-        induction Hd ; rew_listx~.
+        induction Hd ; rew_listx ; simpls~.
         rewrite notin_union. splits*.
-        induction H1 ; rew_listx~ ; rewrite notin_union ; splits~.
+        induction H1 ; rew_listx ; simpls~ ; rewrite notin_union ; splits~.
         - rewrite notin_singleton. intro. substs.
           forwards~ Hin : get_some_inv H3.
       Qed.
@@ -1169,12 +1256,15 @@ Module TypingProps (P : PAT).
           Gamma |= T ~:: k ->
           X # Gamma ->
           X \notin Kfv_ty T.
-      Proof with eauto using ok_data_notin_K, ok_kind_notin_K.
+      Proof with eauto using ok_data_notin_K, ok_kind_notin_K, ok_pat_notin_K.
         introv Htk Hfresh.
         induction Htk; simpls...
         { Case "TyAll". rewrite notin_union. splits...
           pick_fresh Y. forwards~ Htk: H1 Y.
           rewrite topen_notin_K in Htk ; simpls~. }
+        { Case "TySem". rewrite_all notin_union. repeat split~.
+          induction ps ; rew_listx ; simpls~. rew_listx in H. destruct H as ((ty1'&Hfw)&?).
+          rewrite notin_union... }
       Qed.
 
       Lemma env_Kbsubst_fresh :
@@ -1319,6 +1409,9 @@ Module TypingProps (P : PAT).
         { Case "TyCon".
           apply KCon with (d := Ksubst_d K (FCon K') d0) (Ks := LibList.map (Ksubst K (FCon K')) Ks)...
           apply~ assoc_Ksubst. }
+        { Case "TySem". constructor~. rewrite~ Forall_map_eq.
+          apply* Forall_pred_incl. intros p (ty1'&Hwf). eexists.
+          apply ok_pat_Ksubst ; eauto. apply* ok_type_ok_env. }
         { Case "TyData". constructor~. apply~ ok_data_Ksubst. }
       Qed.
 
@@ -1438,8 +1531,13 @@ Module TypingProps (P : PAT).
             replaces (BindVar (Ksubst_ty K (FCon K') ty1'))
               with (Kbsubst K (FCon K') (BindVar ty1'))...
             apply_ih_map_bind H2 ; auto. }
-        { Case "TmComp". constructor~. apply~ pats_compatible_Ksubst. }
-        { Case "TmSemApp". constructors*. apply~ pats_exhaustive_Ksubst. }
+        { Case "TmComp". simpls. rew_listx.
+          constructor... forwards* Hcomp: pats_compatible_Ksubst __ K'.
+          - forwards Htk1 : ok_term_ok_type Htype1. forwards Htk2 : ok_term_ok_type Htype2.
+            forwards~ Hnin1 : ok_type_notin_K K' Htk1. forwards~ Hnin2 : ok_type_notin_K K' Htk2.
+            simpls. rew_listx*. simpls~.
+          - rew_listx* in Hcomp. }
+        { Case "TmSemApp". constructors*. apply* pats_exhaustive_Ksubst. }
       Qed.
 
       Lemma ok_term_Kopen_change :

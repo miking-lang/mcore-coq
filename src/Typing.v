@@ -15,8 +15,8 @@ Module Typing (P : PAT).
   Module Type PATCHECK.
     Parameter ok_pat : env -> pat -> type -> type -> Prop.
     Parameter matches_contradictory : env -> Prop.
-    Parameter pats_compatible : list pat -> type -> Prop.
-    Parameter pats_exhaustive : list pat -> type -> Prop.
+    Parameter pats_compatible : list pat -> Prop.
+    Parameter pats_exhaustive : env -> list pat -> type -> Prop.
   End PATCHECK.
 
   Module Typing1 (PC : PATCHECK).
@@ -79,6 +79,7 @@ Module Typing (P : PAT).
     | KSem : forall Gamma ty1 ty2 ps,
         Gamma |= ty1 ~:: KiType ->
         Gamma |= ty2 ~:: KiType ->
+        Forall (fun p => exists ty1', ok_pat Gamma p ty1 ty1') ps ->
         Gamma |= TySem ty1 ty2 ps ~:: KiType
     | KData : forall Gamma d,
         ok_env Gamma ->
@@ -198,12 +199,12 @@ Module Typing (P : PAT).
     | TComp : forall Gamma ty1 ty2 t1 t2 ps1 ps2,
         Gamma |= t1 ~: TySem ty1 ty2 ps1 ->
         Gamma |= t2 ~: TySem ty1 ty2 ps2 ->
-        pats_compatible (ps1 ++ ps2) ty1 ->
+        pats_compatible (ps1 ++ ps2) ->
         Gamma |= TmComp t1 t2 ~: TySem ty1 ty2 (ps1 ++ ps2)
     | TSemApp : forall Gamma ty1 ty2 t1 t2 ps,
         Gamma |= t1 ~: TySem ty1 ty2 ps ->
         Gamma |= t2 ~: ty1 ->
-        pats_exhaustive ps ty1 ->
+        pats_exhaustive Gamma ps ty1 ->
         Gamma |= TmSemApp t1 t2 ~: ty2
     where " Gamma |= t ~: T " := (ok_term Gamma t T).
     #[export]
