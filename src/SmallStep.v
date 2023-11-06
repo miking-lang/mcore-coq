@@ -68,7 +68,7 @@ Module SmallStep (P : PAT).
         is_context (TmProd v)
     | CProj : forall i, is_context (TmProj i)
     | CCon : forall K ty, is_context (TmCon K ty)
-    (* | CMatch : pat -> term -> term -> eval_context *)
+    | CMatch : forall p t1 t2, is_context (fun t => TmMatch t p t1 t2)
     | CCompL : forall t2, is_context (fun t1 => TmComp t1 t2)
     | CCompR : forall (v : term),
         is_value v ->
@@ -111,18 +111,14 @@ Module SmallStep (P : PAT).
         (forall K, K \notin L ->
               Kopen_t 0 (FCon K) t1 --> Kopen_t 0 (FCon K) t2) ->
         TmConDef d ty T t1 --> TmConDef d ty T t2
-    (* | EMatchThen : forall {v t1 t2 : term} {p : pat} *)
-    (*                       {theta : list term} *)
-    (*                       (vval : is_value v), *)
-    (*     match1 vval p = Some theta -> *)
-    (*     eval_step (TmMatch v p t1 t2) (tm_subst_n t1 theta) *)
-    (* | EMatchElse : forall {v t1 t2 : term} {p : pat} *)
-    (*                       (vval : is_value v), *)
-    (*     match1 vval p = None -> *)
-    (*     eval_step (TmMatch v p t1 t2) t2 *)
-    (* | EComp : forall {cases1 cases2 : list (pat * term)} {ty : type}, *)
-    (*     eval_step (TmComp (TmSem ty cases1) (TmSem ty cases2)) *)
-    (*               (TmSem ty (cases1 ++ cases2)) *)
+    | EMatchThen : forall v v' p t1 t2,
+        is_value v ->
+        match1 v p = Some v' ->
+        TmMatch v p t1 t2 --> [0 ~> v']t1
+    | EMatchElse : forall v p t1 t2,
+        is_value v ->
+        match1 v p = None ->
+        TmMatch v p t1 t2 --> t2
     | ESemApp : forall v1 v2 v2' i ps bs,
         is_value v1 ->
         is_value v2 ->
@@ -150,6 +146,8 @@ Module SmallStep (P : PAT).
     #[export] Hint Resolve econg_CProdR : mcore.
     Definition econg_CCon K ty := ECong (CCon K ty).
     #[export] Hint Resolve econg_CCon : mcore.
+    Definition econg_CMatch p t1 t2 := ECong (CMatch p t1 t2).
+    #[export] Hint Resolve econg_CMatch : mcore.
     Definition econg_CCompL t2 := ECong (CCompL t2).
     #[export] Hint Resolve econg_CCompL : mcore.
     Definition econg_CCompR v Hv := ECong (CCompR v Hv).

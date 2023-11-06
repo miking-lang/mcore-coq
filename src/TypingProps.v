@@ -259,7 +259,9 @@ Module TypingProps (P : PAT).
         forall Gamma t T,
           Gamma |= t ~: T ->
           lc t.
-      Proof. introv Htype; induction* Htype. forwards* Hpat : ok_pat_lcp. Qed.
+      Proof.
+        introv Htype; induction* Htype ; forwards* Hpat : ok_pat_lcp.
+      Qed.
       #[export]
        Hint Resolve ok_term_lc : mcore.
 
@@ -311,6 +313,10 @@ Module TypingProps (P : PAT).
           apply_ih_bind H1 ; auto. constructor... }
         { Case "TmCon". constructors...
           apply* binds_weaken. }
+        { Case "TmMatch". apply_fresh* TMatch as y...
+          + apply* ok_pat_weakening.
+          + apply_ih_bind H1 ; auto. constructor...
+            apply~ ok_type_weakening. apply* ok_pat_ok_type. }
         { Case "TmType". apply_fresh TType as T...
           apply_ih_bind H0 ; auto. constructor... }
         { Case "TmConDef". apply_fresh TConDef as K...
@@ -448,6 +454,9 @@ Module TypingProps (P : PAT).
           rewrite* topen_t_subst_comm. apply_ih_bind* H1. }
         { Case "TmTyApp". constructors... }
         { Case "TmCon". constructors... binds_cases H ; auto. }
+        { Case "TmMatch". apply_fresh* TMatch as y...
+          - apply* ok_pat_strengthening.
+          - rewrite subst_open_comm... apply_ih_bind* H1. }
         { Case "TmType". apply_fresh* TType as T...
           rewrite* Topen_t_subst_comm. apply_ih_bind* H0. }
         { Case "TmConDef". apply_fresh* TConDef as K...
@@ -645,6 +654,10 @@ Module TypingProps (P : PAT).
             assert (X # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
             rewrite* (env_bsubst_fresh G1 X T2).
           - rewrite <- tsubst_topen_distr... }
+        { Case "TmMatch". apply_fresh* TMatch as x.
+          + applys* ok_pat_tsubst.
+          + replaces (BindVar ({X => T2}ty1')) with (bsubst X T2 (BindVar ty1'))...
+            rewrite tsubst_t_open_comm. apply_ih_map_bind H1 ; auto. }
         { Case "TmType". apply_fresh TType.
           replaces BindTName with (bsubst X T2 BindTName)...
           rewrite Topen_t_tsubst_comm... apply_ih_map_bind H0 ; auto. }
@@ -732,6 +745,10 @@ Module TypingProps (P : PAT).
         { Case "TmCon". constructors... binds_cases H...
           apply* binds_concat_left_ok. apply* binds_concat_left_ok.
           applys* ok_concat_inv_l G2. }
+        { Case "TmMatch". apply_fresh TMatch as x...
+          + apply* ok_pat_comm.
+          + apply_ih_bind H1 ; auto. constructor...
+            apply~ ok_type_comm. apply* ok_pat_ok_type. }
         { Case "TmType". apply_fresh TType as T...
           apply_ih_bind H0 ; auto. constructor... }
         { Case "TmConDef".
@@ -1153,6 +1170,12 @@ Module TypingProps (P : PAT).
               with (Tsubst_k T (FTName T') (KiData [(FTName T0, FCon K :: [])])). rewrite~ <- Heq.
             apply* ok_type_Tsubst.
           - rewrite <- Tsubst_ty_topen_distr... }
+        { Case "TmMatch". apply_fresh TMatch as x...
+          + apply ok_pat_Tsubst...
+          + rewrite <- Tsubst_t_open_comm.
+            replaces (BindVar (Tsubst_ty T (FTName T') ty1'))
+              with (Tbsubst T (FTName T') (BindVar ty1'))...
+            apply_ih_map_bind H1 ; auto. }
         { Case "TmType". apply_fresh TType as T0.
           replaces BindTName with (Tbsubst T (FTName T') BindTName)...
           rewrite~ Tsubst_t_Topen_comm. apply_ih_map_bind H0 ; auto. }
@@ -1592,6 +1615,12 @@ Module TypingProps (P : PAT).
               with (Ksubst_k K (FCon K') (KiData [(FTName T0, FCon K0 :: [])])). rewrite~ <- Heq.
             apply* ok_type_Ksubst.
           - rewrite <- Ksubst_ty_topen_distr... }
+        { Case "TmMatch". apply_fresh TMatch as x...
+          + apply ok_pat_Ksubst...
+          + rewrite <- Ksubst_t_open_comm.
+            replaces (BindVar (Ksubst_ty K (FCon K') ty1'))
+              with (Kbsubst K (FCon K') (BindVar ty1'))...
+            apply_ih_map_bind H1 ; auto. }
         { Case "TmType". apply_fresh TType as T0.
           replaces BindTName with (Kbsubst K (FCon K') BindTName)...
           rewrite~ Ksubst_t_Topen_comm. apply_ih_map_bind H0 ; auto. }

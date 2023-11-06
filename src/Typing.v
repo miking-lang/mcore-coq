@@ -170,15 +170,13 @@ Module Typing (P : PAT).
         Gamma |= ty2 ~:: KiData [ (FTName T , FCon K :: []) ] ->
         Gamma |= t ~: ({0 ~> ty2}ty1) ->
         Gamma |= TmCon (FCon K) ty2 t ~: TyCon ty2 (FTName T)
-    (* | TmMatch' : forall {Gamma : env} {vs : var_env} {t t1 t2 : term} *)
-    (*                     {ty1 ty2 : type} {p : pat}, *)
-    (*     ok_term Gamma t ty1 -> *)
-    (*     ok_pat  Gamma p ty1 vs -> *)
-    (*     ok_term (Gamma <| vars ::= fun vs' => vs ++ vs' |> <| matches ::= fun ms => Match t p :: ms |> *)
-    (*             t1 ty2 -> *)
-    (*     ok_term (Gamma <| matches ::= fun ms => NoMatch t p :: ms |>) *)
-    (*             t2 ty2 -> *)
-    (*     ok_term Gamma (TmMatch t p t1 t2) ty2 *)
+    | TMatch : forall L Gamma t t1 t2 ty1 ty1' ty2 p,
+        Gamma |= t ~: ty1 ->
+        ok_pat Gamma p ty1 ty1' ->
+        (forall x, x \notin L ->
+              Gamma & x ~ BindVar ty1' |= [0 ~> TmFVar x]t1 ~: ty2) ->
+        Gamma |= t2 ~: ty2 ->
+        Gamma |= TmMatch t p t1 t2 ~: ty2
     (* | TmNever' : forall {Gamma : env} {ty : type}, *)
     (*     matches_contradictory Gamma.(matches) -> *)
     (*     ok_term Gamma TmNever ty *)

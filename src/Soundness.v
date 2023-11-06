@@ -23,7 +23,7 @@ Module Soundness (P : PAT).
       Proof.
         introv hasType Hstep.
         gen t'.
-        induction hasType; intros; inverts Hstep ;
+        induction hasType; intros; inverts~ Hstep ;
           try (with_hyp (is_context _) as ctx ; with_hyp (_ = _) as eq
                ; inverts ctx ; inverts* eq).
         { Case "TmApp". inverts hasType1.
@@ -39,6 +39,8 @@ Module Soundness (P : PAT).
           apply_empty* ok_term_subst. }
         { Case "TmProj1". inverts* hasType. }
         { Case "TmProj2". inverts* hasType. }
+        { Case "TmMatchThen". pick_fresh x. rewrite~ (subst_intro x).
+          apply_empty~ ok_term_subst. apply* match1_ok_pat. }
         { Case "TmType". pick_fresh T. applys* ok_term_Topen_push T t. }
         { Case "TmTypeCong". apply_fresh TType as T' ; auto. }
         { Case "TmConDef". pick_fresh K. applys* ok_term_Kopen_push K t. }
@@ -83,6 +85,9 @@ Module Soundness (P : PAT).
           inverts Hval1; inverts* hasType. }
         { Case "TmCon".
           forwards* [Hval | (t' & Hstep)]: IHhasType. }
+        { Case "TmMatch". right.
+          forwards* [Hval | (t' & Hstep)]: IHhasType1.
+          destruct (match1 t p) eqn:Hmatch ; auto_star. }
         { Case "TmType". right. pick_fresh T.
           forwards* [Hval | (t' & Hstep)]: H0 T.
           + introv Hb. binds_cases Hb. apply* Hnv.

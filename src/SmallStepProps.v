@@ -14,9 +14,49 @@ Module SmallStepProps (P : PAT).
     Export TP1 S1.
 
     Module Type MATCHPROPS.
+      Parameter match1_ok_pat :
+        forall Gamma p v v' ty ty',
+          match1 v p = Some v' ->
+          ok_pat Gamma p ty ty' ->
+          Gamma |= v' ~: ty'.
+
+      Parameter match1_Tsubst_some :
+        forall t p t' X T,
+          match1 t p = Some t' ->
+          match1 (Tsubst_t X T t) p = Some (Tsubst_t X T t').
+
+      Parameter match1_Tsubst_none :
+        forall t p X T,
+          match1 t p = None ->
+          match1 (Tsubst_t X T t) p = None.
+
+      Parameter match1_Ksubst_some :
+        forall t p t' X K,
+          match1 t p = Some t' ->
+          match1 (Ksubst_t X K t) (Ksubst_p X K p) = Some (Ksubst_t X K t').
+
+      Parameter match1_Ksubst_none :
+        forall t p X K,
+          match1 t p = None ->
+          match1 (Ksubst_t X K t) (Ksubst_p X K p) = None.
+
+      Parameter matchN_ok_pat :
+        forall Gamma ps v v' ty ty' i,
+          matchN v ps = Some (v', i) ->
+          ok_pat Gamma (nth i ps) ty ty' ->
+          Gamma |= v' ~: ty'.
+
       Parameter matchN_length :
         forall t ps t' i,
           matchN t ps = Some (t', i) -> i < length ps.
+
+      Parameter exhaustive_has_match :
+        forall Gamma ty ps v,
+          Gamma |= v ~: ty ->
+          pats_exhaustive Gamma ps ty ->
+          is_value v ->
+          exists i v',
+            matchN v ps = Some (v', i).
 
       Parameter matchN_Tsubst :
         forall t ps t' i X T,
@@ -28,19 +68,6 @@ Module SmallStepProps (P : PAT).
           matchN t ps = Some (t', i) ->
           matchN (Ksubst_t X T t) (LibList.map (Ksubst_p X T) ps) = Some (Ksubst_t X T t', i).
 
-      Parameter matchN_ok_pat :
-        forall Gamma ps v v' ty ty' i,
-          matchN v ps = Some (v', i) ->
-          ok_pat Gamma (nth i ps) ty ty' ->
-          Gamma |= v' ~: ty'.
-
-      Parameter exhaustive_has_match :
-        forall Gamma ty ps v,
-          Gamma |= v ~: ty ->
-          pats_exhaustive Gamma ps ty ->
-          is_value v ->
-          exists i v',
-            matchN v ps = Some (v', i).
     End MATCHPROPS.
 
     Module SmallStepProps2 (PP : PATPROPS) (PCP : PATCHECKPROPS) (MP : MATCHPROPS).
@@ -123,6 +150,9 @@ Module SmallStepProps (P : PAT).
           forwards* Hpush: push_Tsubst (TmConDef d ty T0) H. rewrite* <- Hpush.
         - apply_fresh ETypeCong. rewrite_all~ Tsubst_t_Topen_comm.
         - apply_fresh EConDefCong. rewrite_all~ Tsubst_t_Kopen_comm.
+        - forwards Hval: is_value_Tsubst H. rewrite Tsubst_t_open_distr.
+          forwards* Hmatch : match1_Tsubst_some.
+        - forwards Hval: is_value_Tsubst H. forwards* Hmatch : match1_Tsubst_none.
         - forwards Hval: is_value_Tsubst H. forwards Hval': is_value_Tsubst H0.
           rewrite Tsubst_t_open_distr. rewrite <- nth_map.
           constructors*.
@@ -209,6 +239,9 @@ Module SmallStepProps (P : PAT).
           forwards* Hpush: push_Ksubst (TmConDef d ty T) H. rewrite* <- Hpush.
         - apply_fresh ETypeCong. rewrite_all~ Ksubst_t_Topen_comm.
         - apply_fresh EConDefCong. rewrite_all~ Ksubst_t_Kopen_comm.
+        - forwards Hval: is_value_Ksubst H. rewrite Ksubst_t_open_distr.
+          forwards* Hmatch: match1_Ksubst_some.
+        - forwards Hval: is_value_Ksubst H. forwards* Hmatch: match1_Ksubst_none.
         - forwards Hval: is_value_Ksubst H. forwards Hval': is_value_Ksubst H0.
           rewrite Ksubst_t_open_distr. rewrite <- nth_map.
           constructors*.

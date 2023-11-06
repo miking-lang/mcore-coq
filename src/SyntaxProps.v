@@ -188,6 +188,9 @@ Module SyntaxProps (P : PAT).
       - pick_fresh X.
         rewrite open_topen_neq with (J := 0) (V := TyFVar X);
           auto.
+      - pick_fresh x.
+        rewrite open_neq with (j := 0) (v := TmFVar x);
+          auto.
       - pick_fresh X.
         rewrite open_Topen_rec with (J := 0) (V := FTName X);
           auto.
@@ -324,6 +327,7 @@ Module SyntaxProps (P : PAT).
       solve_eq Hlc ; try solve [ rewrite~ topen_lct ] ; pick_fresh_gen L x.
       - apply* topen_open_rec.
       - apply* (topen_t_neq (S n) 0 (TyFVar X) (TyFVar x)).
+      - apply* topen_open_rec.
       - apply* topen_t_Topen_rec.
       - apply topen_neq with (J := 0) (V := TyFVar x) ; auto.
         apply* topen_lct.
@@ -538,6 +542,7 @@ Module SyntaxProps (P : PAT).
         pick_fresh_gen L x.
       - apply* Topen_open_rec.
       - apply* Topen_topen_t_rec.
+      - apply* Topen_open_rec.
       - apply* (Topen_t_neq (S k) 0 T (FTName x)).
       - apply* Topen_topen_rec.
         apply* Topen_ty_lct.
@@ -740,6 +745,7 @@ Module SyntaxProps (P : PAT).
         pick_fresh_gen L x.
       - apply* Kopen_open_rec.
       - apply* Kopen_topen_t_rec.
+      - apply* Kopen_open_rec.
       - apply* Kopen_Topen_t_rec.
       - apply* Kopen_topen_rec.
         apply* Kopen_ty_lct.
@@ -1204,6 +1210,9 @@ Module SyntaxProps (P : PAT).
       - remember (Topen_t i (FTName T) (Tclose_t T i t)).
         pick_fresh x ; substs. applys~ topen_t_inj 0 x.
         rewrite* <- Topen_t_topen_comm. rewrite* <- Tclose_t_topen_comm. simpls~.
+      - remember (Topen_t i (FTName T) (Tclose_t T i t2)).
+        pick_fresh x ; substs. applys~ open_inj 0 x.
+        rewrite* <- Topen_t_open_comm. rewrite* <- Tclose_t_open_comm. simpls~.
       - remember (Topen_t (S i) (FTName T) (Tclose_t T (S i) t)).
         pick_fresh X ; substs. applys~ Topen_t_inj 0 X.
         rewrite~ Topen_t_Topen_comm. rewrite~ Topen_t_Tclose_comm.
@@ -1515,6 +1524,9 @@ Module SyntaxProps (P : PAT).
         pick_fresh x ; substs. applys~ topen_t_inj 0 x.
         rewrite* <- Kopen_t_topen_comm. rewrite* <- Kclose_t_topen_comm. simpls~.
       - solve_var.
+      - remember (Kopen_t i (FCon K) (Kclose_t K i t2)).
+        pick_fresh x ; substs. applys~ open_inj 0 x.
+        rewrite* <- Kopen_t_open_comm. rewrite* <- Kclose_t_open_comm. simpls~.
       - remember (Kopen_t i (FCon K) (Kclose_t K i t)).
         pick_fresh X ; substs. applys~ Topen_t_inj 0 X.
         rewrite~ <- Kopen_t_Topen_comm. rewrite~ Topen_t_Kclose_comm.
