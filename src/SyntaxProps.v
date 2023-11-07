@@ -72,6 +72,12 @@ Module SyntaxProps (P : PAT).
       forall i K p,
         K \notin Kfv_p (Kopen_p i (FCon K) p) ->
         Kopen_p i (FCon K) p = p.
+
+    Parameter Kopen_p_notin_K :
+      forall K i x p,
+        K \notin Kfv_p (Kopen_p i (FCon x) p) ->
+        K \notin Kfv_p p.
+
   End PATPROPS.
 
   Module SyntaxProps1 (PP : PATPROPS).
@@ -350,14 +356,74 @@ Module SyntaxProps (P : PAT).
         [n ~> TmFVar x] ([{X => U}]t) = [{X => U}] ([n ~> TmFVar x]t).
     Proof. intros. gen n. solve_eq t. Qed.
 
+    Lemma open_notin :
+      forall t X y n,
+        X \notin tfv_t ([n ~> TmFVar y]t) ->
+        X \notin tfv_t t.
+    Proof.
+      introv Hnin. gen n.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end ; eauto.
+    Qed.
+
     Lemma topen_notin :
       forall T X Y n,
         X \notin tfv ({n ~> TyFVar Y}T) ->
         X \notin tfv T.
     Proof.
       introv Hnin. gen n.
-      induction T; intros; simpls* ;
-        apply notin_union_r in Hnin as (Hnin1 & Hnin2) ; eauto.
+      induction T; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end ; eauto.
+    Qed.
+
+    Lemma topen_t_notin :
+      forall t X Y n,
+        X \notin tfv_t ([{n ~> TyFVar Y}]t) ->
+        X \notin tfv_t t.
+    Proof with eauto using topen_notin.
+      introv Hnin. gen n.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+    Qed.
+
+    Lemma Topen_ty_notin :
+      forall ty X Y n,
+        X \notin tfv (Topen_ty n (FTName Y) ty) ->
+        X \notin tfv ty.
+    Proof.
+      introv Hnin. gen n.
+      induction ty; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end ; eauto.
+    Qed.
+
+    Lemma Topen_t_notin :
+      forall t X Y n,
+        X \notin tfv_t (Topen_t n (FTName Y) t) ->
+        X \notin tfv_t t.
+    Proof with eauto using Topen_ty_notin.
+      introv Hnin. gen n.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+    Qed.
+
+    Lemma Kopen_ty_notin :
+      forall ty X Y n,
+        X \notin tfv (Kopen_ty n (FCon Y) ty) ->
+        X \notin tfv ty.
+    Proof.
+      introv Hnin. gen n.
+      induction ty; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end ; eauto.
+    Qed.
+
+    Lemma Kopen_t_notin :
+      forall t X Y n,
+        X \notin tfv_t (Kopen_t n (FCon Y) t) ->
+        X \notin tfv_t t.
+    Proof with eauto using Kopen_ty_notin.
+      introv Hnin. gen n.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
     Qed.
 
     Lemma topen_t_tsubst_comm :
@@ -1251,7 +1317,7 @@ Module SyntaxProps (P : PAT).
     Lemma Tclose_t_notin : forall T i t, T \notin Tfv_t (Tclose_t T i t).
     Proof.
       intros. gen i.
-      induction t ; intros ; solve_var ; rewrite_all notin_union ; splits~ ;
+      induction t ; intros ; solve_var ; rewrite_all notin_union ; repeat split~ ;
         try solve [ apply~ Tclose_d_notin
                   | apply~ Tclose_k_notin
                   | apply~ Tclose_ty_notin ].
@@ -1566,7 +1632,7 @@ Module SyntaxProps (P : PAT).
     Lemma Kclose_t_notin : forall K i t, K \notin Kfv_t (Kclose_t K i t).
     Proof.
       intros. gen i.
-      induction t ; intros ; solve_var ; rewrite_all notin_union ; splits~ ;
+      induction t ; intros ; solve_var ; rewrite_all notin_union ; repeat split~ ;
         try solve [ apply~ Kclose_d_notin
                   | apply~ Kclose_k_notin
                   | apply~ Kclose_ty_notin
@@ -1915,6 +1981,19 @@ Module SyntaxProps (P : PAT).
       - apply~ Tsubst_d_fresh.
     Qed.
 
+    Lemma Tsubst_t_fresh :
+      forall T U t,
+        T \notin Tfv_t t ->
+        Tsubst_t T U t = t.
+    Proof.
+      introv Hfv. solve_eq t ;
+        try solve [ apply~ Tsubst_d_fresh
+                  | apply~ Tsubst_k_fresh
+                  | apply~ Tsubst_ty_fresh
+                  | apply~ Tsubst_p_fresh ].
+      destruct t0 ; solve_var.
+    Qed.
+
     Lemma notin_Topen_d :
       forall i T d,
         T \notin Tfv_d (Topen_d i (FTName T) d) ->
@@ -1976,6 +2055,76 @@ Module SyntaxProps (P : PAT).
           try rewrite topen_notin_T ; simpls~. }
     Qed.
 
+    Lemma Topen_d_notin_T :
+      forall i x T d,
+        T \notin Tfv_d (Topen_d i (FTName x) d) -> T \notin Tfv_d d.
+    Proof.
+      introv Hnin. unfolds Tfv_d. unfolds Topen_d.
+      induction d ; rew_listx in * ; simpls~.
+      rewrite notin_union ; split~. destruct a ; destruct t ; solve_var.
+    Qed.
+
+    Lemma Topen_k_notin_T :
+      forall i x T k,
+        T \notin Tfv_k (Topen_k i (FTName x) k) -> T \notin Tfv_k k.
+    Proof with eauto using Topen_d_notin_T.
+      introv Hnin. induction k; simpls...
+    Qed.
+
+    Lemma Topen_ty_notin_T :
+      forall i x T ty,
+        T \notin Tfv_ty (Topen_ty i (FTName x) ty) -> T \notin Tfv_ty ty.
+    Proof with eauto using Topen_k_notin_T, Topen_d_notin_T.
+      introv Hnin.
+      induction ty; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+      destruct t ; solve_var.
+    Qed.
+
+    Lemma Topen_t_notin_T :
+      forall i x T t,
+        T \notin Tfv_t (Topen_t i (FTName x) t) -> T \notin Tfv_t t.
+    Proof with eauto using Topen_ty_notin_T, Topen_k_notin_T, Topen_d_notin_T.
+      introv Hnin. gen i.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+      destruct t0 ; solve_var...
+    Qed.
+
+    Lemma Kopen_d_notin_T :
+      forall i x T d,
+        T \notin Tfv_d (Kopen_d i (FCon x) d) -> T \notin Tfv_d d.
+    Proof.
+      introv Hnin. unfolds Tfv_d. unfolds Kopen_d.
+      induction d ; rew_listx in * ; simpls~.
+      rewrite notin_union ; split~. destruct a ; destruct t ; solve_var.
+    Qed.
+
+    Lemma Kopen_k_notin_T :
+      forall i x T k,
+        T \notin Tfv_k (Kopen_k i (FCon x) k) -> T \notin Tfv_k k.
+    Proof with eauto using Kopen_d_notin_T.
+      introv Hnin. induction k; simpls...
+    Qed.
+
+    Lemma Kopen_ty_notin_T :
+      forall i x T ty,
+        T \notin Tfv_ty (Kopen_ty i (FCon x) ty) -> T \notin Tfv_ty ty.
+    Proof with eauto using Kopen_k_notin_T, Kopen_d_notin_T.
+      introv Hnin.
+      induction ty; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+    Qed.
+
+    Lemma Kopen_t_notin_T :
+      forall i x T t,
+        T \notin Tfv_t (Kopen_t i (FCon x) t) -> T \notin Tfv_t t.
+    Proof with eauto using Kopen_ty_notin_T, Kopen_k_notin_T, Kopen_d_notin_T.
+      introv Hnin. gen i.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+    Qed.
+
     Lemma Tsubst_inj :
       forall S S' T T',
         T' <> S ->
@@ -2014,6 +2163,19 @@ Module SyntaxProps (P : PAT).
       - apply~ Ksubst_k_fresh.
       - induction~ l. rew_listx in * ; simpls. fequals~. apply~ Ksubst_p_fresh.
       - apply~ Ksubst_d_fresh.
+    Qed.
+
+    Lemma Ksubst_t_fresh :
+      forall K U t,
+        K \notin Kfv_t t ->
+        Ksubst_t K U t = t.
+    Proof.
+      introv Hfv. solve_eq t ;
+        try solve [ apply~ Ksubst_d_fresh
+                  | apply~ Ksubst_k_fresh
+                  | apply~ Ksubst_ty_fresh
+                  | apply~ Ksubst_p_fresh ].
+      destruct c ; solve_var.
     Qed.
 
     Lemma notin_Kopen_d :
@@ -2077,6 +2239,82 @@ Module SyntaxProps (P : PAT).
           try rewrite topen_notin_K in Hfv; solve_var. }
       { induction t ; introv Hfv ; simpls ; rewrite_all notin_union ; solve_var ;
           try rewrite topen_notin_K ; simpls~. }
+    Qed.
+
+    Lemma Kopen_d_notin_K :
+      forall i x K d,
+        K \notin Kfv_d (Kopen_d i (FCon x) d) -> K \notin Kfv_d d.
+    Proof.
+      introv Hnin. unfolds Kfv_d. unfolds Kopen_d.
+      induction d ; rew_listx in * ; simpls~. destruct a.
+      rewrite notin_union ; split~.
+      induction l ; rew_listx in * ; simpls~.
+      rewrite notin_union ; split~.
+      destruct a ; solve_var.
+    Qed.
+
+    Lemma Kopen_k_notin_K :
+      forall i x K k,
+        K \notin Kfv_k (Kopen_k i (FCon x) k) -> K \notin Kfv_k k.
+    Proof with eauto using Kopen_d_notin_K.
+      introv Hnin. induction k; simpls...
+    Qed.
+
+    Lemma Kopen_ty_notin_K :
+      forall i x K ty,
+        K \notin Kfv_ty (Kopen_ty i (FCon x) ty) -> K \notin Kfv_ty ty.
+    Proof with eauto using Kopen_k_notin_K, Kopen_d_notin_K, Kopen_p_notin_K.
+      introv Hnin.
+      induction ty; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+      rewrite_all notin_union. repeat split...
+      induction l ; rew_listx in * ; simpls~.
+      rewrite_all notin_union in *. split*. applys* Kopen_p_notin_K.
+    Qed.
+
+    Lemma Kopen_t_notin_K :
+      forall i x K t,
+        K \notin Kfv_t (Kopen_t i (FCon x) t) -> K \notin Kfv_t t.
+    Proof with eauto using Kopen_ty_notin_K, Kopen_k_notin_K, Kopen_d_notin_K, Kopen_p_notin_K.
+      introv Hnin. gen i.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+      - destruct c ; solve_var...
+      - rewrite_all notin_union. repeat split...
+    Qed.
+
+    Lemma Topen_d_notin_K :
+      forall i x K d,
+        K \notin Kfv_d (Topen_d i (FTName x) d) -> K \notin Kfv_d d.
+    Proof.
+      introv Hnin. unfolds Kfv_d. unfolds Topen_d.
+      induction d ; rew_listx in * ; simpls~. destruct a.
+      rewrite notin_union ; split~.
+    Qed.
+
+    Lemma Topen_k_notin_K :
+      forall i x K k,
+        K \notin Kfv_k (Topen_k i (FTName x) k) -> K \notin Kfv_k k.
+    Proof with eauto using Topen_d_notin_K.
+      introv Hnin. induction k; simpls...
+    Qed.
+
+    Lemma Topen_ty_notin_K :
+      forall i x K ty,
+        K \notin Kfv_ty (Topen_ty i (FTName x) ty) -> K \notin Kfv_ty ty.
+    Proof with eauto using Topen_k_notin_K, Topen_d_notin_K.
+      introv Hnin.
+      induction ty; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
+    Qed.
+
+    Lemma Topen_t_notin_K :
+      forall i x K t,
+        K \notin Kfv_t (Topen_t i (FTName x) t) -> K \notin Kfv_t t.
+    Proof with eauto using Topen_ty_notin_K, Topen_k_notin_K, Topen_d_notin_K.
+      introv Hnin. gen i.
+      induction t; intros; simpls* ; rewrite_all notin_union in Hnin ;
+        repeat match goal with | Hand : _ /\ _ |- _ => destruct Hand end...
     Qed.
 
     Lemma topen_topen_comm :

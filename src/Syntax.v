@@ -112,7 +112,7 @@ Module Syntax (P : PAT).
   | TmProj   : fin2 -> term -> term
   | TmCon    : con -> type -> term -> term
   | TmMatch  : term -> pat -> term -> term -> term
-  (* | TmNever  : term *)
+  | TmNever  : type -> term
   | TmType   : term -> term
   | TmConDef : data -> type -> tname -> term -> term
   | TmSem    : type -> pat  -> term -> term
@@ -163,6 +163,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => tfv_t t'
     | TmCon K ty t' => tfv ty \u tfv_t t'
     | TmMatch t1 p t2 t3 => tfv_t t1 \u tfv_t t2 \u tfv_t t3
+    | TmNever ty => tfv ty
     | TmType t' => tfv_t t'
     | TmConDef d ty T t' => tfv ty \u tfv_t t'
     | TmSem ty p t' => tfv ty \u tfv_t t'
@@ -183,6 +184,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => fv t'
     | TmCon K ty t' => fv t'
     | TmMatch t1 p t2 t3 => fv t1 \u fv t2 \u fv t3
+    | TmNever ty => \{}
     | TmType t' => fv t'
     | TmConDef d ty T t' => fv t'
     | TmSem ty p t' => fv t'
@@ -230,6 +232,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => Tfv_t t'
     | TmCon K ty t' => Tfv_ty ty \u Tfv_t t'
     | TmMatch t1 p t2 t3 => Tfv_t t1 \u Tfv_t t2 \u Tfv_t t3
+    | TmNever ty => Tfv_ty ty
     | TmType t' => Tfv_t t'
     | TmConDef d ty T t' => Tfv_d d \u Tfv_ty ty \u Tfv T \u Tfv_t t'
     | TmSem ty p t' => Tfv_ty ty \u Tfv_t t'
@@ -271,6 +274,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => Kfv_t t'
     | TmCon K ty t' => Kfv K \u Kfv_ty ty \u Kfv_t t'
     | TmMatch t1 p t2 t3 => Kfv_t t1 \u Kfv_p p \u Kfv_t t2 \u Kfv_t t3
+    | TmNever ty => Kfv_ty ty
     | TmType t' => Kfv_t t'
     | TmConDef d ty T t' => Kfv_d d \u Kfv_ty ty \u Kfv_t t'
     | TmSem ty p t' => Kfv_ty ty \u Kfv_p p \u Kfv_t t'
@@ -311,6 +315,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => TmProj i ([{X ~> U}] t')
     | TmCon K ty t' => TmCon K ({X ~> U} ty) ([{X ~> U}] t')
     | TmMatch t1 p t2 t3 => TmMatch ([{X ~> U}] t1) p ([{X ~> U}] t2) ([{X ~> U}] t3)
+    | TmNever ty => TmNever ({X ~> U}ty)
     | TmType t' => TmType ([{X ~> U}] t')
     | TmConDef d ty T t' => TmConDef d ({S X ~> U} ty) T ([{X ~> U}] t')
     | TmSem ty p t' => TmSem ({X ~> U} ty) p ([{X ~> U}] t')
@@ -335,6 +340,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => TmProj i ([k ~> u]t')
     | TmCon K ty t' => TmCon K ty ([k ~> u]t')
     | TmMatch t1 p t2 t3 => TmMatch ([k ~> u]t1) p ([S k ~> u]t2) ([k ~> u]t3)
+    | TmNever ty => TmNever ty
     | TmType t' => TmType ([k ~> u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([k ~> u]t')
     | TmSem ty p t' => TmSem ty p ([S k ~> u]t')
@@ -387,6 +393,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => TmProj i (Topen_t j X t')
     | TmCon K ty t' => TmCon K (Topen_ty j X ty) (Topen_t j X t')
     | TmMatch t1 p t2 t3 => TmMatch (Topen_t j X t1) p (Topen_t j X t2) (Topen_t j X t3)
+    | TmNever ty => TmNever (Topen_ty j X ty)
     | TmType t' => TmType (Topen_t (S j) X t')
     | TmConDef d ty T t' =>
         TmConDef (Topen_d j X d) (Topen_ty j X ty) (Topen j X T) (Topen_t j X t')
@@ -435,6 +442,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => TmProj i (Tclose_t X j t')
     | TmCon K ty t' => TmCon K (Tclose_ty X j ty) (Tclose_t X j t')
     | TmMatch t1 p t2 t3 => TmMatch (Tclose_t X j t1) p (Tclose_t X j t2) (Tclose_t X j t3)
+    | TmNever ty => TmNever (Tclose_ty X j ty)
     | TmType t' => TmType (Tclose_t X (S j) t')
     | TmConDef d ty T t' =>
         TmConDef (Tclose_d X j d) (Tclose_ty X j ty) (Tclose X j T) (Tclose_t X j t')
@@ -479,6 +487,7 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon (Kopen j X K) (Kopen_ty j X ty) (Kopen_t j X t')
     | TmMatch t1 p t2 t3 =>
         TmMatch (Kopen_t j X t1) (Kopen_p j X p) (Kopen_t j X t2) (Kopen_t j X t3)
+    | TmNever ty => TmNever (Kopen_ty j X ty)
     | TmType t' => TmType (Kopen_t j X t')
     | TmConDef d ty T t' =>
         TmConDef (Kopen_d j X d) (Kopen_ty j X ty) T (Kopen_t (S j) X t')
@@ -522,6 +531,7 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon (Kclose X j K) (Kclose_ty X j ty) (Kclose_t X j t')
     | TmMatch t1 p t2 t3 =>
         TmMatch (Kclose_t X j t1) (Kclose_p X j p) (Kclose_t X j t2) (Kclose_t X j t3)
+    | TmNever ty => TmNever (Kclose_ty X j ty)
     | TmType t' => TmType (Kclose_t X j t')
     | TmConDef d ty T t' =>
         TmConDef (Kclose_d X j d) (Kclose_ty X j ty) T (Kclose_t X (S j) t')
@@ -572,6 +582,7 @@ Module Syntax (P : PAT).
       lc t1 -> lcp p ->
       (forall x, x \notin L -> lc ([0 ~> TmFVar x]t2)) ->
       lc t3 -> lc (TmMatch t1 p t2 t3)
+  | LCNever  : forall ty, lct ty -> lc (TmNever ty)
   | LCType   : forall L t, (forall X, X \notin L -> lc (Topen_t 0 (FTName X) t)) -> lc (TmType t)
   | LCConDef : forall L d ty T t,
       lcd d ->
@@ -614,6 +625,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => TmProj i ([{X => U}] t')
     | TmCon K ty t' => TmCon K ({X => U}ty) ([{X => U}]t')
     | TmMatch t1 p t2 t3 => TmMatch ([{X => U}]t1) p ([{X => U}]t2) ([{X => U}]t3)
+    | TmNever ty => TmNever ({X => U}ty)
     | TmType t' => TmType ([{X => U}]t')
     | TmConDef d ty T t' => TmConDef d ({X => U}ty) T ([{X => U}]t')
     | TmSem ty p t' => TmSem ({X => U}ty) p ([{X => U}] t')
@@ -636,6 +648,7 @@ Module Syntax (P : PAT).
     | TmProj i t' => TmProj i ([x => u]t')
     | TmCon K ty t' => TmCon K ty ([x => u]t')
     | TmMatch t1 p t2 t3 => TmMatch ([x => u]t1) p ([x => u]t2) ([x => u]t3)
+    | TmNever ty => TmNever ty
     | TmType t' => TmType ([x => u]t')
     | TmConDef d ty T t' => TmConDef d ty T ([x => u]t')
     | TmSem ty p t' => TmSem ty p ([x => u] t')
@@ -688,6 +701,7 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon K (Tsubst_ty X U ty) (Tsubst_t X U t')
     | TmMatch t1 p t2 t3 =>
         TmMatch (Tsubst_t X U t1) p (Tsubst_t X U t2) (Tsubst_t X U t3)
+    | TmNever ty => TmNever (Tsubst_ty X U ty)
     | TmType t' => TmType (Tsubst_t X U t')
     | TmConDef d ty T t' =>
         TmConDef (Tsubst_d X U d) (Tsubst_ty X U ty) (Tsubst X U T) (Tsubst_t X U t')
@@ -732,6 +746,7 @@ Module Syntax (P : PAT).
     | TmCon K ty t' => TmCon (Ksubst X U K) (Ksubst_ty X U ty) (Ksubst_t X U t')
     | TmMatch t1 p t2 t3 =>
         TmMatch (Ksubst_t X U t1) (Ksubst_p X U p) (Ksubst_t X U t2) (Ksubst_t X U t3)
+    | TmNever ty => TmNever (Ksubst_ty X U ty)
     | TmType t' => TmType (Ksubst_t X U t')
     | TmConDef d ty T t' =>
         TmConDef (Ksubst_d X U d) (Ksubst_ty X U ty) T (Ksubst_t X U t')
@@ -745,25 +760,26 @@ Module Syntax (P : PAT).
   (** ENVIRONMENT DEFINITIONS **)
   (*****************************)
 
-  Inductive match_assum : Type :=
-  | Match   : term -> pat -> match_assum
-  | NoMatch : term -> pat -> match_assum
-  .
-
   Inductive binding : Type :=
-  | BindTName : binding
-  | BindCon   : data -> type -> tname -> binding
-  | BindTVar  : kind -> binding
-  | BindVar   : type -> binding
-  (* | BindMatch : match_assum -> binding *)
-  .
+  | BindTName   : binding
+  | BindCon     : data -> type -> tname -> binding
+  | BindTVar    : kind -> binding
+  | BindVar     : type -> binding
+  | BindMatch   : term -> pat -> bool -> binding.
 
   Definition env := env binding.
 
-  Definition bsubst (X : var) (U : type) (b : binding) :=
+  Definition bsubst (x : var) (u : term) (b : binding) :=
     match b with
-    | BindVar T => BindVar (tsubst X U T)
-    | BindCon d ty T => BindCon d (tsubst X U ty) T
+    | BindMatch t p m => BindMatch ([x => u]t) p m
+    | _ => b
+    end.
+
+  Definition tbsubst (X : var) (U : type) (b : binding) :=
+    match b with
+    | BindVar T => BindVar ({X => U} T)
+    | BindCon d ty T => BindCon d ({X => U} ty) T
+    | BindMatch t p m => BindMatch ([{X => U}]t) p m
     | _ => b
     end.
 
@@ -772,6 +788,7 @@ Module Syntax (P : PAT).
     | BindVar T => BindVar (Tsubst_ty X U T)
     | BindTVar k => BindTVar (Tsubst_k X U k)
     | BindCon d ty T => BindCon (Tsubst_d X U d) (Tsubst_ty X U ty) (Tsubst X U T)
+    | BindMatch t p m => BindMatch (Tsubst_t X U t) p m
     | _ => b
     end.
 
@@ -780,6 +797,7 @@ Module Syntax (P : PAT).
     | BindVar T => BindVar (Ksubst_ty X U T)
     | BindTVar k => BindTVar (Ksubst_k X U k)
     | BindCon d ty T => BindCon (Ksubst_d X U d) (Ksubst_ty X U ty) T
+    | BindMatch t p m => BindMatch (Ksubst_t X U t) (Ksubst_p X U p) m
     | _ => b
     end.
 

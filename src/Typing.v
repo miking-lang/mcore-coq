@@ -14,9 +14,9 @@ Module Typing (P : PAT).
 
   Module Type PATCHECK.
     Parameter ok_pat : env -> pat -> type -> type -> Prop.
-    Parameter matches_contradictory : env -> Prop.
-    Parameter pats_compatible : list pat -> Prop.
-    Parameter pats_exhaustive : env -> list pat -> type -> Prop.
+    Parameter contradictory : env -> Prop.
+    Parameter compatible : list pat -> Prop.
+    Parameter exhaustive : env -> list pat -> type -> Prop.
   End PATCHECK.
 
   Module Typing1 (PC : PATCHECK).
@@ -58,6 +58,7 @@ Module Typing (P : PAT).
      Hint Constructors ok_kind : mcore.
 
     Reserved Notation "Gamma |= T ~:: k " (at level 50).
+    Reserved Notation "Gamma |= t ~: T " (at level 50).
     Inductive ok_type : env -> type -> kind -> Prop :=
     | KVar : forall Gamma tv k,
         ok_env Gamma ->
@@ -96,39 +97,7 @@ Module Typing (P : PAT).
         Gamma |= ty ~:: KiData d2
     where " Gamma |= T ~:: k " := (ok_type Gamma T k)
 
-    with ok_env : env -> Prop :=
-    | EnvEmpty : ok_env empty
-    | EnvTName : forall Gamma X, ok_env Gamma -> X # Gamma -> ok_env (Gamma & X ~ BindTName)
-    | EnvCon   :
-      forall L Gamma K d ty T,
-        ok_env Gamma ->
-        K # Gamma ->
-        ok_data Gamma d ->
-        (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType) ->
-        binds T BindTName Gamma ->
-        ok_env (Gamma & K ~ BindCon d ty (FTName T))
-    | EnvTVar : forall Gamma X k,
-        ok_env Gamma ->
-        X # Gamma ->
-        ok_kind Gamma k ->
-        ok_env (Gamma & X ~ BindTVar k)
-    | EnvVar : forall Gamma x ty,
-        ok_env Gamma ->
-        x # Gamma ->
-        Gamma |= ty ~:: KiType ->
-        ok_env (Gamma & x ~ BindVar ty)
-    (* | EnvMatch : forall Gamma M m, *)
-    (*     ok_env Gamma -> *)
-    (*     M # Gamma -> *)
-    (*     ok_env (Gamma & M ~ BindMatch m) *)
-    .
-    #[export]
-     Hint Constructors ok_type : mcore.
-    #[export]
-     Hint Constructors ok_env : mcore.
-
-    Reserved Notation "Gamma |= t ~: T " (at level 50).
-    Inductive ok_term : env -> term -> type -> Prop :=
+    with ok_term : env -> term -> type -> Prop :=
     | TVar : forall Gamma x ty,
         ok_env Gamma ->
         binds x (BindVar ty) Gamma ->
@@ -173,13 +142,20 @@ Module Typing (P : PAT).
     | TMatch : forall L Gamma t t1 t2 ty1 ty1' ty2 p,
         Gamma |= t ~: ty1 ->
         ok_pat Gamma p ty1 ty1' ->
-        (forall x, x \notin L ->
-              Gamma & x ~ BindVar ty1' |= [0 ~> TmFVar x]t1 ~: ty2) ->
-        Gamma |= t2 ~: ty2 ->
+        (forall M x, M \notin L -> x \notin L \u \{M} ->
+                Gamma
+                & M ~ BindMatch t p true
+                & x ~ BindVar ty1'
+                    |= [0 ~> TmFVar x]t1 ~: ty2) ->
+        (forall M, M \notin L ->
+              Gamma
+              & M ~ BindMatch t p false
+                  |= t2 ~: ty2) ->
         Gamma |= TmMatch t p t1 t2 ~: ty2
-    (* | TmNever' : forall {Gamma : env} {ty : type}, *)
-    (*     matches_contradictory Gamma.(matches) -> *)
-    (*     ok_term Gamma TmNever ty *)
+    | TNever : forall Gamma ty,
+        Gamma |= ty ~:: KiType ->
+        contradictory Gamma ->
+        Gamma |= TmNever ty ~: ty
     | TType : forall L Gamma t ty,
         (forall T, T \notin L ->
               Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty) ->
@@ -201,16 +177,48 @@ Module Typing (P : PAT).
     | TComp : forall Gamma ty1 ty2 t1 t2 ps1 ps2,
         Gamma |= t1 ~: TySem ty1 ty2 ps1 ->
         Gamma |= t2 ~: TySem ty1 ty2 ps2 ->
-        pats_compatible (ps1 ++ ps2) ->
+        compatible (ps1 ++ ps2) ->
         Gamma |= TmComp t1 t2 ~: TySem ty1 ty2 (ps1 ++ ps2)
     | TSemApp : forall Gamma ty1 ty2 t1 t2 ps,
         Gamma |= t1 ~: TySem ty1 ty2 ps ->
         Gamma |= t2 ~: ty1 ->
-        pats_exhaustive Gamma ps ty1 ->
+        exhaustive Gamma ps ty1 ->
         Gamma |= TmSemApp t1 t2 ~: ty2
-    where " Gamma |= t ~: T " := (ok_term Gamma t T).
+    where " Gamma |= t ~: T " := (ok_term Gamma t T)
+
+    with ok_env : env -> Prop :=
+    | EnvEmpty : ok_env empty
+    | EnvTName : forall Gamma X, ok_env Gamma -> X # Gamma -> ok_env (Gamma & X ~ BindTName)
+    | EnvCon   :
+      forall L Gamma K d ty T,
+        ok_env Gamma ->
+        K # Gamma ->
+        ok_data Gamma d ->
+        (forall X, X \notin L -> Gamma & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X}ty ~:: KiType) ->
+        binds T BindTName Gamma ->
+        ok_env (Gamma & K ~ BindCon d ty (FTName T))
+    | EnvTVar : forall Gamma X k,
+        ok_env Gamma ->
+        X # Gamma ->
+        ok_kind Gamma k ->
+        ok_env (Gamma & X ~ BindTVar k)
+    | EnvVar : forall Gamma x ty,
+        ok_env Gamma ->
+        x # Gamma ->
+        Gamma |= ty ~:: KiType ->
+        ok_env (Gamma & x ~ BindVar ty)
+    | EnvMatch : forall Gamma M t p m ty ty',
+        ok_env Gamma ->
+        M # Gamma ->
+        Gamma |= t ~: ty ->
+        ok_pat Gamma p ty ty' ->
+        ok_env (Gamma & M ~ BindMatch t p m).
+    #[export]
+     Hint Constructors ok_type : mcore.
     #[export]
      Hint Constructors ok_term : mcore.
+    #[export]
+     Hint Constructors ok_env : mcore.
 
   End Typing1.
 End Typing.
