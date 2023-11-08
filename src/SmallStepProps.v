@@ -20,6 +20,12 @@ Module SmallStepProps (P : PAT).
           ok_pat Gamma p ty ty' ->
           Gamma |= v' ~: ty'.
 
+      Parameter match1_value :
+        forall p v v',
+          is_value v ->
+          match1 v p = Some v' ->
+          is_value v'.
+
       Parameter match1_Tsubst :
         forall t p X T,
           match1 (Tsubst_t X T t) p = LibOption.map (Tsubst_t X T) (match1 t p).
@@ -45,6 +51,12 @@ Module SmallStepProps (P : PAT).
           matchN v ps = Some (v', i) ->
           ok_pat Gamma (nth i ps) ty ty' ->
           Gamma |= v' ~: ty'.
+
+      Parameter matchN_value :
+        forall ps v v' i,
+          is_value v ->
+          matchN v ps = Some (v', i) ->
+          is_value v'.
 
       Parameter matchN_length :
         forall t ps t' i,
@@ -141,7 +153,8 @@ Module SmallStepProps (P : PAT).
         - rewrite Tsubst_t_open_distr.
           forwards* Hval: is_value_Tsubst H.
         - rewrite* Tsubst_t_topen_distr.
-        - rewrite Tsubst_t_open_distr. simpls*.
+        - rewrite Tsubst_t_open_distr. rewrite Tsubst_t_open_distr.
+          forwards* Hval: is_value_Tsubst H.
         - forwards Hval: is_value_Tsubst H. forwards* Hval': is_value_Tsubst H0.
         - forwards Hval: is_value_Tsubst H. forwards* Hval': is_value_Tsubst H0.
         - forwards Hval: is_value_Tsubst H.
@@ -231,7 +244,8 @@ Module SmallStepProps (P : PAT).
         - rewrite Ksubst_t_open_distr.
           forwards* Hval: is_value_Ksubst H.
         - rewrite* Ksubst_t_topen_distr.
-        - rewrite Ksubst_t_open_distr. simpls*.
+        - rewrite Ksubst_t_open_distr. rewrite Ksubst_t_open_distr.
+          forwards* Hval: is_value_Ksubst H.
         - forwards Hval: is_value_Ksubst H. forwards* Hval': is_value_Ksubst H0.
         - forwards Hval: is_value_Ksubst H. forwards* Hval': is_value_Ksubst H0.
         - forwards Hval: is_value_Ksubst H.
@@ -305,7 +319,7 @@ Module SmallStepProps (P : PAT).
           T \notin dom Gamma \u Tfv_t t \u Tfv_ty ty ->
           Gamma & T ~ BindTName |= Topen_t 0 (FTName T) t ~: ty ->
           Gamma |= push_value TmType t ~: ty.
-      Proof with eauto with mcore.
+      Proof with eauto using ok_type_ok_env with mcore.
         introv Hval Hfresh Htype. gen ty.
         induction Hval ; intros ; inverts Htype ; simpls.
         { Case "TmLam". rewrite notin_Topen_ty in *...
@@ -322,6 +336,20 @@ Module SmallStepProps (P : PAT).
           - rewrite notin_union. rewrite topen_t_notin_T. rewrite topen_notin_T ; simpls~.
           - rewrite* Topen_t_topen_comm. apply_empty~ ok_term_comm.
             constructor~. constructor~. apply* ok_env_concat. }
+        { Case "TmFix". rewrite notin_Topen_ty in *... rewrite notin_Topen_ty in *...
+          assert (Gamma |= ty1 ~:: KiType)
+            by (apply_empty~ (ok_type_tname_strengthening T) ; apply* ok_env_concat).
+          assert (Gamma |= ty2 ~:: KiType)
+            by (apply_empty~ (ok_type_tname_strengthening T) ; apply* ok_env_concat).
+          assert (forall f, f # Gamma -> ok_env (Gamma & f ~ BindVar (TyArr ty1 ty2)))
+            by (intros ; constructor*).
+          apply_fresh TFix ; intros... apply_fresh TType as T'...
+          applys~ ok_term_Topen_change T.
+          - rewrite notin_union. rewrite~ open_notin_T. rewrite~ open_notin_T.
+          - rewrite* Topen_t_open_comm. rewrite* Topen_t_open_comm.
+            apply_empty ok_term_comm. apply~ ok_term_comm. constructor...
+            repeat apply_empty ok_type_weakening...
+            repeat constructor~. apply_empty ok_type_weakening... }
         { Case "TmProd". constructor~. }
         { Case "TmCon". rewrite notin_Topen_ty in *...
           constructors.
@@ -369,7 +397,7 @@ Module SmallStepProps (P : PAT).
                      Gamma & x ~ BindVar ty & X ~ BindTVar (KiData d) |= {0 ~> TyFVar X} ty' ~:: KiType).
           { introv Hnin Hfr. forwards~ Htk' : Htk X. apply~ ok_type_weakening.
             constructor*. constructor~. apply_empty~ ok_data_weakening. constructor*. }
-          apply_fresh* TLam as x. apply_fresh TConDef as K'...
+          apply_fresh TLam as x... apply_fresh TConDef as K'...
           - apply_empty ok_data_weakening...
           - applys~ ok_term_Kopen_change K.
             + rewrite notin_union. rewrite~ open_notin_K.
@@ -393,6 +421,43 @@ Module SmallStepProps (P : PAT).
             + rewrite notin_union. rewrite topen_t_notin_K. rewrite topen_notin_K ; simpls~.
             + rewrite* Kopen_t_topen_comm. apply_empty~ ok_term_comm.
               apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. constructor... }
+        (* TODO: Clean up case TmFix *)
+        { Case "TmFix". rewrite notin_Kopen_ty in *... rewrite notin_Kopen_ty in *...
+          assert (Gamma |= ty1 ~:: KiType)
+            by (apply_empty~ (ok_type_con_strengthening K) ; eauto ; apply* ok_env_concat).
+          assert (Gamma |= ty2 ~:: KiType)
+            by (apply_empty~ (ok_type_con_strengthening K) ; eauto ; apply* ok_env_concat).
+          assert (forall f, f # Gamma -> ok_env (Gamma & f ~ BindVar (TyArr ty1 ty2)))
+            by (intros ; constructor*).
+          assert (Hty' : forall f x X,
+                     X \notin L0 \u dom Gamma \u \{f} \u \{x} ->
+                     f # Gamma ->
+                     x \notin dom Gamma \u \{f} ->
+                     Gamma & f ~ BindVar (TyArr ty1 ty2)
+                     & x ~ BindVar ty1
+                     & X ~ BindTVar (KiData d)
+                         |= {0 ~> TyFVar X} ty' ~:: KiType).
+          { introv Hnin Hfr1 Hfr2. forwards~ Htk' : Htk X.
+            replaces (Gamma & f ~ BindVar (TyArr ty1 ty2) & x ~ BindVar ty1 & X ~ BindTVar (KiData d))
+              with (Gamma & (f ~ BindVar (TyArr ty1 ty2) & x ~ BindVar ty1) & X ~ BindTVar (KiData d)).
+            rew_env_concat ; auto. apply~ ok_type_weakening. rew_env_concat.
+            constructor~. constructor... apply_empty ok_type_weakening...
+            constructor~. apply_empty~ ok_data_weakening. apply_empty ok_data_weakening...
+            constructor... apply_empty ok_type_weakening... }
+          apply_fresh TFix ; intros... apply_fresh TConDef as K'...
+          - apply_empty~ ok_data_weakening. apply_empty ok_data_weakening...
+            constructor... apply_empty ok_type_weakening...
+          - applys~ ok_term_Kopen_change K.
+            + rewrite notin_union. rewrite~ open_notin_K. rewrite~ open_notin_K.
+            + rewrite* Kopen_t_open_comm. rewrite* Kopen_t_open_comm.
+              apply_empty ok_term_comm. apply~ ok_term_comm. constructor~.
+              apply_fresh EnvCon as X... apply_empty~ ok_data_weakening. apply~ ok_type_weakening.
+              constructor... constructor~. apply_empty~ ok_data_weakening.
+              apply~ ok_type_weakening. apply_fresh EnvCon as X... apply_empty~ ok_data_weakening.
+              apply~ ok_type_weakening. constructor... constructor~. apply_empty~ ok_data_weakening.
+              apply_fresh EnvCon as X ; eauto. constructor~. apply_empty~ ok_type_weakening.
+              apply_empty~ ok_data_weakening. apply_empty~ ok_data_weakening.
+              constructor... apply_empty~ ok_type_weakening. }
         { Case "TmProd". constructor~. }
         { Case "TmCon". rewrite notin_Kopen_ty in *...
           assert (Htk1 : Gamma |= ty ~:: KiData [ (FTName T0, FCon K1 :: []) ]).
@@ -452,6 +517,10 @@ Module SmallStepProps (P : PAT).
           apply_ih_bind H1 ; auto. constructor... }
         { Case "TmTyLam". apply_fresh TTyLam as X...
           apply_ih_bind H1 ; auto. constructor... }
+        { Case "TmFix". apply_fresh TFix ; intros...
+          do_rew_2 concat_assoc (applys H2) ; auto. easy.
+          constructor~. constructor... apply_empty ok_type_weakening. idtac...
+          constructor... }
         { Case "TmCon". constructors... binds_cases H ; auto. }
         { Case "TmMatch". apply_fresh TMatch ; intros...
           - do_rew_2 concat_assoc (applys H1 M0 x) ; auto. easy.
@@ -512,6 +581,10 @@ Module SmallStepProps (P : PAT).
           - apply~ ok_kind_weakening. apply* ok_kind_match_strengthening.
           - apply_ih_bind H1 ; auto. constructor...
             apply~ ok_kind_weakening. apply* ok_kind_match_strengthening. }
+        { Case "TmFix". apply_fresh TFix ; intros...
+          do_rew_2 concat_assoc (applys H2) ; auto. easy.
+          constructor~. constructor... apply_empty ok_type_weakening. idtac...
+          constructor... }
         { Case "TmCon". constructors... binds_cases H ; eauto. }
         { Case "TmMatch".
           assert (Hpat : ok_pat (G1 & M ~ BindMatch t2 p m & G2) p0 ty1 ty1')

@@ -105,7 +105,7 @@ Module Typing (P : PAT).
     | TLam : forall L Gamma ty1 ty2 t,
         Gamma |= ty1 ~:: KiType ->
         (forall x, x \notin L ->
-              (Gamma & x ~ BindVar ty1) |= [0 ~> TmFVar x]t ~: ty2) ->
+              Gamma & x ~ BindVar ty1 |= [0 ~> TmFVar x]t ~: ty2) ->
         Gamma |= TmLam ty1 t ~: TyArr ty1 ty2
     | TApp : forall Gamma ty1 ty2 t1 t2,
         Gamma |= t1 ~: TyArr ty1 ty2 ->
@@ -114,15 +114,23 @@ Module Typing (P : PAT).
     | TTyLam : forall L Gamma k ty t,
         ok_kind Gamma k ->
         (forall X, X \notin L ->
-              (Gamma & X ~ BindTVar k) |= [{0 ~> TyFVar X}]t ~: ({0 ~> TyFVar X}ty)) ->
+              Gamma & X ~ BindTVar k |= [{0 ~> TyFVar X}]t ~: ({0 ~> TyFVar X}ty)) ->
         Gamma |= TmTyLam k t ~: (TyAll k ty)
     | TTyApp : forall Gamma k ty1 ty2 t,
         Gamma |= t ~: TyAll k ty1 ->
         Gamma |= ty2 ~:: k ->
         Gamma |= TmTyApp t ty2 ~: ({0 ~> ty2}ty1)
-    | TFix : forall Gamma ty t,
-        Gamma |= t ~: TyArr ty ty ->
-        Gamma |= TmFix t ~: ty
+    | TFix : forall L Gamma ty1 ty2 t,
+        Gamma |= ty1 ~:: KiType ->
+        Gamma |= ty2 ~:: KiType ->
+        (forall f x,
+            f \notin L ->
+            x \notin L \u \{f} ->
+            Gamma
+            & f ~ BindVar (TyArr ty1 ty2)
+            & x ~ BindVar ty1 |=
+                [1 ~> TmFVar x]([0 ~> TmFVar f]t) ~: ty2) ->
+        Gamma |= TmFix ty1 ty2 t ~: TyArr ty1 ty2
     | TProd : forall Gamma ty1 ty2 t1 t2,
         Gamma |= t1 ~: ty1 ->
         Gamma |= t2 ~: ty2 ->

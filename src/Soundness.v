@@ -29,19 +29,23 @@ Module Soundness (P : PAT).
         { Case "TmApp". inverts hasType1.
           pick_fresh x. rewrite~ (subst_intro x).
           apply_empty* ok_term_subst. }
+        { Case "TmFixApp". inverts hasType1.
+          pick_fresh f. rewrite~ (subst_intro f t).
+          rewrite~ <- (subst_fresh f t2 (TmFix ty1 ty2 t)).
+          rewrite* <- subst_open_distr. apply_empty* ok_term_subst.
+          remember ([0 ~> TmFVar f] t). pick_fresh x ; substs.
+          rewrite~ (subst_intro x). apply_empty* ok_term_subst.
+          apply_empty* ok_term_weakening. }
         { Case "TmTyApp". inverts hasType.
           pick_fresh X.
           rewrite (tsubst_intro X)...
           rewrite (tsubst_t_intro X)...
           apply_empty* ok_term_tsubst. }
-        { Case "TmFix". inverts hasType.
-          pick_fresh x. rewrite~ (subst_intro x).
-          apply_empty* ok_term_subst. }
         { Case "TmProj1". inverts* hasType. }
         { Case "TmProj2". inverts* hasType. }
         { Case "TmMatchThen". pick_fresh M. pick_fresh x. rewrite~ (subst_intro x).
           assert (Gamma & M ~ BindMatch t p true |= [x => v'] ([0 ~> TmFVar x] t1) ~: ty2).
-          { apply_empty~ ok_term_subst ; try constructors*. apply* match1_ok_pat.
+          { apply_empty~ ok_term_subst ; try constructors*. applys* match1_value H10. apply* match1_ok_pat.
             apply_empty~ ok_pat_weakening ; try constructors*. apply H. }
           replaces true with (is_some (match1 t p)) in H4. rewrite~ H10.
           apply_empty ok_term_drop_match... }
@@ -61,7 +65,7 @@ Module Soundness (P : PAT).
           assert (i < length ps0) by apply* matchN_length.
           forwards* (L&ty1'&Hpat&Htype) : ok_term_get_cases_inv i.
           remember (nth i bs) ; pick_fresh x ; substs. rewrite~ (subst_intro x).
-          apply_empty* ok_term_subst. apply* matchN_ok_pat. }
+          apply_empty* ok_term_subst. applys* matchN_value H6. apply* matchN_ok_pat. }
       Qed.
 
       Definition no_vars (Gamma : env) : Prop :=
@@ -84,9 +88,6 @@ Module Soundness (P : PAT).
         { Case "TmTyApp". right.
           forwards* [Hval | (t1 & Hstep)]: IHhasType.
           inverts Hval; inverts* hasType. }
-        { Case "TmFix". right.
-          forwards* [Hval1 | (t1' & Hstep1)]: IHhasType.
-          inverts Hval1; inverts* hasType. }
         { Case "TmProd".
           forwards* [Hval1 | (t1' & Hstep1)]: IHhasType1.
           forwards* [Hval2 | (t2' & Hstep2)]: IHhasType2. }

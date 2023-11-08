@@ -67,6 +67,7 @@ Module TypingProps (P : PAT).
       Parameter contradictory_subst :
         forall G1 G2 x u T,
           contradictory (G1 & x ~ BindVar T & G2) ->
+          is_value u ->
           G1 |= u ~: T ->
           contradictory (G1 & map (bsubst x u) G2).
 
@@ -302,12 +303,16 @@ Module TypingProps (P : PAT).
         introv hasType Henv. remember (G1 & G3) as H. gen G3.
         induction hasType; intros; substs...
         { Case "TmFVar". constructors~. apply* binds_weaken. }
-        { Case "TmLam". apply_fresh* TLam as y...
+        { Case "TmLam". apply_fresh TLam as y...
           apply_ih_bind H1 ; auto. constructor... }
-        { Case "TmTyLam". apply_fresh* TTyLam as X...
+        { Case "TmTyLam". apply_fresh TTyLam as X...
           apply_ih_bind H1 ; auto. constructor... }
-        { Case "TmCon". constructors...
-          apply* binds_weaken. }
+        { Case "TmFix". apply_fresh TFix ; intros...
+          do_rew_2 concat_assoc (applys H2) ; auto. easy.
+          constructor~.
+          + constructors...
+          + apply_empty ok_type_weakening. apply~ ok_type_weakening. constructors... }
+        { Case "TmCon". constructors... apply* binds_weaken. }
         { Case "TmMatch". apply_fresh TMatch ; intros...
           - apply* ok_pat_weakening.
           - do_rew_2 concat_assoc (applys H1 M) ; auto. easy.
@@ -461,7 +466,6 @@ Module TypingProps (P : PAT).
           assert(Hlct: lct ty2)...
           pick_fresh X. rewrite *(tsubst_intro X).
           apply* tsubst_lct. }
-        { Case "TmFix". inverts* IHhasType. }
         { Case "TmProj1". inverts* IHhasType. }
         { Case "TmProj2". inverts* IHhasType. }
         { Case "TmMatch". pick_fresh_gen L y... }
@@ -554,6 +558,8 @@ Module TypingProps (P : PAT).
         induction Htype; simpls ; rewrite_all notin_union...
         - pick_fresh x. forwards~ Hnin : H1 x. rewrite open_notin_T in Hnin...
         - pick_fresh Y. forwards~ Hnin : H1 Y. rewrite topen_t_notin_T in Hnin...
+        - pick_fresh f. pick_fresh x. forwards~ Hnin1 : H2 f x.
+          rewrite open_notin_T in Hnin1. rewrite open_notin_T in Hnin1...
         - pick_fresh M. pick_fresh x. forwards~ Hnin1 : H1 M x.
           forwards~ Hnin2 : H3 M. rewrite open_notin_T in Hnin1...
         - pick_fresh T. forwards~ Hnin : Topen_t_notin_T (H0 T).
@@ -629,6 +635,8 @@ Module TypingProps (P : PAT).
         induction Htype; simpls ; rewrite_all notin_union...
         - pick_fresh x. forwards~ Hnin : H1 x. rewrite open_notin_K in Hnin...
         - pick_fresh Y. forwards~ Hnin : H1 Y. rewrite topen_t_notin_K in Hnin...
+        - pick_fresh f. pick_fresh x. forwards~ Hnin1 : H2 f x.
+          rewrite open_notin_K in Hnin1. rewrite open_notin_K in Hnin1...
         - assert (X <> K)... intro ; substs. forwards~ ?: get_some_inv H.
         - pick_fresh M. pick_fresh x. forwards~ Hnin1 : H1 M x.
           forwards~ Hnin2 : H3 M. rewrite open_notin_K in Hnin1...
@@ -915,7 +923,6 @@ Module TypingProps (P : PAT).
         { Case "TmApp". inverts~ IHHtype1. }
         { Case "TmTyLam". inverts IHHtype. pick_fresh X. rewrite~ (tsubst_intro X).
           apply_empty* ok_type_tsubst. }
-        { Case "TmFix". inverts~ IHHtype. }
         { Case "TmProj1". inverts~ IHHtype. }
         { Case "TmProj2". inverts~ IHHtype. }
         { Case "TmMatch". pick_fresh M. pick_fresh x. forwards~ Htk : H1 M x.
@@ -975,12 +982,13 @@ Module TypingProps (P : PAT).
       Lemma ok_term_subst :
         forall G2 G1 x t1 t2 T1 T2,
           G1 & x ~ BindVar T2 & G2 |= t1 ~: T1 ->
+          is_value t2 ->
           G1 |= t2 ~: T2 ->
           ok_env (G1 & map (bsubst x t2) G2) ->
           G1 & map (bsubst x t2) G2 |= [x => t2]t1 ~: T1.
       Proof with eauto using ok_data_strengthening, ok_kind_strengthening,
           ok_data_bsubst, ok_kind_bsubst, ok_type_subst with mcore.
-        introv Htype1 Htype2.
+        introv Htype1 Hval Htype2.
         remember (G1 & x ~ BindVar T2 & G2). gen G2.
         induction Htype1 ; intros ; simpls ; substs...
         { Case "TmFVar". cases_if.
@@ -994,6 +1002,13 @@ Module TypingProps (P : PAT).
         { Case "TmTyLam". apply_fresh* TTyLam as X... rewrite* topen_t_subst_comm.
           replaces (BindTVar k) with (bsubst x t2 (BindTVar k))...
           apply_ih_map_bind H1 ; auto. constructor... }
+        { Case "TmFix". apply_fresh TFix ; intros...
+          replaces (BindVar (TyArr ty1 ty2)) with (bsubst x t2 (BindVar (TyArr ty1 ty2)))...
+          replaces (BindVar ty1) with (bsubst x t2 (BindVar ty1))...
+          rewrite subst_open_comm... rewrite subst_open_comm...
+          do_rew_2 concat_assoc_map_push (applys H2 f x0) ; auto. rewrite_all~ concat_assoc.
+          constructor~. constructor... apply_empty ok_type_weakening. idtac...
+          constructor... }
         { Case "TmCon". constructors... binds_cases H ; auto.
           replaces (BindCon d ty1 (FTName T))
             with (bsubst x t2 (BindCon d ty1 (FTName T)))... }
@@ -1064,6 +1079,8 @@ Module TypingProps (P : PAT).
         induction Htype; simpls...
         - pick_fresh x. forwards Hnin : open_notin (H1 x)...
         - pick_fresh Y. forwards~ Hnin : topen_t_notin (H1 Y).
+        - pick_fresh f. pick_fresh x. forwards~ Hnin1 : open_notin (H2 f x).
+          forwards~ Hnin1' : open_notin Hnin1...
         - pick_fresh M. pick_fresh x. forwards~ Hnin1 : open_notin (H1 M x).
           forwards~ Hnin2 : H3 M.
         - pick_fresh T. forwards~ Hnin : Topen_t_notin (H0 T).
@@ -1116,6 +1133,13 @@ Module TypingProps (P : PAT).
           rewrite tsubst_topen_comm... rewrite topen_t_tsubst_comm...
           apply_ih_map_bind H1 ; auto. constructor... }
         { Case "TmTyApp". rewrite tsubst_topen_distr... }
+        { Case "TmFix". apply_fresh TFix ; intros...
+          replaces (BindVar (TyArr ({X => T2}ty1) ({X => T2}ty2)))
+            with (tbsubst X T2 (BindVar (TyArr ty1 ty2)))...
+          replaces (BindVar ({X => T2}ty1)) with (tbsubst X T2 (BindVar ty1))...
+          rewrite tsubst_t_open_comm. rewrite tsubst_t_open_comm.
+          do_rew_2 concat_assoc_map_push (applys H2 f) ; auto. rewrite_all~ concat_assoc.
+          constructor~. constructor... apply_empty ok_type_weakening. idtac... constructor... }
         { Case "TmCon".
           apply TCon with (d := d) (ty1 := {X => T2}ty1) ; try apply* ok_type_tsubst.
           - replaces (BindCon d ({X => T2} ty1) (FTName T)) with (tbsubst X T2 (BindCon d ty1 (FTName T)))...
@@ -1227,6 +1251,10 @@ Module TypingProps (P : PAT).
           apply_ih_bind H1 ; auto. constructor... }
         { Case "TmTyLam". apply_fresh TTyLam as X...
           apply_ih_bind H1 ; auto. constructor... }
+        { Case "TmFix". apply_fresh TFix ; intros...
+          do_rew_2 concat_assoc (applys H2) ; auto. easy.
+          constructor~. constructor... apply_empty ok_type_weakening. idtac...
+          constructor... }
         { Case "TmCon". constructors... binds_cases H...
           apply* binds_concat_left_ok. apply* binds_concat_left_ok.
           applys* ok_concat_inv_l G2. }
@@ -1413,8 +1441,8 @@ Module TypingProps (P : PAT).
           assert (T # G1) by (applys ok_push_inv ; applys* ok_concat_inv_l G2).
           rewrite~ (env_Tbsubst_fresh G1 T (FTName T')). }
         { Case "TmLam". apply_fresh TLam as x.
-          + replaces KiType with (Tsubst_k T (FTName T') KiType)...
-          + rewrite <- Tsubst_t_open_comm. folds (Tsubst_ty T (FTName T') ty1).
+          - replaces KiType with (Tsubst_k T (FTName T') KiType)...
+          - rewrite <- Tsubst_t_open_comm. folds (Tsubst_ty T (FTName T') ty1).
             replaces (BindVar (Tsubst_ty T (FTName T') ty1))
               with (Tbsubst T (FTName T') (BindVar ty1))...
             apply_ih_map_bind H1 ; auto. constructor...
@@ -1425,6 +1453,18 @@ Module TypingProps (P : PAT).
             with (Tbsubst T (FTName T') (BindTVar k))...
           apply_ih_map_bind H1 ; auto. constructor... }
         { Case "TmTyApp". rewrite Tsubst_ty_topen_distr... }
+        { Case "TmFix".
+          replaces KiType with (Tsubst_k T (FTName T') KiType) in H ; auto.
+          replaces KiType with (Tsubst_k T (FTName T') KiType) in H0 ; auto.
+          forwards* Htk1 : ok_type_Tsubst H. forwards* Htk2 : ok_type_Tsubst H0.
+          apply_fresh TFix ; intros...
+          rewrite <- Tsubst_t_open_comm. rewrite <- Tsubst_t_open_comm.
+          replaces (BindVar (TyArr (Tsubst_ty T (FTName T') ty1) (Tsubst_ty T (FTName T') ty2)))
+            with (Tbsubst T (FTName T') (BindVar (TyArr ty1 ty2)))...
+          replaces (BindVar (Tsubst_ty T (FTName T') ty1))
+            with (Tbsubst T (FTName T') (BindVar ty1))...
+          do_rew_2 concat_assoc_map_push (applys H2) ; auto. rewrite_all~ concat_assoc.
+          repeat constructor~. apply_empty~ ok_type_weakening. constructor... }
         { Case "TmCon".
           asserts (S, Heq): (lcT (Tsubst T (FTName T') (FTName T0))). solve_var.
           simpls. rewrite Heq.
@@ -1711,6 +1751,18 @@ Module TypingProps (P : PAT).
             with (Kbsubst K (FCon K') (BindTVar k))...
           apply_ih_map_bind H1 ; auto. constructor... }
         { Case "TmTyApp". rewrite Ksubst_ty_topen_distr... }
+        { Case "TmFix".
+          replaces KiType with (Ksubst_k K (FCon K') KiType) in H ; auto.
+          replaces KiType with (Ksubst_k K (FCon K') KiType) in H0 ; auto.
+          forwards* Htk1 : ok_type_Ksubst H. forwards* Htk2 : ok_type_Ksubst H0.
+          apply_fresh TFix ; intros...
+          rewrite <- Ksubst_t_open_comm. rewrite <- Ksubst_t_open_comm.
+          replaces (BindVar (TyArr (Ksubst_ty K (FCon K') ty1) (Ksubst_ty K (FCon K') ty2)))
+            with (Kbsubst K (FCon K') (BindVar (TyArr ty1 ty2)))...
+          replaces (BindVar (Ksubst_ty K (FCon K') ty1))
+            with (Kbsubst K (FCon K') (BindVar ty1))...
+          do_rew_2 concat_assoc_map_push (applys H2) ; auto. rewrite_all~ concat_assoc.
+          repeat constructor~. apply_empty~ ok_type_weakening. constructor... }
         { Case "TmCon".
           asserts (S, Heq): (lcK (Ksubst K (FCon K') (FCon K0))). solve_var.
           simpls. rewrite Heq.
