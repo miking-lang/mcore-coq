@@ -20,6 +20,12 @@ Module SmallStepProps (P : PAT).
           ok_pat Gamma p ty ty' ->
           Gamma |= v' ~: ty'.
 
+      Parameter match1_value :
+        forall p v v',
+          is_value v ->
+          match1 v p = Some v' ->
+          is_value v'.
+
       Parameter match1_Tsubst :
         forall t p X T,
           match1 (Tsubst_t X T t) p = LibOption.map (Tsubst_t X T) (match1 t p).
@@ -45,6 +51,12 @@ Module SmallStepProps (P : PAT).
           matchN v ps = Some (v', i) ->
           ok_pat Gamma (nth i ps) ty ty' ->
           Gamma |= v' ~: ty'.
+
+      Parameter matchN_value :
+        forall ps v v' i,
+          is_value v ->
+          matchN v ps = Some (v', i) ->
+          is_value v'.
 
       Parameter matchN_length :
         forall t ps t' i,
@@ -137,11 +149,10 @@ Module SmallStepProps (P : PAT).
           Tsubst_t X (FTName T) t1 --> Tsubst_t X (FTName T) t2.
       Proof.
         introv Hstep.
-        induction Hstep ; simpls.
+        induction Hstep ; simpls*.
         - rewrite Tsubst_t_open_distr.
           forwards* Hval: is_value_Tsubst H.
         - rewrite* Tsubst_t_topen_distr.
-        - rewrite Tsubst_t_open_distr. simpls*.
         - forwards Hval: is_value_Tsubst H. forwards* Hval': is_value_Tsubst H0.
         - forwards Hval: is_value_Tsubst H. forwards* Hval': is_value_Tsubst H0.
         - forwards Hval: is_value_Tsubst H.
@@ -227,11 +238,10 @@ Module SmallStepProps (P : PAT).
           Ksubst_t X (FCon K) t1 --> Ksubst_t X (FCon K) t2.
       Proof.
         introv Hstep.
-        induction Hstep ; simpls.
+        induction Hstep ; simpls*.
         - rewrite Ksubst_t_open_distr.
           forwards* Hval: is_value_Ksubst H.
         - rewrite* Ksubst_t_topen_distr.
-        - rewrite Ksubst_t_open_distr. simpls*.
         - forwards Hval: is_value_Ksubst H. forwards* Hval': is_value_Ksubst H0.
         - forwards Hval: is_value_Ksubst H. forwards* Hval': is_value_Ksubst H0.
         - forwards Hval: is_value_Ksubst H.

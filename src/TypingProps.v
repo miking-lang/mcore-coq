@@ -67,6 +67,7 @@ Module TypingProps (P : PAT).
       Parameter contradictory_subst :
         forall G1 G2 x u T,
           contradictory (G1 & x ~ BindVar T & G2) ->
+          is_value u ->
           G1 |= u ~: T ->
           contradictory (G1 & map (bsubst x u) G2).
 
@@ -975,12 +976,13 @@ Module TypingProps (P : PAT).
       Lemma ok_term_subst :
         forall G2 G1 x t1 t2 T1 T2,
           G1 & x ~ BindVar T2 & G2 |= t1 ~: T1 ->
+          is_value t2 ->
           G1 |= t2 ~: T2 ->
           ok_env (G1 & map (bsubst x t2) G2) ->
           G1 & map (bsubst x t2) G2 |= [x => t2]t1 ~: T1.
       Proof with eauto using ok_data_strengthening, ok_kind_strengthening,
           ok_data_bsubst, ok_kind_bsubst, ok_type_subst with mcore.
-        introv Htype1 Htype2.
+        introv Htype1 Hval Htype2.
         remember (G1 & x ~ BindVar T2 & G2). gen G2.
         induction Htype1 ; intros ; simpls ; substs...
         { Case "TmFVar". cases_if.

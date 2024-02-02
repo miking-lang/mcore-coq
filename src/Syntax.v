@@ -123,6 +123,27 @@ Module Syntax (P : PAT).
    Instance Inhab_term : Inhab term.
   Proof. apply (Inhab_of_val (TmBVar 0)). Qed.
 
+  Inductive is_value : term -> Prop :=
+  | VLam   : forall ty t,
+      is_value (TmLam ty t)
+  | VTyLam : forall k t,
+      is_value (TmTyLam k t)
+  | VProd : forall v1 v2,
+      is_value v1 ->
+      is_value v2 ->
+      is_value (TmProd v1 v2)
+  | VCon : forall K ty v,
+      is_value v ->
+      is_value (TmCon K ty v)
+  | VSem : forall ty p t,
+      is_value (TmSem ty p t)
+  | VComp : forall v1 v2,
+      is_value v1 ->
+      is_value v2 ->
+      is_value (TmComp v1 v2).
+  #[export]
+   Hint Constructors is_value : mcore.
+
 
   (**************************)
   (** OPERATIONS ON SYNTAX **)

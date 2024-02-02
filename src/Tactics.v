@@ -10,13 +10,6 @@ Ltac solve_var := repeat (simpls ; try cases_if ; auto_star ; try notin_false).
 
 Ltac solve_eq t := induction t ; intros ; solve_var ; fequals*.
 
-(* Tactic used to extract information from hypotheses on the form *)
-(* Gamma & X ~ b1 = G1 & Y ~ b2 & G2 *)
-Ltac fiddle_env G2 Heq :=
-  destruct G2 using env_ind ; rew_env_concat in Heq ;
-  forwards (?&?&?): eq_push_inv Heq ; fequals ; substs ;
-  autorewrite with rew_env_map rew_env_concat.
-
 (* Rename a hypothesis in scope based on a pattern matching its type. *)
 Tactic Notation "with_hyp" open_constr(P) "as" ident(X) :=
   (match goal with | H : P |- _ => let P' := type of H in unify P P'; rename H into X end).

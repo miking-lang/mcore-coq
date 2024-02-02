@@ -120,9 +120,9 @@ Module Typing (P : PAT).
         Gamma |= t ~: TyAll k ty1 ->
         Gamma |= ty2 ~:: k ->
         Gamma |= TmTyApp t ty2 ~: ({0 ~> ty2}ty1)
-    | TFix : forall Gamma ty t,
-        Gamma |= t ~: TyArr ty ty ->
-        Gamma |= TmFix t ~: ty
+    | TFix : forall Gamma ty1 ty2 t,
+        Gamma |= t ~: TyArr (TyArr ty1 ty2) (TyArr ty1 ty2) ->
+        Gamma |= TmFix t ~: TyArr ty1 ty2
     | TProd : forall Gamma ty1 ty2 t1 t2,
         Gamma |= t1 ~: ty1 ->
         Gamma |= t2 ~: ty2 ->
