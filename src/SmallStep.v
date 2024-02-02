@@ -13,11 +13,31 @@ Module SmallStep (P : PAT).
   Module SmallStep1 (M : MATCH).
     Export M.
 
+    Inductive is_value : term -> Prop :=
+    | VLam   : forall ty t,
+        is_value (TmLam ty t)
+    | VTyLam : forall k t,
+        is_value (TmTyLam k t)
+    | VProd : forall v1 v2,
+        is_value v1 ->
+        is_value v2 ->
+        is_value (TmProd v1 v2)
+    | VCon : forall K ty v,
+        is_value v ->
+        is_value (TmCon K ty v)
+    | VSem : forall ty p t,
+        is_value (TmSem ty p t)
+    | VComp : forall v1 v2,
+        is_value v1 ->
+        is_value v2 ->
+        is_value (TmComp v1 v2).
+    #[export]
+     Hint Constructors is_value : mcore.
+
     Fixpoint push_value (f : term -> term) (t : term) : term :=
       match t with
       | TmLam ty t' => TmLam ty (f t')
       | TmTyLam k t' => TmTyLam k (f t')
-      | TmFix ty1 ty2 t' => TmFix ty1 ty2 (f t')
       | TmProd t1 t2 => TmProd (push_value f t1) (push_value f t2)
       | TmCon K ty t' => TmCon K ty (push_value f t')
       | TmSem ty p t' => TmSem ty p (f t')
@@ -41,6 +61,7 @@ Module SmallStep (P : PAT).
         is_value v ->
         is_context (TmApp v)
     | CTyApp : forall ty, is_context (fun t => TmTyApp t ty)
+    | CFix : is_context TmFix
     | CProdL : forall t2, is_context (fun t1 => TmProd t1 t2)
     | CProdR : forall (v : term),
         is_value v ->
@@ -66,9 +87,8 @@ Module SmallStep (P : PAT).
         TmApp (TmLam ty t) v --> [0 ~> v]t
     | ETyApp : forall k t ty,
         TmTyApp (TmTyLam k t) ty --> [{0 ~> ty}]t
-    | EFixApp : forall ty1 ty2 t v,
-        is_value v ->
-        TmApp (TmFix ty1 ty2 t) v --> [1 ~> v]([0 ~> TmFix ty1 ty2 t]t)
+    | EFix : forall ty t,
+        TmFix (TmLam ty t) --> [0 ~> TmFix (TmLam ty t)]t
     | EProj1 : forall v1 v2,
         is_value v1 ->
         is_value v2 ->

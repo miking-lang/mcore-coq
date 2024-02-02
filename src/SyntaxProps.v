@@ -194,11 +194,6 @@ Module SyntaxProps (P : PAT).
       - pick_fresh X.
         rewrite open_topen_neq with (J := 0) (V := TyFVar X);
           auto.
-      - pick_fresh f. pick_fresh x.
-        rewrite open_neq with (j := 0) (v := TmFVar f);
-          auto.
-        rewrite open_neq with (j := 1) (v := TmFVar x);
-          auto.
       - pick_fresh x.
         rewrite open_neq with (j := 0) (v := TmFVar x);
           auto.
@@ -338,9 +333,6 @@ Module SyntaxProps (P : PAT).
       solve_eq Hlc ; try solve [ rewrite~ topen_lct ] ; pick_fresh_gen L x.
       - apply* topen_open_rec.
       - apply* (topen_t_neq (S n) 0 (TyFVar X) (TyFVar x)).
-      - pick_fresh_gen (L \u \{x}) f.
-        apply* topen_open_rec.
-        apply* topen_open_rec.
       - apply* topen_open_rec.
       - apply* topen_t_Topen_rec.
       - apply topen_neq with (J := 0) (V := TyFVar x) ; auto.
@@ -616,8 +608,6 @@ Module SyntaxProps (P : PAT).
         pick_fresh_gen L x.
       - apply* Topen_open_rec.
       - apply* Topen_topen_t_rec.
-      - pick_fresh_gen (L \u \{x}) f.
-        apply* Topen_open_rec. apply* Topen_open_rec.
       - apply* Topen_open_rec.
       - apply* (Topen_t_neq (S k) 0 T (FTName x)).
       - apply* Topen_topen_rec.
@@ -821,8 +811,6 @@ Module SyntaxProps (P : PAT).
         pick_fresh_gen L x.
       - apply* Kopen_open_rec.
       - apply* Kopen_topen_t_rec.
-      - pick_fresh_gen (L \u \{x}) f.
-        apply* Kopen_open_rec. apply* Kopen_open_rec.
       - apply* Kopen_open_rec.
       - apply* Kopen_Topen_t_rec.
       - apply* Kopen_topen_rec.
@@ -1288,13 +1276,6 @@ Module SyntaxProps (P : PAT).
       - remember (Topen_t i (FTName T) (Tclose_t T i t)).
         pick_fresh x ; substs. applys~ topen_t_inj 0 x.
         rewrite* <- Topen_t_topen_comm. rewrite* <- Tclose_t_topen_comm. simpls~.
-      - remember (Topen_t i (FTName T) (Tclose_t T i t)).
-        pick_fresh f ; substs. applys~ open_inj 0 f.
-        remember ([0 ~> TmFVar f] Topen_t i (FTName T) (Tclose_t T i t)).
-        remember ([0 ~> TmFVar f] t).
-        pick_fresh x ; substs. applys~ open_inj 1 x.
-        rewrite* <- Topen_t_open_comm. rewrite <- Tclose_t_open_comm ; simpls~.
-        rewrite* <- Topen_t_open_comm. rewrite <- Tclose_t_open_comm ; simpls~.
       - remember (Topen_t i (FTName T) (Tclose_t T i t2)).
         pick_fresh x ; substs. applys~ open_inj 0 x.
         rewrite* <- Topen_t_open_comm. rewrite* <- Tclose_t_open_comm. simpls~.
@@ -1608,13 +1589,6 @@ Module SyntaxProps (P : PAT).
       - remember (Kopen_t i (FCon K) (Kclose_t K i t)).
         pick_fresh x ; substs. applys~ topen_t_inj 0 x.
         rewrite* <- Kopen_t_topen_comm. rewrite* <- Kclose_t_topen_comm. simpls~.
-      - remember (Kopen_t i (FCon K) (Kclose_t K i t)).
-        pick_fresh f ; substs. applys~ open_inj 0 f.
-        remember ([0 ~> TmFVar f] Kopen_t i (FCon K) (Kclose_t K i t)).
-        remember ([0 ~> TmFVar f] t).
-        pick_fresh x ; substs. applys~ open_inj 1 x.
-        rewrite* <- Kopen_t_open_comm. rewrite <- Kclose_t_open_comm ; simpls~.
-        rewrite* <- Kopen_t_open_comm. rewrite <- Kclose_t_open_comm ; simpls~.
       - solve_var.
       - remember (Kopen_t i (FCon K) (Kclose_t K i t2)).
         pick_fresh x ; substs. applys~ open_inj 0 x.
@@ -2076,9 +2050,9 @@ Module SyntaxProps (P : PAT).
     Proof.
       intros. rew_logic. splits ; gen i.
       { induction t ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ;
-          try rewrite topen_notin_T in Hfv; try rewrite topen_notin_T in Hfv; solve_var. }
+          try rewrite topen_notin_T in Hfv; solve_var. }
       { induction t ; introv Hfv ; simpls ; rewrite_all notin_union ; solve_var ;
-          rewrite_all topen_notin_T ; simpls~. }
+          try rewrite topen_notin_T ; simpls~. }
     Qed.
 
     Lemma Topen_d_notin_T :
@@ -2262,9 +2236,9 @@ Module SyntaxProps (P : PAT).
     Proof.
       intros. rew_logic. splits ; gen i.
       { induction t ; introv Hfv ; simpls ; rewrite_all notin_union in Hfv ;
-          try rewrite topen_notin_K in Hfv; try rewrite topen_notin_K in Hfv; solve_var. }
+          try rewrite topen_notin_K in Hfv; solve_var. }
       { induction t ; introv Hfv ; simpls ; rewrite_all notin_union ; solve_var ;
-          rewrite_all topen_notin_K ; simpls~. }
+          try rewrite topen_notin_K ; simpls~. }
     Qed.
 
     Lemma Kopen_d_notin_K :
