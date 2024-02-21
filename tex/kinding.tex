@@ -1,0 +1,34 @@
+\begin{gather*}
+  \inferrule[K-Var]
+  {\alpha :: \kappa \in \Gamma}
+  {\Gamma \vdash \alpha :: \kappa}
+  \quad
+  \inferrule[K-Arr]
+  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma \vdash \tau_2 :: \kitype{}}
+  {\Gamma \vdash \tau_1 \to \tau_2 :: \kitype{}}
+  \quad
+  \inferrule[K-All]
+  {\Gamma,\alpha :: \kappa \vdash \tau :: \kitype{}}
+  {\Gamma \vdash \tyall{\alpha}{\kappa}{\tau} :: \kitype{}}
+  \quad
+  \inferrule[K-Prod]
+  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma \vdash \tau_2 :: \kitype{}}
+  {\Gamma \vdash \typrod{\tau_1}{\tau_2} :: \kitype{}}
+  \\
+  \inferrule[K-ConType]
+  {\Gamma \vdash \tau :: \delta \\ T \in \delta}
+  {\Gamma \vdash \tau.T :: \kitype{}}
+  \quad
+  \inferrule[K-Sem]
+  {\Gamma \vdash \tau_1 :: \kitype{} \\\\ \Gamma \vdash \tau_2 :: \kitype{} \\
+  \{\Gamma \vdash p_i : \tau_1\}_i
+  }
+  {\Gamma \vdash \tysem{\tau_1}{\overline{p}}{\tau_2} :: \kitype{}}
+  \quad
+  \inferrule[K-Data] { \Gamma \vdash \delta }
+  {\Gamma \vdash \delta :: \delta}
+  \quad
+  \inferrule[K-Sub]
+  {\Gamma \vdash \tau :: \dtlit{T_1:\overline{\fnlab{K}_1},\ldots,T_n:\overline{\fnlab{K}_n}} \\ \overline{T}' \subseteq \overline{T} \\\\ \overline{K_1}' \subseteq \overline{K_1}\quad \ldots \quad \overline{K_m}' \subseteq \overline{K_m}}
+  {\Gamma \vdash \tau :: \dtlit{T_1':\overline{K_1}',\ldots,T_m':\overline{K_m}'}}
+\end{gather*}

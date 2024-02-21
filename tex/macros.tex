@@ -1,0 +1,47 @@
+% Fonts for syntactic elements
+\newcommand{\fnkey}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\fnvar}[1]{\ensuremath{\mathit{#1}}}
+\newcommand{\fnlab}[1]{\ensuremath{\mathsf{#1}}}
+
+% Metavariables
+\newcommand{\con}{\ensuremath{\mathcal{C}}}
+\newcommand{\tname}{\fnvar{T}}
+\newcommand{\mcorecalc}{\ensuremath{\lambda_{\con}}\xspace}
+
+% Syntactic forms for types
+\newcommand{\tyall}[3]{\forall #1 :: #2.~#3}
+\newcommand{\tyarr}[2]{#1 \to #2}
+\newcommand{\typrod}[2]{#1 \times #2}
+\newcommand{\tyvar}[1]{\fnvar{#1}}
+\newcommand{\tydata}[2]{#1\{#2\}}
+\newcommand{\tysem}[3]{#1 \rightsquigarrow^{#2} #3}
+
+% Syntactic forms for datatypes
+\newcommand{\dtlit}[1]{\langle #1 \rangle}
+\newcommand{\dtvar}[1]{\fnvar{#1}}
+
+% Syntactic forms for kinds
+\newcommand{\kitype}{\star}
+
+% Syntactic forms for terms
+\newcommand{\tmvar}[1]{\fnvar{#1}}
+\newcommand{\tmlam}[3]{\lambda #1 : #2.~#3}
+\newcommand{\tmapp}[2]{#1\;#2}
+\newcommand{\tmfix}[1]{\fnkey{fix}\;#1}
+\newcommand{\tmtype}[2]{\fnkey{type}~\fnvar{#1}~\fnkey{in}~#2}
+\newcommand{\tmcondef}[6]{\fnkey{con}~\fnlab{#1} : (\fnvar{#2} :: #3).~ #4 \to \fnvar{#5}~\fnkey{in}~#6}
+\newcommand{\tmconapp}[3]{\fnlab{#1}~[#2]~#3}
+\newcommand{\tmmatch}[4]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{then}~#3~\fnkey{else}~#4}
+\newcommand{\tmnever}[1]{\fnkey{never}^{#1}}
+\newcommand{\tmprod}[2]{(#1 , #2)}
+\newcommand{\tmproj}[2]{\pi_#1\;#2}
+\newcommand{\tmtylam}[3]{\Lambda#1 :: #2.~#3}
+\newcommand{\tmtyapp}[2]{#1[#2]}
+\newcommand{\tmsem}[3]{\fnkey{sem}^{#1} \left\{#2 \to #3\right\}}
+
+\newcommand{\smallop}[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}
+\newcommand{\tmcomp}[2]{#1 \smallop{\oplus} #2}
+\newcommand{\tmsemapp}[2]{#1 \smallop{\bullet} #2}
+
+\newcommand{\envmatch}[2]{#1 \triangleright #2}
+\newcommand{\envnomatch}[2]{#1 \triangledown #2}

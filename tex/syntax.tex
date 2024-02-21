@@ -1,0 +1,16 @@
+\begin{gather*}
+  T~\text{(Type names)}\quad \alpha,X~\text{(Type variables)} \\
+  p~\text{(Patterns)}\quad \fnlab{K}~\text{(Constructors)} \quad x~\text{(Variables)} \\
+  \begin{array}{lcl}
+    \tau &::=& \tyvar{\alpha} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tysem{\tau_1}{\con}{\tau_2} \mid \tydata{T}{\con} \qquad\hfill\text{(Types)}\\[1mm]
+    \con &::=& \alpha \mid \con_1 \to \con_2 \mid \fnlab{K}\{\overline{\ell = \con}\} \mid \con \oplus \con \mid \con \otimes \con \mid \mu X. \con  \qquad\hfill\text{(Constructor types)}\\[1mm]
+    \kappa &::=& \kitype{} \mid \fnkey{Ext}(\tname, \fnlab{K}_i, \fnlab{K}_i\mathcal{L}_i) \qquad\hfill\text{(Kinds)}\\[1mm]
+    e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \qquad\hfill\text{(Expressions)}\\
+         & \mid & \tmfix{e} \mid \tmprod{e_1}{e_2} \mid \tmproj{1}{e} \mid \tmproj{2}{e} \\
+         & \mid & \tmconapp{K}{\tau}{e} \mid \tmmatch{e}{p}{e_1}{e_2} \mid \tmnever{\tau} \\
+         & \mid & \tmtype{T}{e} \mid \tmcondef{K}{X}{\delta}{\tau}{T}{e} \\
+         & \mid & \tmsem{\tau}{p}{e} \mid \tmcomp{e_1}{e_2} \mid \tmsemapp{e_1}{e_2}\\[1mm]
+    \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\
+         &\mid& \Gamma, T \mid \Gamma, \fnlab{K} : (X :: \delta).~\tau \to T
+  \end{array}
+\end{gather*}

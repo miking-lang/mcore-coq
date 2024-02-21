@@ -1,0 +1,65 @@
+\begin{gather*}
+  \inferrule[T-Var]
+  {x : \tau \in \Gamma}
+  {\Gamma \vdash x : \tau}
+  \quad
+  \inferrule[T-Lam]
+  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma, x : \tau_1 \vdash e : \tau_2}
+  {\Gamma \vdash \tmlam{x}{\tau_1}{e} : \tyarr{\tau_1}{\tau_2}}
+  \quad
+  \inferrule[T-App]
+  {\Gamma \vdash e_1 : \tyarr{\tau_1}{\tau_2} \\ \Gamma \vdash e_2 : \tau_1}
+  {\Gamma \vdash \tmapp{e_1}{e_2} : \tau_2}
+  \quad
+  \inferrule[T-TyLam]
+  {\Gamma \vdash \kappa \\ \Gamma,\alpha :: \kappa \vdash e : \tau}
+  {\Gamma \vdash \tmtylam{\alpha}{\kappa}{e} : \tyall{\alpha}{\kappa}{\tau}}
+  \\
+  \inferrule[T-TyApp]
+  {\Gamma \vdash e : \tyall{\alpha}{\kappa}{\tau} \\ \Gamma \vdash \tau' :: \kappa}
+  {\Gamma \vdash \tmtyapp{e}{\tau'} : \tau[\alpha \mapsto \tau']}
+  \quad
+  \inferrule[T-Fix]
+  {\Gamma \vdash e : \tyarr{(\tyarr{\tau_1}{\tau_2})}{(\tyarr{\tau_1}{\tau_2})}}
+  {\Gamma \vdash \tmfix{e} : \tyarr{\tau_1}{\tau_2}}
+  \quad
+  \inferrule[T-Prod]
+  {\Gamma \vdash e_1 : \tau_1 \\ \Gamma \vdash e_2 : \tau_2}
+  {\Gamma \vdash \tmprod{e_1}{e_2} : \typrod{\tau_1}{\tau_2}}
+  \quad
+  \inferrule[T-Proj]
+  {\Gamma \vdash e : \typrod{\tau_1}{\tau_2}}
+  {\Gamma \vdash \tmproj{i}{e} : \tau_i}
+  \\
+  \inferrule[T-Con]
+  {\fnlab{K} : (X :: \delta).~\tau \to T \in \Gamma \\ \Gamma \vdash \tau' :: \delta \\\\ \Gamma \vdash \tau' :: \dtlit{T:\fnlab{K}} \\ \Gamma \vdash e : \tau[X \mapsto \tau']}
+  {\Gamma \vdash \tmconapp{K}{\tau'}{e} : \tau'.T}
+  \quad
+  \inferrule[T-Match]
+  {\Gamma \vdash e : \tau \\ \Gamma \vdash p : \tau \dashv \Gamma' \\\\ \Gamma,\Gamma',e\triangleright p \vdash e_1 : \tau' \\ \Gamma,e\triangledown p \vdash e_2 : \tau'}
+  {\Gamma \vdash \tmmatch{e}{p}{e_1}{e_2} : \tau'}
+  \quad
+  \inferrule[T-Never]
+  {\Gamma~\mathbf{contradictory}}
+  {\Gamma \vdash \tmnever{\tau} : \tau}
+  \\
+  \inferrule[T-Type]
+  {\Gamma, T \vdash e : \tau \\ T \notin \tau}
+  {\Gamma \vdash \tmtype{T}{e} : \tau}
+  \quad
+  \inferrule[T-ConDef]
+  {T \in \Gamma \\ \Gamma \vdash \delta \\ \Gamma,X::\delta \vdash \tau :: \kitype{} \\\\ \Gamma,\fnlab{K} : (X::\delta).~\tau \to T \vdash e : \tau' \\ \fnlab{K} \not \in \tau'}
+  {\Gamma \vdash \tmcondef{K}{X}{\delta}{\tau}{T}{e} : \tau'}
+  \quad
+  \inferrule[T-Sem]
+  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma \vdash p : \tau_1 \dashv \Gamma' \\ \Gamma,\Gamma' \vdash e : \tau_2}
+  {\Gamma \vdash \tmsem{\tau_1}{p}{e} : \tysem{\tau_1}{p}{\tau_2}}
+  \\
+  \inferrule[T-Compose]
+  {\Gamma \vdash e_1 : \tysem{\tau_1}{\overline{p}}{\tau_2} \\ \Gamma \vdash e_2 : \tysem{\tau_1}{\overline{p}'}{\tau_2} \\ \mathit{compatible}(\overline{p},\overline{p}')}
+  {\Gamma \vdash \tmcomp{e_1}{e_2} : \tysem{\tau_1}{\overline{p},\overline{p}'}{\tau_2}}
+  \quad
+  \inferrule[T-SemApp]
+  {\Gamma \vdash e_1 : \tysem{\tau_1}{\overline{p}}{\tau_2} \\ \Gamma \vdash e_2 : \tau_1 \\ \mathit{exhaustive}(\Gamma,\overline{p},\tau_1)}
+  {\Gamma \vdash \tmsemapp{e_1}{e_2} : \tau_2}
+\end{gather*}

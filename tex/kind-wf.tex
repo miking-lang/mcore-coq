@@ -1,0 +1,8 @@
+\begin{gather*}
+  \inferrule[Star-Ok] { }
+  { \Gamma \vdash \star }
+  \quad
+  \inferrule[Data-Ok]
+  { \left \{ T_i \in \Gamma \quad \fnlab{K}_{ij} : (X :: \delta).~\tau \to T_i \in \Gamma \right \}_{i,j} }
+  { \Gamma \vdash \dtlit{T_1:\overline{\fnlab{K}}_1, \ldots , T_n:\overline{\fnlab{K}}_n} }    
+\end{gather*}

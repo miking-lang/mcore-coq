@@ -3,247 +3,33 @@
 \usepackage{amssymb}
 \usepackage{geometry}
 \usepackage{mathpartir}
+\usepackage{xspace}
 \usepackage{todonotes}
 
-% Fonts
-\newcommand{\fnkey}[1]{\ensuremath{\mathbf{#1}}}
-\newcommand{\fnvar}[1]{\ensuremath{\mathit{#1}}}
-\newcommand{\fnlab}[1]{\ensuremath{\mathsf{#1}}}
+\input{macros}
 
 \begin{document}
-\section*{MCore}
 
-% Syntactic forms for types
-\newcommand{\tyall}[3]{\forall #1 :: #2.~#3}
-\newcommand{\tyarr}[2]{#1 \to #2}
-\newcommand{\typrod}[2]{#1 \times #2}
-\newcommand{\tyvar}[1]{\fnvar{#1}}
-\newcommand{\tydata}[2]{#1.\fnvar{#2}}
-\newcommand{\tysquig}[3]{#1 \rightsquigarrow^{#2} #3}
+\begin{figure}[t]
+    \scriptsize
+    \input{syntax}
+    \caption{The syntax of \mcorecalc.}
+    \label{fig:mcore-syntax}
+\end{figure}
 
-% Syntactic forms for datatypes
-\newcommand{\dtlit}[1]{\langle #1 \rangle}
-\newcommand{\dtvar}[1]{\fnvar{#1}}
+\begin{figure}[t]
+    \scriptsize
+    \input{kind-wf}
+    \input{kinding}
+    \caption{The kinding and kind well-formedness relations of \mcorecalc.}
+    \label{fig:mcore-kinding}
+\end{figure}
 
-% Syntactic forms for kinds
-\newcommand{\kitype}{\star}
+\begin{figure}[t]
+    \scriptsize
+    \input{typing}
+    \caption{The typing relation of \mcorecalc.}
+    \label{fig:mcore-typing}
+\end{figure}
 
-% Syntactic forms for terms
-\newcommand{\tmvar}[1]{\fnvar{#1}}
-\newcommand{\tmlam}[3]{\lambda #1 : #2.~#3}
-\newcommand{\tmapp}[2]{#1\;#2}
-\newcommand{\tmfix}[1]{\fnkey{fix}\;#1}
-\newcommand{\tmtype}[2]{\fnkey{type}~#1~\fnkey{in}~#2}
-\newcommand{\tmcondef}[6]{\fnkey{con}~\fnlab{#1} : (\fnvar{#2} :: #3).~ #4 \to \fnvar{#5}~\fnkey{in}~#6}
-\newcommand{\tmconapp}[3]{\fnlab{#1}\;[#2]\;#3}
-\newcommand{\tmmatch}[4]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{then}~#3~\fnkey{else}~#4}
-\newcommand{\tmnever}{\fnkey{never}}
-\newcommand{\tmprod}[2]{(#1 , #2)}
-\newcommand{\tmproj}[2]{\pi_#1\;#2}
-\newcommand{\tmtylam}[3]{\Lambda#1 :: #2.~#3}
-\newcommand{\tmtyapp}[2]{#1[#2]}
-\newcommand{\tmsem}[2]{\fnkey{sem}^{#1} \left\{#2\right\}}
-
-\newcommand\smallop[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}
-\newcommand{\tmcomp}[2]{#1 \smallop{\oplus} #2}
-\newcommand{\tmsemapp}[2]{#1 \smallop{\bullet} #2}
-
-\subsection*{Syntax}
-\begin{gather*}
-  T~\text{(Type names)}\quad \alpha,X~\text{(Type variables)}\quad p~\text{(Patterns)} \\
-  \fnlab{l}~\text{(Labels)}\quad \fnlab{K}~\text{(Constructors)} \quad x~\text{(Variables)} \\
-  \begin{array}{lcl}
-    \tau &::=& \tyvar{\alpha} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \typrod{\tau_1}{\tau_2} \mid \tydata{\tau}{T} \mid \tysquig{\tau_1}{\overline{p}}{\tau_2} \mid \delta \qquad\hfill\text{(Types)}\\
-    \kappa &::=& \kitype{} \mid \delta \qquad\hfill\text{(Kinds)}\\[1mm]
-    \delta &::=& \dtlit{T_1:\overline{\fnlab{K}_1}, \ldots, T_n:\overline{\fnlab{K}_n}} \qquad\hfill\text{(Data literals)}\\[1mm]
-    e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \qquad\hfill\text{(Expressions)}\\
-         & \mid & \tmfix{e} \mid \tmprod{e_1}{e_2} \mid \tmproj{1}{e} \mid \tmproj{2}{e} \mid \tmconapp{K}{\tau}{e} \\
-         & \mid & \tmmatch{e}{p}{e_1}{e_2} \mid \tmnever{} \\
-         & \mid & \tmtype{T}{e} \mid \tmcondef{K}{X}{\delta}{\tau}{T}{e} \\
-         & \mid & \tmsem{\tau}{\overline{p \to e}} \mid \tmcomp{e_1}{e_2} \mid \tmsemapp{e_1}{e_2}\\[1mm]
-    \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, e \triangleright p \mid \Gamma, e \triangledown p \qquad\hfill\text{(Type environments)}\\
-         &\mid& \Gamma, T \mid \Gamma, \fnlab{K} : (X :: \delta).~\tau \to T
-  \end{array}
-\end{gather*}
-\subsection*{Kind well-formedness}
-\[
-  \inferrule[Star-Ok] { }
-  { \Gamma \vdash \star }
-  \quad
-  \inferrule[Data-Ok]
-  { \left \{ T_i \in \Gamma \quad \fnlab{K}_{ij} : (X :: \delta).~\tau \to T_i \in \Gamma \right \}_{i,j} }
-  { \Gamma \vdash \dtlit{T_1:\overline{\fnlab{K}_1}, \ldots , T_n:\overline{\fnlab{K}_n}} }
-\]
-\subsection*{Kinding}
-\[
-  \inferrule[K-Var]
-  {\alpha :: \kappa \in \Gamma}
-  {\Gamma \vdash \alpha :: \kappa}
-  \quad
-  \inferrule[K-Arr]
-  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma \vdash \tau_2 :: \kitype{}}
-  {\Gamma \vdash \tau_1 \to \tau_2 :: \kitype{}}
-  \quad
-  \inferrule[K-All]
-  {\Gamma,\alpha :: \kappa \vdash \tau :: \kitype{}}
-  {\Gamma \vdash \tyall{\alpha}{\kappa}{\tau} :: \kitype{}}
-\]
-\[
-  \inferrule[K-Prod]
-  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma \vdash \tau_2 :: \kitype{}}
-  {\Gamma \vdash \typrod{\tau_1}{\tau_2} :: \kitype{}}
-  \quad
-  \inferrule[K-ConType]
-  {\Gamma \vdash \tau :: \delta \\ T \in \delta}
-  {\Gamma \vdash \tau.T :: \kitype{}}
-\]
-\[
-  \inferrule[K-Sem]
-  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma \vdash \tau_2 :: \kitype{}}
-  {\Gamma \vdash \tysquig{\tau_1}{\overline{p}}{\tau_2} :: \kitype{}}
-  \quad
-  \inferrule[K-Data] { \Gamma \vdash \delta }
-  {\Gamma \vdash \delta :: \delta}
-\]
-\[
-  \inferrule[K-Sub]
-  {\Gamma \vdash \tau :: \dtlit{T_1:\overline{\fnlab{K}_1},\ldots,T_n:\overline{\fnlab{K}_n}} \\ \overline{T}' \subseteq \overline{T} \\ \overline{K_1}' \subseteq \overline{K_1}\quad \ldots \quad \overline{K_m}' \subseteq \overline{K_m}}
-  {\Gamma \vdash \tau :: \dtlit{T_1':\overline{K_1}',\ldots,T_m':\overline{K_m}'}}
-\]
-\subsection*{Typing}
-\[
-  \inferrule[T-Var]
-  {x : \tau \in \Gamma}
-  {\Gamma \vdash x : \tau}
-  \quad
-  \inferrule[T-Lam]
-  {\Gamma \vdash \tau_1 :: \kitype{} \\ \Gamma, x : \tau_1 \vdash e : \tau_2}
-  {\Gamma \vdash \tmlam{x}{\tau_1}{e} : \tyarr{\tau_1}{\tau_2}}
-  \quad
-  \inferrule[T-App]
-  {\Gamma \vdash e_1 : \tyarr{\tau_1}{\tau_2} \\ \Gamma \vdash e_2 : \tau_1}
-  {\Gamma \vdash \tmapp{e_1}{e_2} : \tau_2}
-\]
-\[
-  \inferrule[T-TyLam]
-  {\Gamma \vdash \kappa \\ \Gamma,\alpha :: \kappa \vdash e : \tau}
-  {\Gamma \vdash \tmtylam{\alpha}{\kappa}{e} : \tyall{\alpha}{\kappa}{\tau}}
-  \quad
-  \inferrule[T-TyApp]
-  {\Gamma \vdash e : \tyall{\alpha}{\kappa}{\tau} \\ \Gamma \vdash \tau' :: \kappa}
-  {\Gamma \vdash \tmtyapp{e}{\tau'} : \tau[\alpha \mapsto \tau']}
-\]
-\[
-  \inferrule[T-Fix]
-  {\Gamma \vdash e : \tyarr{\tau}{\tau}}
-  {\Gamma \vdash \tmfix{e} : \tau}
-  \quad
-  \inferrule[T-Prod]
-  {\Gamma \vdash e_1 : \tau_1 \\ \Gamma \vdash e_2 : \tau_2}
-  {\Gamma \vdash \tmprod{e_1}{e_2} : \typrod{\tau_1}{\tau_2}}
-  \quad
-  \inferrule[T-Proj]
-  {\Gamma \vdash e : \typrod{\tau_1}{\tau_2}}
-  {\Gamma \vdash \tmproj{i}{e} : \tau_i}
-\]
-\[
-  \inferrule[T-Con]
-  {\fnlab{K} : (X :: \delta).~\tau \to T \in \Gamma \\ \Gamma \vdash \tau' :: \delta \\ \Gamma \vdash \tau' :: \dtlit{T:\fnlab{K}} \\ \Gamma \vdash e : \tau[X \mapsto \tau']}
-  {\Gamma \vdash \tmconapp{K}{\tau'}{e} : \tau'.T}
-\]
-\[
-  \inferrule[T-Match]
-  {\Gamma \vdash e : \tau \\ \Gamma \vdash p : \tau \dashv \Gamma' \\ \Gamma,\Gamma',e\triangleright p \vdash e_1 : \tau' \\ \Gamma,e\triangledown p \vdash e_2 : \tau'}
-  {\Gamma \vdash \tmmatch{e}{p}{e_1}{e_2} : \tau'}
-\]
-\[
-  \inferrule[T-Never]
-  {\Gamma~\mathbf{contradictory}}
-  {\Gamma \vdash \tmnever{} : \tau}
-  \quad
-  \inferrule[T-Type]
-  {\Gamma, T \vdash e : \tau \\ T \notin \tau}
-  {\Gamma \vdash \tmtype{T}{e} : \tau}
-\]
-\[
-  \inferrule[T-ConDef]
-  {\Gamma \vdash \delta \\ \Gamma,X::\delta \vdash \tau :: \kitype{} \\ \Gamma,\fnlab{K} : (X::\delta).~\tau \to T \vdash e : \tau' \\ \fnlab{K} \not \in \tau'}
-  {\Gamma \vdash \tmcondef{K}{X}{\delta}{\tau}{T}{e} : \tau'}
-\]
-\[
-  \inferrule[T-Sem]
-  {\Gamma \vdash \tau_1 :: \kitype{} \\ \left\{\Gamma \vdash p_i : \tau_1 \dashv \Gamma_i \quad \Gamma,\Gamma_i \vdash e_i : \tau_2\right\}_i \\ \mathit{compatible}(\overline{p}, \tau_1)}
-  {\Gamma \vdash \tmsem{\tau_1}{\overline{p \to e}} : \tysquig{\tau_1}{\overline{p}}{\tau_2}}
-\]
-\[
-  \inferrule[T-Compose]
-  {\Gamma \vdash e_1 : \tysquig{\tau_1}{\overline{p}}{\tau_2} \\ \Gamma \vdash e_2 : \tysquig{\tau_1}{\overline{p}'}{\tau_2} \\ \mathit{compatible}((\overline{p},\overline{p}'), \tau_1)}
-  {\Gamma \vdash \tmcomp{e_1}{e_2} : \tysquig{\tau_1}{\overline{p},\overline{p}'}{\tau_2}}
-\]
-\[
-  \inferrule[T-SemApp]
-  {\Gamma \vdash e_1 : \tysquig{\tau_1}{\overline{p}}{\tau_2} \\ \Gamma \vdash e_2 : \tau_1 \\ \mathit{exhaustive}(\overline{p},\tau_1)}
-  {\Gamma \vdash \tmsemapp{e_1}{e_2} : \tau_2}
-\]
-\subsection*{Operational semantics}
-\[
-  \begin{array}{lcl}
-    v &::=& \tmlam{x}{\tau}{e} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmprod{v_1}{v_2} \mid \tmconapp{K}{\tau}{v} \mid \tmsem{\tau}{\overline{p \to e}}\qquad\hfill\text{(Values)}\\
-    \mathcal{C} &::=& \tmapp{\diamond}{e} \mid \tmapp{v}{\diamond} \mid \tmtyapp{\diamond}{\tau} \mid \tmfix{\diamond} \mid \tmprod{\diamond}{e} \mid \tmprod{v}{\diamond} \mid \tmproj{i}{\diamond} \qquad\hfill\text{(Evaluation contexts)}\\
-      &\mid& \tmconapp{K}{\tau}{\diamond} \mid \tmmatch{\diamond}{p}{e_1}{e_2} \\
-      &\mid& \tmcomp{\diamond}{e} \mid \tmcomp{v}{\diamond} \mid \tmsemapp{\diamond}{e} \mid \tmsemapp{v}{\diamond}
-  \end{array}
-\]
-\[
-  \inferrule[E-App]
-  { }
-  {\tmapp{(\tmlam{x}{\tau}{e})}{v} \longrightarrow e[x \mapsto v]}
-  \quad
-  \inferrule[E-TyApp]
-  { }
-  {\tmtyapp{(\tmtylam{\alpha}{\kappa}{e})}{\tau} \longrightarrow e[\alpha \mapsto \tau]}
-\]
-\[
-  \inferrule[E-Fix]
-  { }
-  {\tmfix{(\tmlam{x}{\tau}{e})} \longrightarrow e[x \mapsto \tmfix{(\tmlam{x}{\tau}{e})}]}
-  \quad
-  \inferrule[E-Proj]
-  { }
-  {\tmproj{i}{\tmprod{v_1}{v_2}} \longrightarrow v_i}
-\]
-\[
-  \inferrule[E-MatchThen]
-  { \mathit{match_1}(v, p) = \theta }
-  {\tmmatch{v}{p}{e_1}{e_2} \longrightarrow \theta(e_1)}
-\]
-\[
-  \inferrule[E-MatchElse]
-  { \mathit{match_1}(v, p) = \perp }
-  {\tmmatch{v}{p}{e_1}{e_2} \longrightarrow e_2}
-\]
-\[
-  \inferrule[E-Type]
-  { }
-  {\tmtype{T}{e} \longrightarrow e}
-  \quad
-  \inferrule[E-ConDef]
-  { }
-  {\tmcondef{K}{X}{\delta}{\tau}{T}{e} \longrightarrow e}
-\]
-\[
-  \inferrule[E-Compose]
-  { }
-  {\tmcomp{\tmsem{\tau}{\overline{p_a \to e_a}}}{\tmsem{\tau}{\overline{p_b\to e_b}}} \longrightarrow \tmsem{\tau}{\overline{p_a \to e_a},\overline{p_b \to e_b}}}
-\]
-\[
-  \inferrule[E-SemApp]
-  {\mathit{match}(v, \overline{p}) = (\theta, i)}
-  {\tmsemapp{\tmsem{\tau}{\overline{p \to e}}}{v} \longrightarrow \theta(e_i)}
-\]
-\[
-  \inferrule[E-Cong]
-  { e \longrightarrow e' }
-  {\mathcal{C}[e] \longrightarrow \mathcal{C}[e']}
-\]
 \end{document}
