@@ -1,9 +1,10 @@
 \begin{gather*}
-  T~\text{(Type names)}\quad \alpha,X~\text{(Type variables)} \\
+  T~\text{(Type names)}\quad \alpha,\rho,X~\text{(Type variables)} \\
   p~\text{(Patterns)}\quad \fnlab{K}~\text{(Constructors)} \quad x~\text{(Variables)} \\
   \begin{array}{lcl}
-    \tau &::=& \tyvar{\alpha} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tysem{\tau_1}{\con}{\tau_2} \mid \tydata{T}{\con} \qquad\hfill\text{(Types)}\\[1mm]
-    \con &::=& \alpha \mid (\_ : \tau) \mid \fnlab{K}\{\overline{\ell = \con}\} \otimes \con \mid \mu X. \con  \qquad\hfill\text{(Constructor types)}\\[1mm]
+    \tau &::=& \tysem{\tydata{T}{\con}}{}{\tau} \mid \tydata{T}{\con} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\[1mm]
+    \con &::=& \mathcal{P} \oplus \con \mid \mathcal{P} \otimes \con \mid \epsilon \mid \rho \qquad\hfill\text{(Constructor types)}\\[1mm]
+    \mathcal{P} &::=&  \fnlab{K}\{\overline{\ell = \mathcal{P}}\} \mid (\_ : \tau) \mid \mu X. \mathcal{P} \mid X \qquad\hfill\text{(Pattern types)}\\[1mm]
     \kappa &::=& \kitype{} \mid \fnkey{Ext}(\tname, \fnlab{K}_i, \fnlab{K}_i\mathcal{L}_i) \qquad\hfill\text{(Kinds)}\\[1mm]
     e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \qquad\hfill\text{(Expressions)}\\
          & \mid & \tmfix{e} \mid \tmprod{e_1}{e_2} \mid \tmproj{1}{e} \mid \tmproj{2}{e} \\
