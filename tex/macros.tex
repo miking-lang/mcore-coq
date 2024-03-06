@@ -24,23 +24,31 @@
 \newcommand{\kitype}{\star}
 
 % Syntactic forms for terms
+\newcommand{\condef}[4]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{#2\}}
+\newcommand{\labdef}[4]{\fnkey{lab}~#1~: \forall \fnvar{#2}.~ \fnvar{#3}\{#2\} \to #4}
+
 \newcommand{\tmvar}[1]{\fnvar{#1}}
-\newcommand{\tmlam}[3]{\lambda #1 : #2.~#3}
+\newcommand{\tmlam}[3]{\lambda \fnvar{#1}^{#2}.~#3}
 \newcommand{\tmapp}[2]{#1\;#2}
+\newcommand{\tmtylam}[3]{\Lambda\fnvar{#1}^{#2}.~#3}
+\newcommand{\tmtyapp}[2]{#1[#2]}
 \newcommand{\tmfix}[1]{\fnkey{fix}\;#1}
 \newcommand{\tmtype}[2]{\fnkey{type}~\fnvar{#1}~\fnkey{in}~#2}
-\newcommand{\tmcondef}[6]{\fnkey{con}~\fnlab{#1} : (\fnvar{#2} :: #3).~ #4 \to \fnvar{#5}~\fnkey{in}~#6}
-\newcommand{\tmconapp}[3]{\fnlab{#1}~[#2]~#3}
-\newcommand{\tmmatch}[4]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{then}~#3~\fnkey{else}~#4}
+\newcommand{\tmcondef}[5]{\condef{#1}{#2}{#3}{#4}~\fnkey{in}~#5}
+\newcommand{\tmconapp}[3]{\fnlab{#1}^{#2}\;#3}
 \newcommand{\tmnever}[1]{\fnkey{never}^{#1}}
-\newcommand{\tmprod}[2]{(#1 , #2)}
-\newcommand{\tmproj}[2]{\pi_#1\;#2}
-\newcommand{\tmtylam}[3]{\Lambda#1 :: #2.~#3}
-\newcommand{\tmtyapp}[2]{#1[#2]}
+\newcommand{\tmrec}[2]{\fnkey{rec}~\fnvar{#1}~\fnkey{in}~#2}
+\newcommand{\tmlabdef}[5]{\labdef{#1}{#2}{#3}{#4}~\fnkey{in}~#5}
+\newcommand{\tmunit}[1]{\fnkey{unit}^{#1}}
+\newcommand{\tmlabproj}[3]{#1.\fnlab{#2}^{#3}}
+\newcommand{\tmmatch}[3]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{else}~#3}
+\newcommand{\tmext}[2]{\fnkey{extend}~#1~\fnkey{with}~#2}
 \newcommand{\tmsem}[3]{\fnkey{sem}^{#1} \left\{#2 \to #3\right\}}
+\newcommand{\tmimpl}[2]{\fnkey{impl}^{#1}~#2}
 
 \newcommand{\smallop}[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}
 \newcommand{\tmcomp}[2]{#1 \smallop{\oplus} #2}
+\newcommand{\tmpcomp}[2]{#1 \smallop{\otimes} #2}
 \newcommand{\tmsemapp}[2]{#1 \smallop{\bullet} #2}
 
 \newcommand{\envmatch}[2]{#1 \triangleright #2}
