@@ -41,15 +41,14 @@
 \newcommand{\tmlabdef}[5]{\labdef{#1}{#2}{#3}{#4}~\fnkey{in}~#5}
 \newcommand{\tmunit}[1]{\fnkey{unit}^{#1}}
 \newcommand{\tmlabproj}[3]{#1.\fnlab{#2}^{#3}}
-\newcommand{\tmmatch}[3]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{else}~#3}
+\newcommand{\tmmatch}[4]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{then}~#3~\fnkey{else}~#4}
 \newcommand{\tmext}[2]{\fnkey{extend}~#1~\fnkey{with}~#2}
-\newcommand{\tmsem}[3]{\fnkey{sem}^{#1} \left\{#2 \to #3\right\}}
-\newcommand{\tmimpl}[2]{\fnkey{impl}^{#1}~#2}
+\newcommand{\tmhandle}[2]{\fnkey{handle}~#1~\fnkey{with}~#2}
+\newcommand{\tmunwrap}[3]{\fnkey{unwrap}_{#1,#2}\;#3}
+\newcommand{\tmwrap}[3]{\fnkey{wrap}_{#1,#2}\;#3}
+\newcommand{\tmsmap}[4]{\fnkey{smap}_{#1,#2}\;#3\;#4}
 
 \newcommand{\smallop}[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}
-\newcommand{\tmcomp}[2]{#1 \smallop{\oplus} #2}
-\newcommand{\tmpcomp}[2]{#1 \smallop{\otimes} #2}
-\newcommand{\tmsemapp}[2]{#1 \smallop{\bullet} #2}
 
 \newcommand{\envmatch}[2]{#1 \triangleright #2}
 \newcommand{\envnomatch}[2]{#1 \triangledown #2}

@@ -10,9 +10,10 @@
            & \mid & \tmtype{T}{e} \mid \tmcondef{K}{\rho}{\tau}{T}{e} \\
            & \mid & \tmrec{R}{e} \mid \tmlabdef{\ell}{\rho}{R}{\tau}{e} \\
            & \mid & \tmconapp{K}{\tau}{e} \mid \tmnever{\tau} \mid \tmunit{\tau} \mid \tmlabproj{e}{\ell}{\tau} \\
-           & \mid & \tmsem{\tau}{p}{e} \mid \tmcomp{e_1}{e_2} \mid \tmimpl{\tau}{p} \mid \tmpcomp{e_1}{e_2} \\
-           & \mid & \tmmatch{e_1}{e_2}{e_3} \\
-           & \mid & \tmext{e_1}{e_2} \\[1mm]
+           & \mid & \tmmatch{e}{p}{e_1}{e_2} \\
+           & \mid & \tmext{e}{p} \\
+           % & \mid & \tmunwrap{S}{T}{e} \mid \tmwrap{S}{T}{e} \mid \tmsmap{S}{T}{e_1}{e_2} \\
+           & \mid & \tmhandle{e_1}{e_2} \\[1mm]
     % \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\
     %      &\mid& \Gamma, T \mid \Gamma, \condef{K}{\rho}{\tau}{T}\\
     %      &\mid& \Gamma, R \mid \Gamma, \labdef{\ell}{\rho}{R}{\tau}
