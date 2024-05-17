@@ -11,10 +11,9 @@
 % Syntactic forms for types
 \newcommand{\tyall}[3]{\forall #1 :: #2.~#3}
 \newcommand{\tyarr}[2]{#1 \to #2}
-\newcommand{\typrod}[2]{#1 \times #2}
 \newcommand{\tyvar}[1]{\fnvar{#1}}
 \newcommand{\tydata}[2]{#1\{#2\}}
-\newcommand{\tysem}[3]{#1 \rightsquigarrow^{#2} #3}
+% \newcommand{\tysem}[3]{#1 \rightsquigarrow^{#2} #3}
 
 % Syntactic forms for datatypes
 \newcommand{\dtlit}[1]{\langle #1 \rangle}
@@ -24,31 +23,18 @@
 \newcommand{\kitype}{\star}
 
 % Syntactic forms for terms
-\newcommand{\condef}[4]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{#2\}}
-\newcommand{\labdef}[4]{\fnkey{lab}~#1~: \forall \fnvar{#2}.~ \fnvar{#3}\{#2\} \to #4}
+
+\newcommand{\dtype}[1]{\fnkey{type}~\fnvar{#1}}
+\newcommand{\drec}[1]{\fnkey{rec}~\fnvar{#1}}
+\newcommand{\dcondef}[4]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{#2\}}
+\newcommand{\dlabdef}[4]{\fnkey{lab}~#1~: \forall \fnvar{#2}.~ \fnvar{#3}\{#2\} \to #4}
 
 \newcommand{\tmvar}[1]{\fnvar{#1}}
 \newcommand{\tmlam}[3]{\lambda \fnvar{#1}^{#2}.~#3}
 \newcommand{\tmapp}[2]{#1\;#2}
 \newcommand{\tmtylam}[3]{\Lambda\fnvar{#1}^{#2}.~#3}
 \newcommand{\tmtyapp}[2]{#1[#2]}
-\newcommand{\tmfix}[1]{\fnkey{fix}\;#1}
-\newcommand{\tmtype}[2]{\fnkey{type}~\fnvar{#1}~\fnkey{in}~#2}
-\newcommand{\tmcondef}[5]{\condef{#1}{#2}{#3}{#4}~\fnkey{in}~#5}
 \newcommand{\tmconapp}[3]{\fnlab{#1}^{#2}\;#3}
-\newcommand{\tmnever}[1]{\fnkey{never}^{#1}}
-\newcommand{\tmrec}[2]{\fnkey{rec}~\fnvar{#1}~\fnkey{in}~#2}
-\newcommand{\tmlabdef}[5]{\labdef{#1}{#2}{#3}{#4}~\fnkey{in}~#5}
-\newcommand{\tmunit}[1]{\fnkey{unit}^{#1}}
 \newcommand{\tmlabproj}[3]{#1.\fnlab{#2}^{#3}}
-\newcommand{\tmmatch}[4]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{then}~#3~\fnkey{else}~#4}
-\newcommand{\tmext}[2]{\fnkey{extend}~#1~\fnkey{with}~#2}
-\newcommand{\tmhandle}[2]{\fnkey{handle}~#1~\fnkey{with}~#2}
-\newcommand{\tmunwrap}[3]{\fnkey{unwrap}_{#1,#2}\;#3}
-\newcommand{\tmwrap}[3]{\fnkey{wrap}_{#1,#2}\;#3}
-\newcommand{\tmsmap}[4]{\fnkey{smap}_{#1,#2}\;#3\;#4}
 
 \newcommand{\smallop}[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}
-
-\newcommand{\envmatch}[2]{#1 \triangleright #2}
-\newcommand{\envnomatch}[2]{#1 \triangledown #2}
