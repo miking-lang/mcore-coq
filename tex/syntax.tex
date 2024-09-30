@@ -1,20 +1,21 @@
 \begin{gather*}
-  T,R~\text{(Type names)}\quad \alpha,\rho~\text{(Type variables)} \quad x~\text{(Variables)}  \\
-  \fnlab{K}~\text{(Constructors)} \quad \ell~\text{(Labels)} \quad p~\text{(Patterns)} \\
+  S,R~\text{(Type names)}\quad \alpha,\delta~\text{(Type variables)} \quad x~\text{(Variables)}  \\
+  \fnlab{K}~\text{(Constructors)} \quad \ell~\text{(Labels)} \quad p~\text{(Patterns)} \quad c~\text{(Copatterns)}\\
   \begin{array}{lcl}
   %   \tau &::=& \tysem{\tydata{T}{\con}}{}{\tau} \mid \tydata{T}{\con} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\[1mm]
-  %   \con &::=& \mathcal{P} \oplus \con \mid \mathcal{P} \otimes \con \mid \epsilon \mid \rho \qquad\hfill\text{(Constructor types)}\\[1mm]
+  %   \con &::=& \mathcal{P} \oplus \con \mid \mathcal{P} \otimes \con \mid \epsilon \mid \delta \qquad\hfill\text{(Constructor types)}\\[1mm]
   %   \mathcal{P} &::=&  \fnlab{K}\{\overline{\ell = \mathcal{P}}\} \mid (\_ : \tau) \mid \mu X. \mathcal{P} \mid X \qquad\hfill\text{(Pattern types)}\\[1mm]
   %   \kappa &::=& \kitype{} \mid \fnkey{Ext}(\tname, \fnlab{K}_i, \fnlab{K}_i\mathcal{L}_i) \qquad\hfill\text{(Kinds)}\\[1mm]
-    d &::=& \dtype{T} \mid \dcondef{K}{\rho}{\tau}{T} \qquad \hfill\text{(Declarations)}\\
-        & \mid & \drec{R} \mid \dlabdef{\ell}{\rho}{R}{\tau} \\
-        & \mid &  \\
-    e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \qquad\hfill\text{(Expressions)}\\
-           & \mid & \tmconapp{K}{\tau}{e} \mid \tmlabproj{e}{\ell}{\tau} \\
+    d &::=& \dsyn{S} \mid \dsig{R} \qquad \hfill\text{(Declarations)}\\
+        & \mid & \dcon{K}{\delta}{\tau}{S} \mid \dopn{\ell}{\delta}{R}{\tau} \\
+        & \mid & \dsem{s}{\delta}{S}{\tau} \mid \dimp{r}{\delta}{\tau}{R} \\
+        & \mid & \dcase{s}{\delta}{p}{e} \mid \ddefn{r}{\delta}{x}{c}{e} \\
+    e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \mid d~\fnkey{in}~e \qquad\hfill\text{(Expressions)}\\
+           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid s^\tau\;e \mid r^\tau\;e \\
            % & \mid & \tmmatch{e}{p}{e_1}{e_2} \\
            % & \mid & \tmext{e}{p} \\
     % \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\
-    %      &\mid& \Gamma, T \mid \Gamma, \condef{K}{\rho}{\tau}{T}\\
-    %      &\mid& \Gamma, R \mid \Gamma, \labdef{\ell}{\rho}{R}{\tau}
+    %      &\mid& \Gamma, T \mid \Gamma, \condef{K}{\delta}{\tau}{T}\\
+    %      &\mid& \Gamma, R \mid \Gamma, \labdef{\ell}{\delta}{R}{\tau}
   \end{array}
 \end{gather*}

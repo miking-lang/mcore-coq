@@ -24,17 +24,21 @@
 
 % Syntactic forms for terms
 
-\newcommand{\dtype}[1]{\fnkey{type}~\fnvar{#1}}
-\newcommand{\drec}[1]{\fnkey{rec}~\fnvar{#1}}
-\newcommand{\dcondef}[4]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{#2\}}
-\newcommand{\dlabdef}[4]{\fnkey{lab}~#1~: \forall \fnvar{#2}.~ \fnvar{#3}\{#2\} \to #4}
+\newcommand{\dsyn}[1]{\fnkey{syn}~\fnvar{#1}}
+\newcommand{\dsig}[1]{\fnkey{sig}~\fnvar{#1}}
+\newcommand{\dcon}[4]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{#2\}}
+\newcommand{\dopn}[4]{\fnkey{opn}~\fnlab{#1} : \forall \fnvar{#2}.~ \fnvar{#3}\{\fnvar{#2}\} \to #4}
+\newcommand{\dsem}[4]{\fnkey{sem}~\fnvar{#1} : \forall \fnvar{#2}.~ \fnvar{#3}\{\fnvar{#2}\} \to #4}
+\newcommand{\dimp}[4]{\fnkey{imp}~\fnvar{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{\fnvar{#2}\}}
+\newcommand{\dcase}[4]{\fnkey{case}~\fnvar{#1}\{\fnvar{#2}\}~#3 = #4}
+\newcommand{\ddefn}[5]{\fnkey{defn}~\fnvar{#1}\{\fnvar{#2}\}~\fnvar{#3}~#4 = #5}
 
 \newcommand{\tmvar}[1]{\fnvar{#1}}
 \newcommand{\tmlam}[3]{\lambda \fnvar{#1}^{#2}.~#3}
 \newcommand{\tmapp}[2]{#1\;#2}
 \newcommand{\tmtylam}[3]{\Lambda\fnvar{#1}^{#2}.~#3}
 \newcommand{\tmtyapp}[2]{#1[#2]}
-\newcommand{\tmconapp}[3]{\fnlab{#1}^{#2}\;#3}
-\newcommand{\tmlabproj}[3]{#1.\fnlab{#2}^{#3}}
+\newcommand{\tmcon}[3]{\fnlab{#1}^{#2}\;#3}
+\newcommand{\tmproj}[3]{#1.\fnlab{#2}^{#3}}
 
 \newcommand{\smallop}[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}
