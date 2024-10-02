@@ -1,17 +1,17 @@
 \begin{gather*}
-  S,R~\text{(Type names)}\quad \alpha,\delta,\psi~\text{(Type variables)} \quad x~\text{(Variables)}  \\
-  \fnlab{K}~\text{(Constructors)} \quad \ell~\text{(Labels)} \quad p~\text{(Patterns)} \quad c~\text{(Copatterns)}\\
+  S,R~\text{(Type names)}\quad s,r~\text{(Function names)}\\
+  \fnlab{K},\ell~\text{(Constructors, labels)} \quad p,c~\text{(Patterns, copatterns)} \\
+  \alpha,\delta,\psi~\text{(Type variables)} \quad x~\text{(Variables)}\\
   \begin{array}{lcl}
-  %   \tau &::=& \tysem{\tydata{T}{\con}}{}{\tau} \mid \tydata{T}{\con} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\[1mm]
-  %   \con &::=& \mathcal{P} \oplus \con \mid \mathcal{P} \otimes \con \mid \epsilon \mid \delta \qquad\hfill\text{(Constructor types)}\\[1mm]
-  %   \mathcal{P} &::=&  \fnlab{K}\{\overline{\ell = \mathcal{P}}\} \mid (\_ : \tau) \mid \mu X. \mathcal{P} \mid X \qquad\hfill\text{(Pattern types)}\\[1mm]
-  %   \kappa &::=& \kitype{} \mid \fnkey{Ext}(\tname, \fnlab{K}_i, \fnlab{K}_i\mathcal{L}_i) \qquad\hfill\text{(Kinds)}\\[1mm]
+    \kappa,\zeta &::=& \kitype{} \mid \{S_i[\overline{K}, \overline{K'}]\}_i \mid \{s_i[\overline{p}] \}_i \qquad\hfill\text{(Kinds)}\\[1mm]
+    \tau,\sigma &::=& \tysyn{S}{\tau} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\
+                 &\mid& \{S_i[\overline{K}]\}_i \mid \{s_i[\overline{z}]\}_i \\[1mm]
     d &::=& \dsyn{S} \mid \dsig{R} \qquad \hfill\text{(Declarations)}\\
-        & \mid & \dcon{K}{\delta}{\tau}{S} \mid \dopn{\ell}{\delta}{R}{\tau} \\
-        & \mid & \dsem{s}{\delta}{S}{\tau} \mid \dimp{r}{\delta}{\tau}{R} \\
-        & \mid & \dcase{z}{\delta}{\psi}{s}{p}{e} \mid \ddefn{u}{\delta}{\psi}{r}{x}{c}{e} \\
+        & \mid & \dcon{K}{\delta}{\kappa}{\tau}{S} \mid \dopn{\ell}{\delta}{\kappa}{R}{\tau} \\
+        & \mid & \dsem{s}{\delta}{\kappa}{\zeta}{S}{\tau} \mid \dimp{r}{\delta}{\kappa}{\zeta}{\tau}{R} \\
+        & \mid & \dcase{z}{\delta}{\psi}{s}{p}{e} \mid \ddefn{u}{\delta}{\psi}{r}{x}{c}{e} \\[1mm]
     e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \mid d~\fnkey{in}~e \qquad\hfill\text{(Expressions)}\\
-           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid \tmsem{s}{\tau_1}{\tau_2}{e} \mid \tmimp{r}{\tau_1}{\tau_2}{e} \\
+           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid \tmsem{s}{\tau}{\sigma}{e} \mid \tmimp{r}{\tau}{\sigma}{e} \\
            % & \mid & \tmmatch{e}{p}{e_1}{e_2} \\
            % & \mid & \tmext{e}{p} \\
     % \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\

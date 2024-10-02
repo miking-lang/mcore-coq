@@ -9,10 +9,10 @@
 \newcommand{\mcorecalc}{\ensuremath{\lambda_{\con}}\xspace}
 
 % Syntactic forms for types
-\newcommand{\tyall}[3]{\forall #1 :: #2.~#3}
+\newcommand{\tyall}[3]{\forall #1^{#2}.~#3}
 \newcommand{\tyarr}[2]{#1 \to #2}
 \newcommand{\tyvar}[1]{\fnvar{#1}}
-\newcommand{\tydata}[2]{#1\{#2\}}
+\newcommand{\tysyn}[2]{#1\{#2\}}
 % \newcommand{\tysem}[3]{#1 \rightsquigarrow^{#2} #3}
 
 % Syntactic forms for datatypes
@@ -26,10 +26,10 @@
 
 \newcommand{\dsyn}[1]{\fnkey{syn}~\fnvar{#1}}
 \newcommand{\dsig}[1]{\fnkey{sig}~\fnvar{#1}}
-\newcommand{\dcon}[4]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}.~ #3 \to \fnvar{#4}\{#2\}}
-\newcommand{\dopn}[4]{\fnkey{opn}~\fnlab{#1} : \forall \fnvar{#2}.~ \fnvar{#3}\{\fnvar{#2}\} \to #4}
-\newcommand{\dsem}[4]{\fnkey{sem}~\fnvar{#1} : \forall \fnvar{#2}.~ \fnvar{#3}\{\fnvar{#2}\} \rightsquigarrow^{\fnvar{#2}} #4}
-\newcommand{\dimp}[4]{\fnkey{imp}~\fnvar{#1} : \forall \fnvar{#2}.~ #3 \rightsquigarrow_{\fnvar{#2}} \fnvar{#4}\{\fnvar{#2}\}}
+\newcommand{\dcon}[5]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}^{#3}.~ #4 \to \fnvar{#5}\{#2\}}
+\newcommand{\dopn}[5]{\fnkey{opn}~\fnlab{#1} : \forall \fnvar{#2}^{#3}.~ \fnvar{#4}\{\fnvar{#2}\} \to #5}
+\newcommand{\dsem}[6]{\fnkey{sem}~\fnvar{#1} : \forall \fnvar{#2}^{#3};^#4.~ \fnvar{#5}\{\fnvar{#2}\} \to #6}
+\newcommand{\dimp}[6]{\fnkey{imp}~\fnvar{#1} : \forall \fnvar{#2}^{#3};^#4.~ #5 \to \fnvar{#6}\{\fnvar{#2}\}}
 \newcommand{\dcase}[6]{\fnkey{case}~\fnvar{#1}\{\fnvar{#2},\fnvar{#3}\} : \fnvar{#4}~#5 = #6}
 \newcommand{\ddefn}[7]{\fnkey{defn}~\fnvar{#1}\{\fnvar{#2},\fnvar{#3}\} : \fnvar{#4}~\fnvar{#5}~#6 = #7}
 
