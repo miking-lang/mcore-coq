@@ -1,5 +1,5 @@
 \begin{gather*}
-  S,R~\text{(Type names)}\quad \alpha,\delta~\text{(Type variables)} \quad x~\text{(Variables)}  \\
+  S,R~\text{(Type names)}\quad \alpha,\delta,\psi~\text{(Type variables)} \quad x~\text{(Variables)}  \\
   \fnlab{K}~\text{(Constructors)} \quad \ell~\text{(Labels)} \quad p~\text{(Patterns)} \quad c~\text{(Copatterns)}\\
   \begin{array}{lcl}
   %   \tau &::=& \tysem{\tydata{T}{\con}}{}{\tau} \mid \tydata{T}{\con} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\[1mm]
@@ -9,9 +9,9 @@
     d &::=& \dsyn{S} \mid \dsig{R} \qquad \hfill\text{(Declarations)}\\
         & \mid & \dcon{K}{\delta}{\tau}{S} \mid \dopn{\ell}{\delta}{R}{\tau} \\
         & \mid & \dsem{s}{\delta}{S}{\tau} \mid \dimp{r}{\delta}{\tau}{R} \\
-        & \mid & \dcase{s}{\delta}{p}{e} \mid \ddefn{r}{\delta}{x}{c}{e} \\
+        & \mid & \dcase{z}{\delta}{\psi}{s}{p}{e} \mid \ddefn{u}{\delta}{\psi}{r}{x}{c}{e} \\
     e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \mid d~\fnkey{in}~e \qquad\hfill\text{(Expressions)}\\
-           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid s^\tau\;e \mid r^\tau\;e \\
+           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid \tmsem{s}{\tau_1}{\tau_2}{e} \mid \tmimp{r}{\tau_1}{\tau_2}{e} \\
            % & \mid & \tmmatch{e}{p}{e_1}{e_2} \\
            % & \mid & \tmext{e}{p} \\
     % \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\
