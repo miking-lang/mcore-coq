@@ -25,13 +25,13 @@
 % Syntactic forms for terms
 
 \newcommand{\dsyn}[1]{\fnkey{syn}~\fnvar{#1}}
-\newcommand{\dsig}[1]{\fnkey{sig}~\fnvar{#1}}
+\newcommand{\dstruct}[1]{\fnkey{struct}~\fnvar{#1}}
 \newcommand{\dcon}[5]{\fnkey{con}~\fnlab{#1} : \forall \fnvar{#2}^{#3}.~ #4 \to \fnvar{#5}\{#2\}}
-\newcommand{\dopn}[5]{\fnkey{opn}~\fnlab{#1} : \forall \fnvar{#2}^{#3}.~ \fnvar{#4}\{\fnvar{#2}\} \to #5}
-\newcommand{\dsem}[6]{\fnkey{sem}~\fnvar{#1} : \forall \fnvar{#2}^{#3};^#4.~ \fnvar{#5}\{\fnvar{#2}\} \to #6}
-\newcommand{\dimp}[6]{\fnkey{imp}~\fnvar{#1} : \forall \fnvar{#2}^{#3};^#4.~ #5 \to \fnvar{#6}\{\fnvar{#2}\}}
-\newcommand{\dcase}[6]{\fnkey{case}~\fnvar{#1}\{\fnvar{#2},\fnvar{#3}\} : \fnvar{#4}~#5 = #6}
-\newcommand{\ddefn}[7]{\fnkey{defn}~\fnvar{#1}\{\fnvar{#2},\fnvar{#3}\} : \fnvar{#4}~\fnvar{#5}~#6 = #7}
+\newcommand{\dfield}[5]{\fnkey{field}~\fnlab{#1} : \forall \fnvar{#2}^{#3}.~ \fnvar{#4}\{\fnvar{#2}\} \to #5}
+\newcommand{\dsem}[5]{\fnkey{sem}~\fnvar{#1} : \forall \fnvar{#2}^{#3}.~ \fnvar{#4}\{\fnvar{#2}\} \to #5}
+\newcommand{\dgen}[5]{\fnkey{gen}~\fnvar{#1} : \forall \fnvar{#2}^{#3}.~ #4 \to \fnvar{#5}\{\fnvar{#2}\}}
+\newcommand{\dcase}[8]{\fnkey{case}~\fnvar{#1}\{\fnvar{#2}^{#3},\fnvar{#4}^{#5}\} : \fnvar{#6}~#7 = #8}
+\newcommand{\ddefn}[9]{\fnkey{defn}~\fnvar{#1}\{\fnvar{#2}^{#3},\fnvar{#4}^{#5}\} : \fnvar{#6}~\fnvar{#7}~#8 = #9}
 
 \newcommand{\tmvar}[1]{\fnvar{#1}}
 \newcommand{\tmlam}[3]{\lambda \fnvar{#1}^{#2}.~#3}
@@ -42,5 +42,9 @@
 \newcommand{\tmproj}[3]{#1.\fnlab{#2}^{#3}}
 \newcommand{\tmsem}[4]{\fnvar{#1}^{\{#2,#3\}}\;#4}
 \newcommand{\tmimp}[4]{\fnvar{#1}^{\{#2,#3\}}\;#4}
+\newcommand{\tmmatch}[4]{\fnkey{match}~#1~\fnkey{with}~#2~\fnkey{then}~#3~\fnkey{else}~#4}
+\newcommand{\tmnever}[1]{\fnkey{never}^{#1}}
+\newcommand{\tmext}[3]{\{#1~\fnkey{with}~#2 = #3\}}
+\newcommand{\tmnone}[1]{\fnkey{none}^{#1}}
 
 \newcommand{\smallop}[1]{\mathbin{\vcenter{\hbox{\scalebox{0.75}{$#1$}}}}}

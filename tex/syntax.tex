@@ -6,14 +6,15 @@
     \kappa,\zeta &::=& \kitype{} \mid \{S_i[\overline{K}, \overline{K'}]\}_i \mid \{s_i[\overline{p}] \}_i \qquad\hfill\text{(Kinds)}\\[1mm]
     \tau,\sigma &::=& \tysyn{S}{\tau} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\
                  &\mid& \{S_i[\overline{K}]\}_i \mid \{s_i[\overline{z}]\}_i \\[1mm]
-    d &::=& \dsyn{S} \mid \dsig{R} \qquad \hfill\text{(Declarations)}\\
-        & \mid & \dcon{K}{\delta}{\kappa}{\tau}{S} \mid \dopn{\ell}{\delta}{\kappa}{R}{\tau} \\
-        & \mid & \dsem{s}{\delta}{\kappa}{\zeta}{S}{\tau} \mid \dimp{r}{\delta}{\kappa}{\zeta}{\tau}{R} \\
-        & \mid & \dcase{z}{\delta}{\psi}{s}{p}{e} \mid \ddefn{u}{\delta}{\psi}{r}{x}{c}{e} \\[1mm]
-    e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \mid d~\fnkey{in}~e \qquad\hfill\text{(Expressions)}\\
+    d &::=& \dsyn{S} \mid \dstruct{R} \qquad \hfill\text{(Declarations)}\\
+        & \mid & \dcon{K}{\delta}{\kappa}{\tau}{S} \mid \dfield{\ell}{\delta}{\kappa}{R}{\tau} \\
+        & \mid & \dsem{s}{\delta}{\kappa}{S}{\tau} \mid \dgen{r}{\delta}{\kappa}{\tau}{R} \\
+        & \mid & \dcase{z}{\delta}{\kappa}{\psi}{\zeta}{s}{p}{e} \mid \ddefn{u}{\delta}{\kappa}{\psi}{\zeta}{r}{x}{c}{e} \\[1mm]
+    e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \qquad\hfill\text{(Expressions)}\\
            & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid \tmsem{s}{\tau}{\sigma}{e} \mid \tmimp{r}{\tau}{\sigma}{e} \\
-           % & \mid & \tmmatch{e}{p}{e_1}{e_2} \\
-           % & \mid & \tmext{e}{p} \\
+           & \mid & \tmmatch{e}{p}{e_1}{e_2} \mid \tmnever{\tau} \\
+           & \mid & \tmext{e}{c}{e} \mid \tmnone{\tau} \\
+    P &::=& e \mid d ; P \qquad\hfill\text{(Programs)}\\
     % \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\
     %      &\mid& \Gamma, T \mid \Gamma, \condef{K}{\delta}{\tau}{T}\\
     %      &\mid& \Gamma, R \mid \Gamma, \labdef{\ell}{\delta}{R}{\tau}
