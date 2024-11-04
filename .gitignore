@@ -4,3 +4,6 @@
 *.vok
 *.vos
 *.lia.cache
+*.log
+tex/main.pdf
+tex/build/
