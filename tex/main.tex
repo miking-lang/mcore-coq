@@ -4,9 +4,12 @@
 \usepackage{geometry}
 \usepackage{mathpartir}
 \usepackage{xspace}
-\usepackage{todonotes}
+\usepackage{listings}
+\usepackage{xcolor}
+% \usepackage{todonotes}
 
 \input{macros}
+\input{lststyle}
 
 \begin{document}
 
@@ -16,6 +19,41 @@
     \caption{The syntax of \mcorecalc.}
     \label{fig:mcore-syntax}
 \end{figure}
+
+\clearpage 
+\section*{MLang to $\lambda_C$ Translation}
+
+\lstinputlisting[basicstyle=\small\tt, caption={Some caption here}., label=lst:mlang-code, captionpos=b, language=mlang]{mlang-code.mc}
+
+
+\newcommand{\Expr}[0]{\mathsf{Expr}}
+\newcommand{\Int}[0]{\mathsf{Int}}
+\newcommand{\TmInt}[0]{\mathsf{TmInt}}
+\newcommand{\TmIncr}[0]{\mathsf{TmIncr}}
+\newcommand{\TmAdd}[0]{\mathsf{TmAdd}}
+
+\newcommand{\TmAddType}[0]{\mathsf{TAT}}
+\newcommand{\lhs}[0]{\mathsf{lhs}}
+\newcommand{\rhs}[0]{\mathsf{rhs}}
+
+\newcommand{\eval}[0]{\mathsf{eval}}
+\newcommand{\desugar}[0]{\mathsf{desugar}}
+
+
+
+\begin{gather}
+    \dsum \Expr \\
+    \dcon{\TmInt}{\tmvar{\delta}}{\kappa}{\Int}{\Expr} \\
+    \dcon{\TmIncr}{\tmvar{\delta}}{\kappa}{\tysyn{\Expr}{\tmvar{\delta}}}{\Expr} \\
+    \dprod \TmAddType \\
+    \dfield{\lhs}{\tmvar{\delta}}{\kappa}{\TmAddType}{\tysyn{\Expr}{\delta}} \\
+    \dfield{\rhs}{\tmvar{\delta}}{\kappa}{\TmAddType}{\tysyn{\Expr}{\delta}} \\
+    \dcon{\TmAdd}{\tmvar{\delta}}{\kappa}{\tysyn{\TmAddType}{\tmvar{\delta}}}{\Expr} \\
+    ~
+    \dsem{\eval}{\withki{\tmvar{\delta}}{\kappa}}{()}{\tysyn{\Expr}{\delta}}{\Int} \\
+    \dcase{c_1}{\withki{\psi}{\kappa}}{\eval}{}{}{(\TmInt ~ v)}{v} \\
+    \dcase{c_2}{\withki{\psi}{\kappa}}{\eval}{}{}{(\TmAdd ~ t)}{(\tmapp{\tysyn{\eval}{\psi}}{t^{\TmAddType}.\lhs}) + (\tmapp{\tysyn{\eval}{\psi}}{t^{\TmAddType}.\rhs})} \\
+\end{gather}
 
 % \begin{figure}[t]
 %     \scriptsize
