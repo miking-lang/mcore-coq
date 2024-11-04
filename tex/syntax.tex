@@ -1,22 +1,16 @@
 \begin{gather*}
-  S,R~\text{(Type names)}\quad s,r~\text{(Function names)}\\
-  \fnlab{K},\ell~\text{(Constructors, labels)} \quad p,c~\text{(Patterns, copatterns)} \\
-  \alpha,\delta,\psi~\text{(Type variables)} \quad x~\text{(Variables)}\\
+  T,S,R~\text{(Type names)}\quad f,z,x~\text{(Function, case, and variable names)} \\ \fnlab{L},\fnlab{K},\ell~\text{(Constructor and field labels)}\quad\alpha,\delta,\psi~\text{(Type variables)}\\
+  p,c~\text{(Patterns and copatterns)} \\
   \begin{array}{lcl}
-    \kappa,\zeta &::=& \kitype{} \mid \{S_i[\overline{K}, \overline{K'}]\}_i \mid \{s_i[\overline{p}] \}_i \qquad\hfill\text{(Kinds)}\\[1mm]
-    \tau,\sigma &::=& \tysyn{S}{\tau} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\
-                 &\mid& \{S_i[\overline{K}]\}_i \mid \{s_i[\overline{z}]\}_i \\[1mm]
-    d &::=& \dsyn{S} \mid \dstruct{R} \qquad \hfill\text{(Declarations)}\\
+    \kappa,\zeta &::=& \kitype{} \mid \kidata{T_i[\seq{\fnlab{L}}, \seq{\fnlab{L}'}]}_i \mid \kicase{f_i[\seq{p}]}_i \qquad\hfill\text{(Kinds)}\\[1mm]
+    \tau,\sigma &::=& \tysyn{T}{\tau} \mid \tymatch{\tau}{\seq{p}} \mid \tyarr{\tau_1}{\tau_2} \mid \tyall{\alpha}{\kappa}{\tau} \mid \tyvar{\alpha} \qquad\hfill\text{(Types)}\\
+                 &\mid& \tydata{T_i[\seq{\fnlab{L}}]}_i \mid \tycase{f_i[\seq{z}]}_i \\[1mm]
+    d &::=& \dsum{S} \mid \dprod{R} \qquad \hfill\text{(Declarations)}\\
         & \mid & \dcon{K}{\delta}{\kappa}{\tau}{S} \mid \dfield{\ell}{\delta}{\kappa}{R}{\tau} \\
-        & \mid & \dsem{s}{\delta}{\kappa}{S}{\tau} \mid \dgen{r}{\delta}{\kappa}{\tau}{R} \\
-        & \mid & \dcase{z}{\delta}{\kappa}{\psi}{\zeta}{s}{p}{e} \mid \ddefn{u}{\delta}{\kappa}{\psi}{\zeta}{r}{x}{c}{e} \\[1mm]
+                 & \mid & \dsem{f}{\seq{\withki{\alpha}{\kappa}}}{\seq{\sigma}}{\tau_1}{\tau_2} \mid \dcosem{f}{\seq{\withki{\alpha}{\kappa}}}{\seq{\sigma}}{\tau} \\
+        & \mid & \dcase{z}{\withki{\psi}{\zeta}}{f}{\seq{\withki{\alpha}{\kappa}}}{\seq{x}}{p}{e} \mid \ddefn{z}{\withki{\psi}{\zeta}}{f}{\seq{\withki{\alpha}{\kappa}}}{\seq{x}}{c}{e} \\[1mm]
     e &::=& \tmvar{x} \mid \tmlam{x}{\tau}{e} \mid \tmapp{e_1}{e_2} \mid \tmtylam{\alpha}{\kappa}{e} \mid \tmtyapp{e}{\tau} \qquad\hfill\text{(Expressions)}\\
-           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid \tmsem{s}{\tau}{\sigma}{e} \mid \tmimp{r}{\tau}{\sigma}{e} \\
-           & \mid & \tmmatch{e}{p}{e_1}{e_2} \mid \tmnever{\tau} \\
-           & \mid & \tmext{e}{c}{e} \mid \tmnone{\tau} \\
+           & \mid & \tmcon{K}{\tau}{e} \mid \tmproj{e}{\ell}{\tau} \mid \tmsemapp{f}{\tau} \\[1mm]
     P &::=& e \mid d ; P \qquad\hfill\text{(Programs)}\\
-    % \Gamma &::=& \cdot \mid \Gamma, x : \tau \mid \Gamma, \alpha :: \kappa \mid \Gamma, \envmatch{e}{p} \mid \Gamma, \envnomatch{e}{p} \qquad\hfill\text{(Typing environments)}\\
-    %      &\mid& \Gamma, T \mid \Gamma, \condef{K}{\delta}{\tau}{T}\\
-    %      &\mid& \Gamma, R \mid \Gamma, \labdef{\ell}{\delta}{R}{\tau}
   \end{array}
 \end{gather*}
